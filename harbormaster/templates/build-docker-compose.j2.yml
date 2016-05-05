@@ -1,0 +1,31 @@
+version: "2"
+services:
+  harbormaster:
+    image: "{{ harbormaster_img_id }}"
+    entrypoint: ansible-playbook -i /etc/ansible/inventory/hosts -c docker
+    environment:
+      - DOCKER_HOST
+      - DOCKER_TLS_VERIFY
+      - DOCKER_CERT_PATH=/docker-certs/
+      - COMPOSE_HTTP_TIMEOUT=3000
+    depends_on:
+      {% for host in hosts %}- {{ host }}
+      {% endfor %}
+    volumes:
+      - {{ which_docker }}:/usr/bin/docker
+      - $DOCKER_CERT_PATH:/docker-certs/
+      - $HARBORMASTER_BASE/harbormaster:/harbormaster/
+    working_dir: /harbormaster/
+    stdin_open: true
+    tty: true
+  {% for host in hosts %}
+  {{ host }}:
+    environment:
+      - DOCKER_HOST
+      - DOCKER_TLS_VERIFY
+      - DOCKER_CERT_PATH=/docker-certs/
+    command: sh -c 'sleep 5 && docker wait harbormaster_harbormaster_1'
+    volumes:
+      - {{ which_docker }}:/usr/bin/docker
+      - $DOCKER_CERT_PATH:/docker-certs/
+  {% endfor %}

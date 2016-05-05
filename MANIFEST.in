@@ -1,0 +1,1 @@
+recursive-include harbormaster/templates *.j2
