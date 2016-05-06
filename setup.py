@@ -11,6 +11,6 @@ setup(
     author_email='jag@redhat.com',
     description='',
     entry_points={
-        'console_scripts': ['harbormaster = harbormaster.harbormaster:commandline']
+        'console_scripts': ['harbormaster = harbormaster.cli:commandline']
     }
 )
