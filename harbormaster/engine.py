@@ -146,7 +146,18 @@ def cmdrun_build(base_path, recreate=True):
         command = TopLevelCommand(project)
         logger.info('Starting Compose engine to build your images...')
         command.up(command_options)
-        # FIXME: You don't actually check to see if everything worked.
+        build_container_info, = client.containers(
+            filters={'name': 'harbormaster_harbormaster_1'},
+            limit=1, all=True
+        )
+        harbormaster_container_id = build_container_info['Id']
+        # Not the best way to test for success or failure, but it works.
+        exit_status = build_container_info['Status']
+        if '(0)' not in exit_status:
+            logger.error('Ansible playbook run failed.')
+            logger.info('Cleaning up harbormaster build container...')
+            client.remove_container(harbormaster_container_id)
+            return
         # Cool - now export those containers as images
         # FIXME: support more-than-one-instance
         project_name = os.path.basename(base_path).lower()
@@ -173,12 +184,8 @@ def cmdrun_build(base_path, recreate=True):
                        force=True)
             logger.info('Cleaning up %s build container...', host)
             client.remove_container(container_id)
-        container_id, = client.containers(
-            quiet=True, filters={'name': 'harbormaster_harbormaster_1'},
-            limit=1, all=True
-        )
         logger.info('Cleaning up harbormaster build container...')
-        client.remove_container(container_id)
+        client.remove_container(harbormaster_container_id)
 
 def cmdrun_run(base_path):
     with make_temp_dir() as temp_dir:
