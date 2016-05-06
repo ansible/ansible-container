@@ -54,6 +54,43 @@ def build_buildcontainer_image(base_path):
                                                           forcerm=True,
                                                           tag='ansible-builder')]
 
+
+# Docker-compose uses docopt, which outputs things like the below
+# So I'm starting with the defaults and then updating them.
+# One structure for the global options and one for the command specific
+
+DEFAULT_COMPOSE_OPTIONS = {
+    u'--help': False,
+    u'--host': None,
+    u'--project-name': None,
+    u'--skip-hostname-check': False,
+    u'--tls': False,
+    u'--tlscacert': None,
+    u'--tlscert': None,
+    u'--tlskey': None,
+    u'--tlsverify': False,
+    u'--verbose': False,
+    u'--version': False,
+    u'-h': False,
+    u'--file': [],
+    u'COMMAND': None,
+    u'ARGS': []
+}
+
+DEFAULT_COMPOSE_UP_OPTIONS = {
+    u'--abort-on-container-exit': False,
+    u'--build': False,
+    u'--force-recreate': False,
+    u'--no-color': False,
+    u'--no-deps': False,
+    u'--no-recreate': False,
+    u'--no-build': False,
+    u'--remove-orphans': False,
+    u'--timeout': None,
+    u'-d': False,
+    u'SERVICE': []
+}
+
 def cmdrun_build(base_path, recreate=True):
     # To ensure version compatibility, we have to generate the kwargs ourselves
     client_kwargs = kwargs_from_env(assert_hostname=False)
@@ -71,22 +108,7 @@ def cmdrun_build(base_path, recreate=True):
                              hosts=extract_hosts_from_harbormaster_compose(base_path),
                              harbormaster_img_id=harbormaster_img_id,
                              which_docker=which_docker())
-        # Docker-compose uses docopt, which outputs things like the below
-        # So I'm starting with the defaults and then updating them.
-        # One structure for the global options and one for the command specific
-        options = {
-            u'--help': False,
-            u'--host': None,
-            u'--project-name': None,
-            u'--skip-hostname-check': False,
-            u'--tls': False,
-            u'--tlscacert': None,
-            u'--tlscert': None,
-            u'--tlskey': None,
-            u'--tlsverify': False,
-            u'--verbose': False,
-            u'--version': False,
-            u'-h': False}
+        options = DEFAULT_COMPOSE_OPTIONS.copy()
         options.update({
             u'--file': [
                 os.path.normpath(
@@ -99,17 +121,7 @@ def cmdrun_build(base_path, recreate=True):
             u'COMMAND': 'up',
             u'ARGS': ['--no-build']
         })
-        command_options = {
-            u'--abort-on-container-exit': False,
-            u'--build': False,
-            u'--force-recreate': False,
-            u'--no-color': False,
-            u'--no-deps': False,
-            u'--no-recreate': False,
-            u'--remove-orphans': False,
-            u'--timeout': None,
-            u'-d': False,
-            u'SERVICE': []}
+        command_options = DEFAULT_COMPOSE_UP_OPTIONS.copy()
         command_options[u'--no-build'] = True
         os.environ['HARBORMASTER_BASE'] = os.path.realpath(base_path)
         project = project_from_options('.', options)
@@ -157,23 +169,7 @@ def cmdrun_run(base_path):
                              'docker-compose.yml',
                              hosts=extract_hosts_from_harbormaster_compose(base_path),
                              project_name=project_name)
-
-        # Docker-compose uses docopt, which outputs things like the below
-        # So I'm starting with the defaults and then updating them.
-        # One structure for the global options and one for the command specific
-        options = {
-            u'--help': False,
-            u'--host': None,
-            u'--project-name': None,
-            u'--skip-hostname-check': False,
-            u'--tls': False,
-            u'--tlscacert': None,
-            u'--tlscert': None,
-            u'--tlskey': None,
-            u'--tlsverify': False,
-            u'--verbose': False,
-            u'--version': False,
-            u'-h': False}
+        options = DEFAULT_COMPOSE_OPTIONS.copy()
         options.update({
             u'--file': [
                 os.path.normpath(
@@ -186,19 +182,10 @@ def cmdrun_run(base_path):
             u'COMMAND': 'up',
             u'ARGS': ['--no-build'] + extract_hosts_from_harbormaster_compose(base_path)
         })
-        command_options = {
-            u'--abort-on-container-exit': False,
-            u'--build': False,
-            u'--force-recreate': False,
-            u'--no-build': True,
-            u'--no-color': False,
-            u'--no-deps': False,
-            u'--no-recreate': False,
-            u'--remove-orphans': False,
-            u'--timeout': None,
-            u'-d': False,
-            u'SERVICE': extract_hosts_from_harbormaster_compose(base_path)}
-        command_options[u'--no-build'] = True
+        command_options = DEFAULT_COMPOSE_UP_OPTIONS.copy()
+        command_options.update({
+            u'SERVICE': extract_hosts_from_harbormaster_compose(base_path),
+            u'--no-build': True})
         os.environ['HARBORMASTER_BASE'] = os.path.realpath(base_path)
         project = project_from_options('.', options)
         command = TopLevelCommand(project)
