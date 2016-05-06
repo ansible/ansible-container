@@ -7,8 +7,6 @@ logger = logging.getLogger(__name__)
 
 import os
 import tarfile
-import tempfile
-import shutil
 import datetime
 
 import docker
@@ -20,15 +18,15 @@ from .exceptions import (HarbormasterNotInitializedException,
                          HarbormasterVersionCompatibilityException)
 from .utils import (extract_hosts_from_harbormaster_compose,
                     jinja_render_to_temp,
-                    which_docker)
+                    which_docker,
+                    make_temp_dir)
 
 
 def build_buildcontainer_image(base_path):
     # To ensure version compatibility, we have to generate the kwargs ourselves
     client_kwargs = kwargs_from_env(assert_hostname=False)
     client = docker.AutoVersionClient(**client_kwargs)
-    temp_dir = tempfile.mkdtemp()
-    try:
+    with make_temp_dir() as temp_dir:
         logger.info('Building Docker Engine context...')
         tarball_path = os.path.join(temp_dir, 'context.tar')
         tarball_file = open(tarball_path, 'wb')
@@ -55,12 +53,6 @@ def build_buildcontainer_image(base_path):
                                                           pull=True,
                                                           forcerm=True,
                                                           tag='ansible-builder')]
-    finally:
-        try:
-            shutil.rmtree(temp_dir)
-        except Exception, e:
-            logger.exception('Failure cleaning up temp space')
-            pass
 
 def cmdrun_build(base_path, recreate=True):
     # To ensure version compatibility, we have to generate the kwargs ourselves
@@ -73,9 +65,7 @@ def cmdrun_build(base_path, recreate=True):
             logger.debug(line)
     harbormaster_img_id = client.images(name='ansible-builder', quiet=True)[0]
     logger.info('Harbormaster image has ID %s', harbormaster_img_id)
-    temp_dir = tempfile.mkdtemp()
-    logger.debug('Temp dir is %s', temp_dir)
-    try:
+    with make_temp_dir() as temp_dir:
         jinja_render_to_temp('build-docker-compose.j2.yml', temp_dir,
                              'docker-compose.yml',
                              hosts=extract_hosts_from_harbormaster_compose(base_path),
@@ -159,17 +149,9 @@ def cmdrun_build(base_path, recreate=True):
         )
         logger.info('Cleaning up harbormaster build container...')
         client.remove_container(container_id)
-    finally:
-        try:
-            shutil.rmtree(temp_dir)
-        except Exception, e:
-            logger.exception('Failure cleaning up temp space')
-            pass
 
 def cmdrun_run(base_path):
-    temp_dir = tempfile.mkdtemp()
-    logger.debug('Temp dir is %s', temp_dir)
-    try:
+    with make_temp_dir() as temp_dir:
         project_name = os.path.basename(base_path).lower()
         jinja_render_to_temp('run-docker-compose.j2.yml', temp_dir,
                              'docker-compose.yml',
@@ -221,9 +203,3 @@ def cmdrun_run(base_path):
         project = project_from_options('.', options)
         command = TopLevelCommand(project)
         command.up(command_options)
-    finally:
-        try:
-            shutil.rmtree(temp_dir)
-        except Exception, e:
-            logger.exception('Failure cleaning up temp space')
-            pass

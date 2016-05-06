@@ -6,12 +6,32 @@ import logging
 logger = logging.getLogger(__name__)
 
 import os
+import tempfile
+import shutil
 from distutils import spawn
 from jinja2 import Environment, FileSystemLoader
 from yaml import load as yaml_load
 
 from .exceptions import (HarbormasterNotInitializedException,
                          HarbormasterVersionCompatibilityException)
+
+class MakeTempDir(object):
+    temp_dir = None
+
+    def __enter__(self):
+        self.temp_dir = tempfile.mkdtemp()
+        logger.debug('Using temporary directory %s...', self.temp_dir)
+        return self.temp_dir
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            logger.debug('Cleaning up temporary directory %s...', self.temp_dir)
+            shutil.rmtree(self.temp_dir)
+        except Exception, e:
+            logger.exception('Failure cleaning up temp space')
+            pass
+
+make_temp_dir = MakeTempDir
 
 def extract_hosts_from_harbormaster_compose(base_path):
     compose_file = os.path.normpath(
