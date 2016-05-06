@@ -19,7 +19,8 @@ from .exceptions import (HarbormasterNotInitializedException,
 from .utils import (extract_hosts_from_harbormaster_compose,
                     jinja_render_to_temp,
                     which_docker,
-                    make_temp_dir)
+                    make_temp_dir,
+                    compose_format_version)
 
 
 def build_buildcontainer_image(base_path):
@@ -103,7 +104,10 @@ def cmdrun_build(base_path, recreate=True):
     harbormaster_img_id = client.images(name='ansible-builder', quiet=True)[0]
     logger.info('Harbormaster image has ID %s', harbormaster_img_id)
     with make_temp_dir() as temp_dir:
-        jinja_render_to_temp('build-docker-compose.j2.yml', temp_dir,
+        version = compose_format_version(base_path)
+        jinja_render_to_temp('build-docker-compose.j2.yml' if version == 2
+                             else 'build-docker-compose-v1.j2.yml',
+                             temp_dir,
                              'docker-compose.yml',
                              hosts=extract_hosts_from_harbormaster_compose(base_path),
                              harbormaster_img_id=harbormaster_img_id,
@@ -165,7 +169,10 @@ def cmdrun_build(base_path, recreate=True):
 def cmdrun_run(base_path):
     with make_temp_dir() as temp_dir:
         project_name = os.path.basename(base_path).lower()
-        jinja_render_to_temp('run-docker-compose.j2.yml', temp_dir,
+        version = compose_format_version(base_path)
+        jinja_render_to_temp('run-docker-compose.j2.yml' if version == 2
+                             else 'run-docker-compose-v1.j2.yml',
+                             temp_dir,
                              'docker-compose.yml',
                              hosts=extract_hosts_from_harbormaster_compose(base_path),
                              project_name=project_name)

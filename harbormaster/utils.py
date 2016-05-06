@@ -34,22 +34,11 @@ class MakeTempDir(object):
 make_temp_dir = MakeTempDir
 
 def extract_hosts_from_harbormaster_compose(base_path):
-    compose_file = os.path.normpath(
-        os.path.join(
-            base_path,
-            'harbormaster',
-            'harbormaster.yml'
-        )
-    )
-    try:
-        ifs = open(compose_file)
-    except OSError:
-        raise HarbormasterNotInitializedException()
-    compose_data = yaml_load(ifs)
-    ifs.close()
-    if not int(compose_data.pop('version', 1)) == 2:
-        raise HarbormasterVersionCompatibilityException()
-    services = compose_data.pop('services', {})
+    compose_data = parse_compose_file(base_path)
+    if compose_format_version(base_path, compose_data) == 2:
+        services = compose_data.pop('services', {})
+    else:
+        services = compose_data
     return [key for key in services.keys() if key != 'harbormaster']
 
 
@@ -67,3 +56,23 @@ def jinja_render_to_temp(template_file, temp_dir, dest_file, **context):
 def which_docker():
     return spawn.find_executable('docker')
 
+def parse_compose_file(base_path):
+    compose_file = os.path.normpath(
+        os.path.join(
+            base_path,
+            'harbormaster',
+            'harbormaster.yml'
+        )
+    )
+    try:
+        ifs = open(compose_file)
+    except OSError:
+        raise HarbormasterNotInitializedException()
+    compose_data = yaml_load(ifs)
+    ifs.close()
+    return compose_data
+
+def compose_format_version(base_path, compose_data=None):
+    if not compose_data:
+        compose_data = parse_compose_file(base_path)
+    return int(compose_data.pop('version', 1))
