@@ -12,8 +12,8 @@ from distutils import spawn
 from jinja2 import Environment, FileSystemLoader
 from yaml import load as yaml_load
 
-from .exceptions import (HarbormasterNotInitializedException,
-                         HarbormasterVersionCompatibilityException)
+from .exceptions import HarbormasterNotInitializedException
+
 
 class MakeTempDir(object):
     temp_dir = None
@@ -41,12 +41,14 @@ def extract_hosts_from_harbormaster_compose(base_path):
         services = compose_data
     return [key for key in services.keys() if key != 'harbormaster']
 
-
-def jinja_render_to_temp(template_file, temp_dir, dest_file, **context):
-    j2_tmpl_path = os.path.normpath(
+def jinja_template_path():
+    return os.path.normpath(
         os.path.join(
             os.path.dirname(__file__),
             'templates'))
+
+def jinja_render_to_temp(template_file, temp_dir, dest_file, **context):
+    j2_tmpl_path = jinja_template_path()
     j2_env = Environment(loader=FileSystemLoader(j2_tmpl_path))
     j2_tmpl = j2_env.get_template(template_file)
     dockerfile = j2_tmpl.render(context)

@@ -9,6 +9,6 @@ class HarbormasterNotInitializedException(Exception):
     pass
 
 
-class HarbormasterVersionCompatibilityException(Exception):
+class HarbormasterAlreadyInitializedException(Exception):
     pass
 

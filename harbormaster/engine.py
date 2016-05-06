@@ -15,13 +15,27 @@ from compose.cli.command import project_from_options
 from compose.cli.main import TopLevelCommand
 
 from .exceptions import (HarbormasterNotInitializedException,
-                         HarbormasterVersionCompatibilityException)
+                         HarbormasterAlreadyInitializedException)
 from .utils import (extract_hosts_from_harbormaster_compose,
                     jinja_render_to_temp,
                     which_docker,
                     make_temp_dir,
-                    compose_format_version)
+                    compose_format_version,
+                    jinja_template_path)
 
+
+def cmdrun_init(base_path):
+    harbormaster_dir = os.path.normpath(
+        os.path.join(os.path.curdir, 'harbormaster'))
+    if os.path.exists(harbormaster_dir):
+        raise HarbormasterAlreadyInitializedException()
+    os.mkdir('harbormaster')
+    template_dir = os.path.join(jinja_template_path(), 'harbormaster')
+    for tmpl_filename in os.listdir(template_dir):
+        jinja_render_to_temp('harbormaster/%s' % tmpl_filename,
+                             harbormaster_dir,
+                             tmpl_filename.replace('.j2', ''))
+    logger.info('Harbormaster initialized.')
 
 def build_buildcontainer_image(base_path):
     # To ensure version compatibility, we have to generate the kwargs ourselves
