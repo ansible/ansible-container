@@ -25,20 +25,9 @@ droppings on your built images, or having excess layers to the union filesystem.
 
 ## To Harbormaster-ize your project
 
-1. Make a `harbormaster` directory in your project.
-2. Make a `harbormaster/harbormaster.yml` file.
-    * This file follows the exact `docker-compose.yml` version 2 format.
-    * You must have a service named `harbormaster` which specifies its
-    `command` attribute as a list of custom arguments to Ansible and finally
-    the playbook to be run.
-    * Include your other services the same as you would in a normal
-    `docker-compose.yml` file. If you're planning on building your image
-    using playbooks, specify the base image you'd like to use for your
-    build image, e.g. `fedora:23` or `ubuntu:trusty`.
-    * Optionally include a `harbormaster/requirements.txt` file containing any 
-    other Python libraries you'll need in your Ansible build container.
-    * Include in the `harbormaster` directory all playbooks, roles, etc. that
-    are needed by your `harbormaster` container command list.
+Run `harbormaster init` in the root directory of your project. This will create
+a directory `harbormaster` with files to get you started. Read the comments and
+edit to suit your needs.
 
 ## To use Harbormaster
 
