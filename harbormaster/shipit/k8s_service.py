@@ -1,41 +1,30 @@
+# -*- coding: utf-8 -*-
+
+import logging
 
 
 class K8SService(object):
 
+    def __init__(self, config=None, project_name=None):
+        self.project_name = project_name
+        self.config = config
+        self.logger = logging.getLogger(__name__)
 
-
-    def _set_creation_timestamp(self, services):
-        '''
-        We need to know if a service already exists. This adds a creationTimestamp attribute to each service.
-        If the creationTimestamp is null, then the service does not exist.
-        :return:
-        '''
-        for service in services:
-            service['creationTimestamp'] = None
-            name = "%s-%s" % (self.project_name, service['name'])
-            current = self.get_resource('service', name)
-            if current:
-                service['creationTimestamp'] = current['metadata']['creationTimestamp']
-        return services
-
-    def _create_services(self, services):
-        actions = []
-        changed = False
-        for service in services:
-            if not service.get('creationTimestamp') or (service.get('creationTimestamp') and self.replace):
+    def get_template(self, service_names=None):
+        templates = []
+        for service in self.config.services:
+            if not service_names or service['name'] in service_names:
                 if service.get('ports'):
-                    template = self._create_template(service)
-                    template_path = self.write_template(self.project_src, template, 'service',
-                                                        template['metadata']['name'])
-                    actions.append("Created template %s" % template_path)
-                    changed = True
-                    if not service.get('creationTimestamp'):
-                        actions.append("Created service %s" % service['name'])
-                        self.create_from_template(template_path)
-                    else:
-                        actions.append("Replaced service %s" % service['name'])
-                        self.replace_from_template(template_path)
-        return changed, actions
+                    templates.append(self._create_template(service))
+        return templates
+
+    def get_task(self, service_names=None):
+        templates = []
+        for service in self.config.services:
+            if not service_names or service['name'] in service_names:
+                if service.get('ports'):
+                    templates.append(self._create_task(service))
+        return templates
 
     def _create_template(self, service):
         '''
@@ -57,6 +46,58 @@ class K8SService(object):
                 app: guestbook
                 tier: frontend
         '''
+
+        labels = self._get_labels(service)
+        ports = self._get_ports(service)
+
+        name = "%s-%s" % (self.project_name, service['name'])
+        template = dict(
+            apiVersion="v1",
+            kind="Service",
+            metadata=dict(
+                name=name,
+                labels=labels
+            ),
+            spec=dict(
+                selector=dict(
+                    app=service['name']
+                ),
+                ports=ports,
+            )
+        )
+
+        if labels.get('service_type') == 'loadbalancer':
+            template['spec']['type'] = 'LoadBalancer'
+
+        return template
+
+    def _create_task(self, service):
+        '''
+        Generates an Ansible playbook task.
+
+        :param service:
+        :return:
+        '''
+
+        labels = self._get_labels(service)
+        ports = self._get_ports(service)
+
+        template = dict(
+            k8s_service=dict(
+                project_name=self.project_name,
+                service_name=service['name'],
+                labels=labels,
+                ports=ports,
+            )
+        )
+
+        if labels.get('service_type') == 'loadbalancer':
+            template['k8s_service']['loadbalancer'] = True
+
+        return template
+
+    @staticmethod
+    def _get_labels(service):
         if service.get('labels'):
             labels = service['labels']
             labels.update(dict(app=service['name']))
@@ -66,8 +107,12 @@ class K8SService(object):
         for key, value in labels.items():
             if not isinstance(value, str):
                 labels[key] = str(value)
+        return labels
 
+    @staticmethod
+    def _get_ports(service):
         ports = []
+        labels = service.get('labels')
         if labels.get('service_port'):
             parts = labels.get('service_port').split(':')
             ports.append(dict(port=int(parts[0]), targetPort=int(parts[1]), protocol='TCP'))
@@ -79,31 +124,4 @@ class K8SService(object):
                     ports.append(dict(port=int(parts[0]), protocol='TCP'))
                 else:
                     ports.append(dict(port=int(port), protocol='TCP'))
-
-        if service.get('creationTimestamp'):
-            template = self.get_resource('service', service['name'])
-        else:
-            name = "%s-%s" % (self.project_name, service['name'])
-            template = dict(
-                apiVersion="v1",
-                kind="Service",
-                metadata=dict(
-                    name=name,
-                ),
-                spec=dict(
-                    selector=dict(
-                        app=service['name']
-                    )
-                )
-            )
-
-        template['metadata']['labels'] = labels
-        template['spec']['ports'] = ports
-
-        if labels.get('service_type') == 'loadbalancer':
-            template['spec']['type'] = 'LoadBalancer'
-
-        self.klog("template for service %s" % service['name'])
-        self.klog(template, pretty_print=True)
-
-        return template
+        return ports
