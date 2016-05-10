@@ -203,5 +203,7 @@ def cmdrun_push(base_path, username=None, password=None, url=None, **kwargs):
                 logger.debug(line)
     logger.info('Done!')
 
-
-
+def cmdrun_shipit(base_path):
+    project_name = os.path.basename(base_path).lower()
+    config = config_load(config_find('.', None, dict()))
+    run_shipit(config=config, project_name=project_name, project_dir='.',)
