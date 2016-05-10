@@ -24,9 +24,9 @@ from .utils import (extract_hosts_from_harbormaster_compose,
                     jinja_template_path)
 
 
-def cmdrun_init(base_path):
+def cmdrun_init(base_path, **kwargs):
     harbormaster_dir = os.path.normpath(
-        os.path.join(os.path.curdir, 'harbormaster'))
+        os.path.join(base_path, 'harbormaster'))
     if os.path.exists(harbormaster_dir):
         raise HarbormasterAlreadyInitializedException()
     os.mkdir('harbormaster')
@@ -106,7 +106,7 @@ DEFAULT_COMPOSE_UP_OPTIONS = {
     u'SERVICE': []
 }
 
-def cmdrun_build(base_path, recreate=True):
+def cmdrun_build(base_path, recreate=True, **kwargs):
     # To ensure version compatibility, we have to generate the kwargs ourselves
     client_kwargs = kwargs_from_env(assert_hostname=False)
     client = docker.AutoVersionClient(**client_kwargs)
@@ -187,7 +187,7 @@ def cmdrun_build(base_path, recreate=True):
         logger.info('Cleaning up harbormaster build container...')
         client.remove_container(harbormaster_container_id)
 
-def cmdrun_run(base_path):
+def cmdrun_run(base_path, **kwargs):
     with make_temp_dir() as temp_dir:
         project_name = os.path.basename(base_path).lower()
         version = compose_format_version(base_path)
