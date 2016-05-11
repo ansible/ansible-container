@@ -29,7 +29,7 @@ from .utils import (extract_hosts_from_harbormaster_compose,
                     get_current_logged_in_user,
                     assert_initialized)
 
-from .shipit.run import run_shipit
+from harbormaster.shipit.run import run_shipit
 
 
 def cmdrun_init(base_path, **kwargs):

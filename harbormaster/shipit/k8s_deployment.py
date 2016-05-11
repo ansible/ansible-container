@@ -14,27 +14,58 @@ class K8SDeployment(object):
         self.config = config
 
     def get_template(self, service_names=None):
-        templates = []
-        for service in self.config.services:
-            if not service_names or service['name'] in service_names:
-                templates.append(self._create_template(service))
-        return templates
+        return self._get_template_or_task(type="taks", service_names=service_names)
 
     def get_task(self, service_names=None):
+        return self._get_template_or_task(type="config", service_names=service_names)
+
+    def _get_template_or_task(self, type="task", service_names=None):
         templates = []
+        resolved = []
         for service in self.config.services:
+            # group linked services
             if not service_names or service['name'] in service_names:
-                templates.append(self._create_template(service))
+                if service.get('links'):
+                    linked_containers = self._resolve_links(service.get('links'))
+                    linked_containers.append(service['name'])
+                    resolved += linked_containers
+                    if type == 'task':
+                        new_template = self._create_task(linked_containers)
+                    elif type == 'config':
+                        new_template = self._create_template(linked_containers)
+                    templates.append(new_template)
+
+        for service in self.ocnfig.services:
+            # add any non-linked services
+            if not service_names or service['name'] in service_names:
+                if service['name'] not in resolved:
+                    if type == 'task':
+                        new_template = self._create_task([service['name']])
+                    elif type == 'config':
+                        new_template = self._create_template([service['name']])
+                    templates.append(new_template)
+
         return templates
 
-    def _create_template(self, service):
+    @staticmethod
+    def _resolve_links(links):
+        result = []
+        for link in links:
+            if ':' in links:
+                target = links.split(':')[0]
+            else:
+                target = link
+            result.append(target)
+        return result
+
+    def _create_template(self, service_names):
         '''
         Creates a deployment template from a set of services. Each service is a container
-        defined in the replication controller.
+        defined within the replication controller.
         '''
 
         name = "%s-%s" % (self.project_name, service['name'])
-        containers = [self._service_to_container(service)]
+        containers = self._services_to_containers(service_names)
 
         template = dict(
             apiVersion="v1",
@@ -65,7 +96,7 @@ class K8SDeployment(object):
 
         return template
 
-    def _create_task(self, service):
+    def _create_task(self, service_names):
         '''
         Generates an Ansible playbook task.
 
@@ -73,7 +104,7 @@ class K8SDeployment(object):
         :return:
         '''
 
-        containers = [self._service_to_container(service)]
+        containers = self._services_to_containers(service_names)
 
         template = dict(
             k8s_deployment=dict(
@@ -90,18 +121,22 @@ class K8SDeployment(object):
 
         return template
 
-    def _service_to_container(self, service):
-        container = dict(name=service['name'])
-        for key, value in service.items():
-            if key == 'ports':
-                container['ports'] = self._get_container_ports(value)
-            elif key in ('links', 'labels'):
-                pass
-            elif key == 'environment':
-                container['env'] = self._expand_env_vars(value)
-            else:
-                container[key] = value
-        return container
+    def _services_to_containers(self, service_names):
+        results = []
+        for service in self.config.services:
+            if service['name'] in service_names:
+                container = dict(name=service['name'])
+                for key, value in service.items():
+                    if key == 'ports':
+                        container['ports'] = self._get_container_ports(value)
+                    elif key == 'labels':
+                        pass
+                    elif key == 'environment':
+                        container['env'] = self._expand_env_vars(value)
+                    else:
+                        container[key] = value
+                results.append(container)
+        return results
 
     @staticmethod
     def _get_container_ports(ports):

@@ -51,6 +51,7 @@ AVAILABLE_COMMANDS = {'help': 'Display this help message',
                       'build': 'Build new images based on harbormaster.yml',
                       'run': 'Run and orchestrate built images based on harbormaster.yml',
                       'push': 'Push your built images to a Docker Hub compatible registry'}
+                      'shipit': 'Deploy the application to OpenShift'}
 
 def subcmd_init_parser(subparser):
     return
@@ -80,6 +81,9 @@ def subcmd_push_parser(subparser):
                            help=(u'Base URL for your registry. If not provided, '
                                  u'Docker Hub will be used.'),
                            dest='url', default=None)
+
+def subcmd_shipit_parser(subparser):
+    return
 
 def commandline():
     parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '

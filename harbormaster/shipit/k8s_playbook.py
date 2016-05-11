@@ -42,7 +42,7 @@ class K8SPlaybook(object):
         self.create_path(tasks_path)
         self.create_path(vars_path)
 
-        tasks_playbook = self.ge_tasks()
+        tasks_playbook = self.get_tasks()
         with open(os.path.join(tasks_path, 'main.yml', 'w')) as f:
             f.write(yaml.dump(tasks_playbook))
 
@@ -50,7 +50,7 @@ class K8SPlaybook(object):
             name="%s Deployment" % self.project_name,
             hosts=hosts,
             roles=dict(
-                role=self.project_path
+                role=self.project_name
             )
         )
 
