@@ -1,8 +1,12 @@
 
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+
+
 import logging
 import re
+from collections import OrderedDict
 
 logger = logging.getLogger(__name__)
 
@@ -14,12 +18,12 @@ class K8SDeployment(object):
         self.config = config
 
     def get_template(self, service_names=None):
-        return self._get_template_or_task(type="taks", service_names=service_names)
+        return self._get_template_or_task(request_type="config", service_names=service_names)
 
     def get_task(self, service_names=None):
-        return self._get_template_or_task(type="config", service_names=service_names)
+        return self._get_template_or_task(request_type="task", service_names=service_names)
 
-    def _get_template_or_task(self, type="task", service_names=None):
+    def _get_template_or_task(self, request_type="task", service_names=None):
         templates = []
         resolved = []
         for service in self.config.services:
@@ -27,21 +31,23 @@ class K8SDeployment(object):
             if not service_names or service['name'] in service_names:
                 if service.get('links'):
                     linked_containers = self._resolve_links(service.get('links'))
+                    logger.debug("linked containers: %s" % '.'.join(linked_containers))
                     linked_containers.append(service['name'])
+                    logger.debug("linked containers: %s" % '.'.join(linked_containers))
                     resolved += linked_containers
-                    if type == 'task':
+                    if request_type == 'task':
                         new_template = self._create_task(linked_containers)
-                    elif type == 'config':
+                    elif request_type == 'config':
                         new_template = self._create_template(linked_containers)
                     templates.append(new_template)
 
-        for service in self.ocnfig.services:
+        for service in self.config.services:
             # add any non-linked services
             if not service_names or service['name'] in service_names:
                 if service['name'] not in resolved:
-                    if type == 'task':
+                    if request_type == 'task':
                         new_template = self._create_task([service['name']])
-                    elif type == 'config':
+                    elif request_type == 'config':
                         new_template = self._create_template([service['name']])
                     templates.append(new_template)
 
@@ -51,8 +57,8 @@ class K8SDeployment(object):
     def _resolve_links(links):
         result = []
         for link in links:
-            if ':' in links:
-                target = links.split(':')[0]
+            if ':' in link:
+                target = link.split(':')[0]
             else:
                 target = link
             result.append(target)
@@ -64,8 +70,8 @@ class K8SDeployment(object):
         defined within the replication controller.
         '''
 
-        name = "%s-%s" % (self.project_name, service['name'])
-        containers = self._services_to_containers(service_names)
+        name = "%s-%s" % (self.project_name, service_names[0])
+        containers = self._services_to_containers(service_names, type="config")
 
         template = dict(
             apiVersion="v1",
@@ -77,7 +83,7 @@ class K8SDeployment(object):
                 template=dict(
                     metadata=dict(
                         labels=dict(
-                            app=service['name']
+                            app=service_names[0]
                         )
                     ),
                     spec=dict(
@@ -86,7 +92,7 @@ class K8SDeployment(object):
                 ),
                 replicas=1,
                 selector=dict(
-                    name=service['name']
+                    name=service_names[0]
                 ),
                 strategy=dict(
                     type='Rolling'
@@ -104,14 +110,14 @@ class K8SDeployment(object):
         :return:
         '''
 
-        containers = self._services_to_containers(service_names)
+        containers = self._services_to_containers(service_names, type="task")
 
         template = dict(
             k8s_deployment=dict(
                 project_name=self.project_name,
-                service_name=service['name'],
+                service_name=service_names[0],
                 labels=dict(
-                    app=service['name']
+                    app=service_names[0]
                 ),
                 containers=containers,
                 replicas=1,
@@ -121,17 +127,17 @@ class K8SDeployment(object):
 
         return template
 
-    def _services_to_containers(self, service_names):
+    def _services_to_containers(self, service_names, type="task"):
         results = []
         for service in self.config.services:
             if service['name'] in service_names:
-                container = dict(name=service['name'])
+                container = OrderedDict(name=service['name'])
                 for key, value in service.items():
-                    if key == 'ports':
+                    if key == 'ports' and type == 'config':
                         container['ports'] = self._get_container_ports(value)
-                    elif key == 'labels':
+                    elif key == 'labels' and type == 'config':
                         pass
-                    elif key == 'environment':
+                    elif key == 'environment' and type == 'config':
                         container['env'] = self._expand_env_vars(value)
                     else:
                         container[key] = value

@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
-SHIPIT_DEPLOY_PATH = 'deploy'
+# TODO - Make these configurable?
 
+SHIPIT_PATH = ''
+SHIPIT_PLAYBOOK_NAME = "shipit.yml"

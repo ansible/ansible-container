@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,19 +15,21 @@ class K8SService(object):
         self.config = config
 
     def get_template(self, service_names=None):
-        templates = []
-        for service in self.config.services:
-            if not service_names or service['name'] in service_names:
-                if service.get('ports'):
-                    templates.append(self._create_template(service))
-        return templates
+        return self._get_task_or_config(request_type="config", service_names=service_names)
 
     def get_task(self, service_names=None):
+        return self._get_task_or_config(request_type="task", service_names=service_names)
+
+    def _get_task_or_config(self, request_type="task", service_names=None):
         templates = []
         for service in self.config.services:
             if not service_names or service['name'] in service_names:
                 if service.get('ports'):
-                    templates.append(self._create_task(service))
+                    if request_type == "task":
+                        templates.append(self._create_task(service))
+                    elif request_type=="config":
+                        templates.append(self._create_template(service))
+
         return templates
 
     def _create_template(self, service):
@@ -112,9 +117,10 @@ class K8SService(object):
 
     @staticmethod
     def _get_ports(service):
+        #TODO - Add UDP support. Don't assume all ports are TCP.
         ports = []
         labels = service.get('labels')
-        if labels.get('service_port'):
+        if labels and labels.get('service_port'):
             parts = labels.get('service_port').split(':')
             ports.append(dict(port=int(parts[0]), targetPort=int(parts[1]), protocol='TCP'))
             labels.pop('service_port')
@@ -122,7 +128,7 @@ class K8SService(object):
             for port in service['ports']:
                 if ':' in port:
                     parts = port.split(':')
-                    ports.append(dict(port=int(parts[0]), protocol='TCP'))
+                    ports.append(dict(port=int(parts[0]), targetPort=int(parts[1]), protocol='TCP'))
                 else:
-                    ports.append(dict(port=int(port), protocol='TCP'))
+                    ports.append(dict(port=int(port), targetPort=int(port), protocol='TCP'))
         return ports

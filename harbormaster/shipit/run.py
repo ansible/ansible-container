@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+
 import logging
 
 from .k8s_playbook import K8SPlaybook
