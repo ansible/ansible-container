@@ -11,17 +11,16 @@ import datetime
 
 import docker
 from docker.utils import kwargs_from_env
-from compose.cli.command import project_from_options
-from compose.cli.main import TopLevelCommand
 
 from .exceptions import (HarbormasterNotInitializedException,
                          HarbormasterAlreadyInitializedException)
 from .utils import (extract_hosts_from_harbormaster_compose,
                     jinja_render_to_temp,
-                    which_docker,
+                    launch_docker_compose,
                     make_temp_dir,
                     compose_format_version,
-                    jinja_template_path)
+                    jinja_template_path,
+                    which_docker)
 
 
 def cmdrun_init(base_path, **kwargs):
@@ -70,41 +69,7 @@ def build_buildcontainer_image(base_path):
                                                           tag='ansible-builder')]
 
 
-# Docker-compose uses docopt, which outputs things like the below
-# So I'm starting with the defaults and then updating them.
-# One structure for the global options and one for the command specific
 
-DEFAULT_COMPOSE_OPTIONS = {
-    u'--help': False,
-    u'--host': None,
-    u'--project-name': None,
-    u'--skip-hostname-check': False,
-    u'--tls': False,
-    u'--tlscacert': None,
-    u'--tlscert': None,
-    u'--tlskey': None,
-    u'--tlsverify': False,
-    u'--verbose': False,
-    u'--version': False,
-    u'-h': False,
-    u'--file': [],
-    u'COMMAND': None,
-    u'ARGS': []
-}
-
-DEFAULT_COMPOSE_UP_OPTIONS = {
-    u'--abort-on-container-exit': False,
-    u'--build': False,
-    u'--force-recreate': False,
-    u'--no-color': False,
-    u'--no-deps': False,
-    u'--no-recreate': False,
-    u'--no-build': False,
-    u'--remove-orphans': False,
-    u'--timeout': None,
-    u'-d': False,
-    u'SERVICE': []
-}
 
 def cmdrun_build(base_path, recreate=True, **kwargs):
     # To ensure version compatibility, we have to generate the kwargs ourselves
@@ -118,34 +83,10 @@ def cmdrun_build(base_path, recreate=True, **kwargs):
     harbormaster_img_id = client.images(name='ansible-builder', quiet=True)[0]
     logger.info('Harbormaster image has ID %s', harbormaster_img_id)
     with make_temp_dir() as temp_dir:
-        version = compose_format_version(base_path)
-        jinja_render_to_temp('build-docker-compose.j2.yml' if version == 2
-                             else 'build-docker-compose-v1.j2.yml',
-                             temp_dir,
-                             'docker-compose.yml',
-                             hosts=extract_hosts_from_harbormaster_compose(base_path),
-                             harbormaster_img_id=harbormaster_img_id,
-                             which_docker=which_docker())
-        options = DEFAULT_COMPOSE_OPTIONS.copy()
-        options.update({
-            u'--file': [
-                os.path.normpath(
-                    os.path.join(base_path,
-                                 'harbormaster',
-                                 'harbormaster.yml')
-                ),
-                os.path.join(temp_dir,
-                             'docker-compose.yml')],
-            u'COMMAND': 'up',
-            u'ARGS': ['--no-build']
-        })
-        command_options = DEFAULT_COMPOSE_UP_OPTIONS.copy()
-        command_options[u'--no-build'] = True
-        os.environ['HARBORMASTER_BASE'] = os.path.realpath(base_path)
-        project = project_from_options('.', options)
-        command = TopLevelCommand(project)
         logger.info('Starting Compose engine to build your images...')
-        command.up(command_options)
+        launch_docker_compose(base_path, temp_dir, 'build',
+                              which_docker=which_docker(),
+                              harbormaster_img_id=harbormaster_img_id)
         build_container_info, = client.containers(
             filters={'name': 'harbormaster_harbormaster_1'},
             limit=1, all=True
@@ -190,31 +131,5 @@ def cmdrun_build(base_path, recreate=True, **kwargs):
 def cmdrun_run(base_path, **kwargs):
     with make_temp_dir() as temp_dir:
         project_name = os.path.basename(base_path).lower()
-        version = compose_format_version(base_path)
-        jinja_render_to_temp('run-docker-compose.j2.yml' if version == 2
-                             else 'run-docker-compose-v1.j2.yml',
-                             temp_dir,
-                             'docker-compose.yml',
-                             hosts=extract_hosts_from_harbormaster_compose(base_path),
-                             project_name=project_name)
-        options = DEFAULT_COMPOSE_OPTIONS.copy()
-        options.update({
-            u'--file': [
-                os.path.normpath(
-                    os.path.join(base_path,
-                                 'harbormaster',
-                                 'harbormaster.yml')
-                ),
-                os.path.join(temp_dir,
-                             'docker-compose.yml')],
-            u'COMMAND': 'up',
-            u'ARGS': ['--no-build'] + extract_hosts_from_harbormaster_compose(base_path)
-        })
-        command_options = DEFAULT_COMPOSE_UP_OPTIONS.copy()
-        command_options.update({
-            u'SERVICE': extract_hosts_from_harbormaster_compose(base_path),
-            u'--no-build': True})
-        os.environ['HARBORMASTER_BASE'] = os.path.realpath(base_path)
-        project = project_from_options('.', options)
-        command = TopLevelCommand(project)
-        command.up(command_options)
+        launch_docker_compose(base_path, temp_dir, 'run', project_name=project_name)
+
