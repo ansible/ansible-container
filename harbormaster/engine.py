@@ -13,6 +13,8 @@ import json
 
 import docker
 from docker.utils import kwargs_from_env
+from compose.config.config import load as config.load, find as config.find
+
 
 from .exceptions import (HarbormasterNotInitializedException,
                          HarbormasterAlreadyInitializedException,
@@ -26,6 +28,8 @@ from .utils import (extract_hosts_from_harbormaster_compose,
                     extract_hosts_touched_by_playbook,
                     get_current_logged_in_user,
                     assert_initialized)
+
+from .shipit.run import run_shipit
 
 
 def cmdrun_init(base_path, **kwargs):

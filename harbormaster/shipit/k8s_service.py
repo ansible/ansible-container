@@ -2,13 +2,14 @@
 
 import logging
 
+logger = logging.getLogger(__name__)
+
 
 class K8SService(object):
 
     def __init__(self, config=None, project_name=None):
         self.project_name = project_name
         self.config = config
-        self.logger = logging.getLogger(__name__)
 
     def get_template(self, service_names=None):
         templates = []
