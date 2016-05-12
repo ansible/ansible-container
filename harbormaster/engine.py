@@ -18,9 +18,9 @@ from .utils import (extract_hosts_from_harbormaster_compose,
                     jinja_render_to_temp,
                     launch_docker_compose,
                     make_temp_dir,
-                    compose_format_version,
                     jinja_template_path,
-                    which_docker)
+                    which_docker,
+                    extract_hosts_touched_by_playbook)
 
 
 def cmdrun_init(base_path, **kwargs):
@@ -69,8 +69,6 @@ def build_buildcontainer_image(base_path):
                                                           tag='ansible-builder')]
 
 
-
-
 def cmdrun_build(base_path, recreate=True, **kwargs):
     # To ensure version compatibility, we have to generate the kwargs ourselves
     client_kwargs = kwargs_from_env(assert_hostname=False)
@@ -84,6 +82,9 @@ def cmdrun_build(base_path, recreate=True, **kwargs):
     logger.info('Harbormaster image has ID %s', harbormaster_img_id)
     with make_temp_dir() as temp_dir:
         logger.info('Starting Compose engine to build your images...')
+        touched_hosts = extract_hosts_touched_by_playbook(base_path,
+                                                          harbormaster_img_id)
+        import pdb; pdb.set_trace()
         launch_docker_compose(base_path, temp_dir, 'build',
                               which_docker=which_docker(),
                               harbormaster_img_id=harbormaster_img_id)
@@ -105,7 +106,7 @@ def cmdrun_build(base_path, recreate=True, **kwargs):
         logger.debug('project_name is %s' % project_name)
         version = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
         logger.info('Exporting built containers as images...')
-        for host in extract_hosts_from_harbormaster_compose(base_path):
+        for host in touched_hosts:
             container_id, = client.containers(
                 filters={'name': 'harbormaster_%s_1' % host},
                 limit=1, all=True, quiet=True
@@ -125,11 +126,22 @@ def cmdrun_build(base_path, recreate=True, **kwargs):
                        force=True)
             logger.info('Cleaning up %s build container...', host)
             client.remove_container(container_id)
+        for host in set(extract_hosts_from_harbormaster_compose(base_path)) - set(touched_hosts):
+            logger.info('Cleaning up %s build container...', host)
+            container_id, = client.containers(
+                filters={'name': 'harbormaster_%s_1' % host},
+                limit=1, all=True, quiet=True
+            )
+            client.remove_container(container_id)
         logger.info('Cleaning up harbormaster build container...')
         client.remove_container(harbormaster_container_id)
 
 def cmdrun_run(base_path, **kwargs):
     with make_temp_dir() as temp_dir:
         project_name = os.path.basename(base_path).lower()
-        launch_docker_compose(base_path, temp_dir, 'run', project_name=project_name)
+        launch_docker_compose(base_path, temp_dir, 'run',
+                              services=extract_hosts_from_harbormaster_compose(base_path),
+                              project_name=project_name)
 
+def cmdrun_push(base_path, username=None, password=None, url=None):
+    pass

@@ -42,7 +42,8 @@ logging.config.dictConfig(
 AVAILABLE_COMMANDS = {'help': 'Display this help message',
                       'init': 'Initialize a new harbormaster project',
                       'build': 'Build new images based on harbormaster.yml',
-                      'run': 'Run and orchestrate built images based on harbormaster.yml'}
+                      'run': 'Run and orchestrate built images based on harbormaster.yml',
+                      'push': 'Push your built images to a Docker Hub compatible registry'}
 
 def subcmd_init_parser(subparser):
     return
@@ -57,6 +58,21 @@ def subcmd_run_parser(subparser):
 
 def subcmd_help_parser(subparser):
     return
+
+def subcmd_push_parser(subparser):
+    subparser.add_argument('--username', action='store',
+                           help=(u'Username to log into registry. If not provided, '
+                                 u'it is expected that your ~/.docker/config.json '
+                                 u'contains your login information.'),
+                           dest='username', default=None)
+    subparser.add_argument('--password', action='store',
+                           help=(u'Password to log into registry. If not provided, '
+                                 u'you will be prompted for it.'),
+                           dest='password', default=None)
+    subparser.add_argument('--url', action='store',
+                           help=(u'Base URL for your registry. If not provided, '
+                                 u'Docker Hub will be used.'),
+                           dest='url', default=None)
 
 def commandline():
     parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '

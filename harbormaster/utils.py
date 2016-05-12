@@ -6,16 +6,74 @@ import logging
 logger = logging.getLogger(__name__)
 
 import os
+import sys
 import tempfile
 import shutil
+from functools import wraps
+from StringIO import StringIO
 from distutils import spawn
 from jinja2 import Environment, FileSystemLoader
 from yaml import load as yaml_load
 from compose.cli.command import project_from_options
-from compose.cli.main import TopLevelCommand
+from compose.cli import main
+from compose.cli.log_printer import LogPrinter, build_log_presenters
 
 from .exceptions import HarbormasterNotInitializedException
 
+# Don't try this at home, kids.
+
+# *sigh* Okay, fine. Well...
+# We need to tee the stdout to a StringIO buffer as well as to stdout.
+# If you've got a better idea, I'm all ears.
+
+class Tee(StringIO):
+    def write(self, x):
+        StringIO.write(self, x)
+        sys.stdout.write(x)
+
+    def flush(self):
+        StringIO.flush(self)
+        sys.stdout.flush()
+
+
+def monkeypatch__log_printer_from_project(buffer):
+    @wraps(main.log_printer_from_project)
+    def __wrapped__(
+            project,
+            containers,
+            monochrome,
+            log_args,
+            cascade_stop=False,
+            event_stream=None,
+    ):
+        return LogPrinter(
+            containers,
+            build_log_presenters(project.service_names, monochrome),
+            event_stream or project.events(),
+            cascade_stop=cascade_stop,
+            output=buffer,
+            log_args=log_args)
+
+    return __wrapped__
+
+
+original__log_printer_from_project = main.log_printer_from_project
+
+
+class TeedStdout(object):
+    stdout = None
+
+    def __enter__(self):
+        self.stdout = StringIO()
+        main.log_printer_from_project = monkeypatch__log_printer_from_project(self.stdout)
+        return self.stdout
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        main.log_printer_from_project = original__log_printer_from_project
+
+teed_stdout = TeedStdout
+
+# Phew. That sucked.
 
 class MakeTempDir(object):
     temp_dir = None
@@ -71,7 +129,8 @@ DEFAULT_COMPOSE_UP_OPTIONS = {
     u'SERVICE': []
 }
 
-def launch_docker_compose(base_path, temp_dir, verb, **context):
+def launch_docker_compose(base_path, temp_dir, verb, services=[], no_color=False,
+                          **context):
     version = compose_format_version(base_path)
     jinja_render_to_temp(('%s-docker-compose.j2.yml' if version == 2
                          else '%s-docker-compose-v1.j2.yml') % (verb,),
@@ -91,13 +150,15 @@ def launch_docker_compose(base_path, temp_dir, verb, **context):
             os.path.join(temp_dir,
                          'docker-compose.yml')],
         u'COMMAND': 'up',
-        u'ARGS': ['--no-build']
+        u'ARGS': ['--no-build'] + services
     })
     command_options = DEFAULT_COMPOSE_UP_OPTIONS.copy()
     command_options[u'--no-build'] = True
+    command_options[u'--no-color'] = no_color
+    command_options[u'SERVICE'] = services
     os.environ['HARBORMASTER_BASE'] = os.path.realpath(base_path)
     project = project_from_options('.', options)
-    command = TopLevelCommand(project)
+    command = main.TopLevelCommand(project)
     command.up(command_options)
 
 def extract_hosts_from_harbormaster_compose(base_path):
@@ -108,7 +169,7 @@ def extract_hosts_from_harbormaster_compose(base_path):
         services = compose_data
     return [key for key in services.keys() if key != 'harbormaster']
 
-def extract_hosts_touched_by_playbook(base_path):
+def extract_hosts_touched_by_playbook(base_path, harbormaster_img_id):
     compose_data = parse_compose_file(base_path)
     if compose_format_version(base_path, compose_data) == 2:
         services = compose_data.pop('services', {})
@@ -118,8 +179,19 @@ def extract_hosts_touched_by_playbook(base_path):
     if not ansible_args:
         logger.warning('No ansible playbook arguments found in harbormaster.yml')
         return []
-
-
+    with teed_stdout() as stdout, make_temp_dir() as temp_dir:
+        launch_docker_compose(base_path, temp_dir, 'listhosts',
+                              services=['harbormaster'], no_color=True,
+                              which_docker=which_docker(),
+                              harbormaster_img_id=harbormaster_img_id)
+        # We need to cleverly extract the host names from the output...
+        lines = stdout.getvalue().split('\r\n')
+        lines_minus_harbormaster_host = [line.rsplit('|', 1)[1] for line
+                                         in lines if '|' in line]
+        host_lines = [line for line in lines_minus_harbormaster_host
+                      if line.startswith('       ')]
+        hosts = list(set([line.strip() for line in host_lines]))
+    return hosts
 
 def jinja_template_path():
     return os.path.normpath(

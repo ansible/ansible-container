@@ -1,7 +1,7 @@
 - hosts: all
   gather_facts: false
   tasks:
-    - raw: which python || apt-get update
+    - raw: apt-get update
     - raw: (which python && which aptitude) || apt-get install -y python python-apt aptitude
 - hosts: host1
   become: root
