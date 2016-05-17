@@ -151,7 +151,7 @@ def cmdrun_build(base_path, recreate=True, flatten=True, purge_last=True,
                        force=True)
             logger.info('Cleaning up %s build container...', host)
             client.remove_container(container_id)
-            if purge_last:
+            if purge_last and previous_image_id:
                 logger.info('Removing previous image...')
                 client.remove_image(previous_image_id)
         for host in set(extract_hosts_from_harbormaster_compose(base_path)) - set(touched_hosts):
@@ -168,6 +168,7 @@ def cmdrun_run(base_path, **kwargs):
     assert_initialized(base_path)
     with make_temp_dir() as temp_dir:
         project_name = os.path.basename(base_path).lower()
+        logger.debug('project_name is %s' % project_name)
         launch_docker_compose(base_path, temp_dir, 'run',
                               services=extract_hosts_from_harbormaster_compose(base_path),
                               project_name=project_name)
@@ -221,5 +222,6 @@ def cmdrun_push(base_path, username=None, password=None, url=None, **kwargs):
 
 def cmdrun_shipit(base_path, **kwargs):
     project_name = os.path.basename(base_path).lower()
+    logger.debug('project_name is %s' % project_name)
     config = config_load(config_find('.', None, dict()))
     run_shipit(config=config, project_name=project_name, project_dir='.',)

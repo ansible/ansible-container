@@ -262,10 +262,14 @@ def get_latest_image_for(project_name, host, client):
     image_data = client.images(
         '%s-%s' % (project_name, host,)
     )
-    latest_image_data, = [datum for datum in image_data
-                          if '%s-%s:latest' % (project_name, host,) in
-                          datum['RepoTags']]
-    image_buildstamp = [tag for tag in latest_image_data['RepoTags']
-                        if not tag.endswith(':latest')][0].split(':')[-1]
-    image_id = latest_image_data['Id']
-    return image_id, image_buildstamp
+    try:
+        latest_image_data, = [datum for datum in image_data
+                              if '%s-%s:latest' % (project_name, host,) in
+                              datum['RepoTags']]
+        image_buildstamp = [tag for tag in latest_image_data['RepoTags']
+                            if not tag.endswith(':latest')][0].split(':')[-1]
+        image_id = latest_image_data['Id']
+        return image_id, image_buildstamp
+    except (IndexError, ValueError):
+        # No previous image built
+        return None, None
