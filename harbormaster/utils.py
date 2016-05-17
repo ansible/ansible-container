@@ -251,3 +251,8 @@ def get_current_logged_in_user(registry_url):
         username, password = base64.decodestring(auth_key).split(':', 1)
         return username
 
+def assert_initialized(base_path):
+    harbormaster_dir = os.path.normpath(
+        os.path.join(base_path, 'harbormaster'))
+    if not os.path.exists(harbormaster_dir) or not os.path.isdir(harbormaster_dir):
+        raise HarbormasterNotInitializedException()

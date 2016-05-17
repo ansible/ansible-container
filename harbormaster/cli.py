@@ -10,6 +10,7 @@ import sys
 import argparse
 
 from . import engine
+from . import exceptions
 
 from logging import config
 LOGGING = {
@@ -25,16 +26,23 @@ LOGGING = {
             'harbormaster': {
                 'handlers': ['console'],
                 'level': 'INFO',
+                'propagate': False
             },
             'compose': {
-                'handlers': [],
-                'level': 'INFO'
+                'handlers': ['console'],
+                'level': 'WARNING',
+                'propagate': False
             },
             'docker': {
-                'handlers': [],
-                'level': 'INFO'
+                'handlers': ['console'],
+                'level': 'WARNING',
+                'propagate': False
             }
         },
+        'root': {
+            'handlers': ['console'],
+            'level': 'ERROR'
+        }
     }
 
 
@@ -91,6 +99,22 @@ def commandline():
     if args.debug:
         LOGGING['loggers']['harbormaster']['level'] = 'DEBUG'
     config.dictConfig(LOGGING)
-    getattr(engine, u'cmdrun_{}'.format(args.subcommand))(os.getcwd(),
-                                                          **vars(args))
 
+    try:
+        getattr(engine, u'cmdrun_{}'.format(args.subcommand))(os.getcwd(),
+                                                              **vars(args))
+    except exceptions.HarbormasterAlreadyInitializedException, e:
+        logger.error('Harbormaster is already initialized')
+        sys.exit(1)
+    except exceptions.HarbormasterNotInitializedException, e:
+        logger.error('No harbormaster project data found - do you need to run "harbormaster init"?')
+        sys.exit(1)
+    except exceptions.HarbormasterNoAuthenticationProvided, e:
+        logger.error(unicode(e))
+        sys.exit(1)
+    except Exception, e:
+        if args.debug:
+            logger.exception(unicode(e))
+        else:
+            logger.error(unicode(e))
+        sys.exit(1)

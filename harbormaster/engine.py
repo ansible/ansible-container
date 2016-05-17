@@ -24,7 +24,8 @@ from .utils import (extract_hosts_from_harbormaster_compose,
                     jinja_template_path,
                     which_docker,
                     extract_hosts_touched_by_playbook,
-                    get_current_logged_in_user)
+                    get_current_logged_in_user,
+                    assert_initialized)
 
 
 def cmdrun_init(base_path, **kwargs):
@@ -41,6 +42,7 @@ def cmdrun_init(base_path, **kwargs):
     logger.info('Harbormaster initialized.')
 
 def build_buildcontainer_image(base_path):
+    assert_initialized(base_path)
     # To ensure version compatibility, we have to generate the kwargs ourselves
     client_kwargs = kwargs_from_env(assert_hostname=False)
     client = docker.AutoVersionClient(**client_kwargs)
@@ -74,6 +76,7 @@ def build_buildcontainer_image(base_path):
 
 
 def cmdrun_build(base_path, recreate=True, **kwargs):
+    assert_initialized(base_path)
     # To ensure version compatibility, we have to generate the kwargs ourselves
     client_kwargs = kwargs_from_env(assert_hostname=False)
     client = docker.AutoVersionClient(**client_kwargs)
@@ -140,6 +143,7 @@ def cmdrun_build(base_path, recreate=True, **kwargs):
         client.remove_container(harbormaster_container_id)
 
 def cmdrun_run(base_path, **kwargs):
+    assert_initialized(base_path)
     with make_temp_dir() as temp_dir:
         project_name = os.path.basename(base_path).lower()
         launch_docker_compose(base_path, temp_dir, 'run',
@@ -149,6 +153,7 @@ def cmdrun_run(base_path, **kwargs):
 DEFAULT_DOCKER_REGISTRY_URL = 'https://index.docker.io/v1/'
 
 def cmdrun_push(base_path, username=None, password=None, url=None, **kwargs):
+    assert_initialized(base_path)
     # To ensure version compatibility, we have to generate the kwargs ourselves
     client_kwargs = kwargs_from_env(assert_hostname=False)
     client = docker.AutoVersionClient(**client_kwargs)
