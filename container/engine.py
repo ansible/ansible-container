@@ -101,7 +101,7 @@ def cmdrun_build(base_path, recreate=True, flatten=True, purge_last=True,
                                                           builder_img_id)
         launch_docker_compose(base_path, temp_dir, 'build',
                               which_docker=which_docker(),
-                              container_img_id=builder_img_id,
+                              builder_img_id=builder_img_id,
                               extra_command_options={'--abort-on-container-exit': True})
         build_container_info, = client.containers(
             filters={'name': 'ansible_ansible-container_1'},
