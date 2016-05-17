@@ -88,7 +88,6 @@ def cmdrun_build(base_path, recreate=True, **kwargs):
         logger.info('Starting Compose engine to build your images...')
         touched_hosts = extract_hosts_touched_by_playbook(base_path,
                                                           harbormaster_img_id)
-        import pdb; pdb.set_trace()
         launch_docker_compose(base_path, temp_dir, 'build',
                               which_docker=which_docker(),
                               harbormaster_img_id=harbormaster_img_id)
