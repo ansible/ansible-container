@@ -188,3 +188,7 @@ sftp-config.json
 
 venv/
 *.retry
+
+* Vagrant things
+.vagrant/
+Vagrantfile

@@ -13,6 +13,8 @@ import json
 
 import docker
 from docker.utils import kwargs_from_env
+from compose.config.config import load as config_load, find as config_find
+
 
 from .exceptions import (HarbormasterNotInitializedException,
                          HarbormasterAlreadyInitializedException,
@@ -27,6 +29,8 @@ from .utils import (extract_hosts_from_harbormaster_compose,
                     get_current_logged_in_user,
                     assert_initialized,
                     get_latest_image_for)
+
+from harbormaster.shipit.run import run_shipit
 
 
 def cmdrun_init(base_path, **kwargs):
@@ -215,4 +219,7 @@ def cmdrun_push(base_path, username=None, password=None, url=None, **kwargs):
     logger.info('Done!')
 
 
-
+def cmdrun_shipit(base_path, **kwargs):
+    project_name = os.path.basename(base_path).lower()
+    config = config_load(config_find('.', None, dict()))
+    run_shipit(config=config, project_name=project_name, project_dir='.',)
