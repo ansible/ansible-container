@@ -12,3 +12,5 @@ class HarbormasterNotInitializedException(Exception):
 class HarbormasterAlreadyInitializedException(Exception):
     pass
 
+class HarbormasterNoAuthenticationProvided(Exception):
+    pass

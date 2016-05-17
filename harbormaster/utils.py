@@ -9,6 +9,8 @@ import os
 import sys
 import tempfile
 import shutil
+import json
+import base64
 from functools import wraps
 from StringIO import StringIO
 from distutils import spawn
@@ -230,3 +232,22 @@ def compose_format_version(base_path, compose_data=None):
     if not compose_data:
         compose_data = parse_compose_file(base_path)
     return int(compose_data.pop('version', 1))
+
+DOCKER_CONFIG_FILEPATH_CASCADE = [
+    os.environ.get('DOCKER_CONFIG', ''),
+    os.path.join(os.environ.get('HOME', ''), '.docker', 'config.json'),
+    os.path.join(os.environ.get('HOME', ''), '.dockercfg')
+]
+
+def get_current_logged_in_user(registry_url):
+    for docker_config_filepath in DOCKER_CONFIG_FILEPATH_CASCADE:
+        if docker_config_filepath and os.path.exists(docker_config_filepath):
+            docker_config = json.load(open(docker_config_filepath))
+            break
+    if 'auths' in docker_config:
+        docker_config = docker_config['auths']
+    auth_key = docker_config.get(registry_url, {}).get('auth', '')
+    if auth_key:
+        username, password = base64.decodestring(auth_key).split(':', 1)
+        return username
+

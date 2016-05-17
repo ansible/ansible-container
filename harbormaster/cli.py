@@ -12,8 +12,7 @@ import argparse
 from . import engine
 
 from logging import config
-logging.config.dictConfig(
-    {
+LOGGING = {
         'version': 1,
         'disable_existing_loggers': True,
         'handlers': {
@@ -37,7 +36,7 @@ logging.config.dictConfig(
             }
         },
     }
-)
+
 
 AVAILABLE_COMMANDS = {'help': 'Display this help message',
                       'init': 'Initialize a new harbormaster project',
@@ -78,6 +77,8 @@ def commandline():
     parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '
                                                  u'ship Docker containers with '
                                                  u'Ansible playbooks')
+    parser.add_argument('--debug', action='store_true', dest='debug',
+                        help=u'Enable debug output', default=False)
     subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
     for subcommand in AVAILABLE_COMMANDS:
         subparser = subparsers.add_parser(subcommand,
@@ -87,5 +88,9 @@ def commandline():
     if args.subcommand == 'help':
         parser.print_help()
         sys.exit(0)
-    getattr(engine, u'cmdrun_{}'.format(args.subcommand))(os.getcwd())
+    if args.debug:
+        LOGGING['loggers']['harbormaster']['level'] = 'DEBUG'
+    config.dictConfig(LOGGING)
+    getattr(engine, u'cmdrun_{}'.format(args.subcommand))(os.getcwd(),
+                                                          **vars(args))
 

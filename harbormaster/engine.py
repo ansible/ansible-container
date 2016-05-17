@@ -8,19 +8,23 @@ logger = logging.getLogger(__name__)
 import os
 import tarfile
 import datetime
+import getpass
+import json
 
 import docker
 from docker.utils import kwargs_from_env
 
 from .exceptions import (HarbormasterNotInitializedException,
-                         HarbormasterAlreadyInitializedException)
+                         HarbormasterAlreadyInitializedException,
+                         HarbormasterNoAuthenticationProvided)
 from .utils import (extract_hosts_from_harbormaster_compose,
                     jinja_render_to_temp,
                     launch_docker_compose,
                     make_temp_dir,
                     jinja_template_path,
                     which_docker,
-                    extract_hosts_touched_by_playbook)
+                    extract_hosts_touched_by_playbook,
+                    get_current_logged_in_user)
 
 
 def cmdrun_init(base_path, **kwargs):
@@ -143,5 +147,57 @@ def cmdrun_run(base_path, **kwargs):
                               services=extract_hosts_from_harbormaster_compose(base_path),
                               project_name=project_name)
 
-def cmdrun_push(base_path, username=None, password=None, url=None):
-    pass
+DEFAULT_DOCKER_REGISTRY_URL = 'https://index.docker.io/v1/'
+
+def cmdrun_push(base_path, username=None, password=None, url=None, **kwargs):
+    # To ensure version compatibility, we have to generate the kwargs ourselves
+    client_kwargs = kwargs_from_env(assert_hostname=False)
+    client = docker.AutoVersionClient(**client_kwargs)
+    if not url:
+        url = DEFAULT_DOCKER_REGISTRY_URL
+    if username:
+        # We assume if no username was given, the docker config file suffices
+        while not password:
+            password = getpass.getpass(u'Enter password for %s at %s: ' % (
+                username, url
+            ))
+        client.login(username, password, registry=url)
+    username = get_current_logged_in_user(url)
+    if not username:
+        raise HarbormasterNoAuthenticationProvided(u'Please provide login '
+                                                   u'credentials for this registry.')
+    logger.info('Pushing to repository for user %s', username)
+    harbormaster_img_id = client.images(name='ansible-builder', quiet=True)[0]
+    project_name = os.path.basename(base_path).lower()
+    for host in extract_hosts_touched_by_playbook(base_path,
+                                                  harbormaster_img_id):
+        image_data = client.images(
+            '%s-%s' % (project_name, host,)
+        )
+        latest_image_data, = [datum for datum in image_data
+                              if '%s-%s:latest' % (project_name, host,) in
+                              datum['RepoTags']]
+        image_buildstamp = [tag for tag in latest_image_data['RepoTags']
+                            if not tag.endswith(':latest')][0].split(':')[-1]
+        client.tag(latest_image_data['Id'],
+                   '%s/%s-%s' % (username, project_name, host),
+                   tag=image_buildstamp)
+        logger.info('Pushing %s-%s:%s...', project_name, host, image_buildstamp)
+        status = client.push('%s/%s-%s' % (username, project_name, host),
+                             tag=image_buildstamp,
+                             stream=True)
+        last_status = None
+        for line in status:
+            line = json.loads(line)
+            if type(line) is dict and 'error' in line:
+                logger.error(line['error'])
+            elif type(line) is dict and 'status' in line:
+                if line['status'] != last_status:
+                    logger.info(line['status'])
+                last_status = line['status']
+            else:
+                logger.debug(line)
+    logger.info('Done!')
+
+
+
