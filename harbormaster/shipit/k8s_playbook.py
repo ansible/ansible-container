@@ -5,6 +5,8 @@ from __future__ import absolute_import
 import logging
 import os
 import yaml
+import ConfigParser
+import re
 
 from .constants import SHIPIT_PATH, SHIPIT_PLAYBOOK_NAME
 from .k8s_service import K8SService
@@ -79,37 +81,65 @@ class K8SPlaybook(object):
         '''
 
         deploy_path = os.path.join(self.project_dir, SHIPIT_PATH)
-        role_path = os.path.join(self.project_dir, 'roles', self.project_name)
-        tasks_path = os.path.join(role_path, 'tasks')
-        vars_path = os.path.join(role_path, 'vars')
+        #role_path = os.path.join(self.project_dir, 'roles', self.project_name)
+        #tasks_path = os.path.join(role_path, 'tasks')
+        #vars_path = os.path.join(role_path, 'vars')
 
-        self.create_path(tasks_path)
-        self.create_path(vars_path)
+        self.create_path(deploy_path)
+        #self.create_path(vars_path)
 
         yaml.SafeDumper.add_representer(OrderedDict,
                                         lambda dumper, value: represent_odict(dumper, u'tag:yaml.org,2002:map', value))
 
         # Create tasks/main.yml
-        tasks_playbook = self.get_tasks()
-        with open(os.path.join(tasks_path, 'main.yml'), 'w') as f:
-            f.write(yaml.safe_dump(tasks_playbook, default_flow_style=False))
+        tasks = self.get_tasks()
 
         # Create the playbook
-        plays = [OrderedDict()]
-        plays[0]['name'] = "Deploy %s" % self.project_name
-        plays[0]['hosts'] = hosts
-
+        play = OrderedDict()
+        play['name'] = "Deploy %s" % self.project_name
+        play['hosts'] = hosts
+        play['vars'] = dict(
+            playbook_debug=False
+        )
         if connection:
-            plays[0]['connection'] = connection
+            play['connection'] = connection
         if not gather_facts:
-            plays[0]['gather_facts'] = 'no'
+            play['gather_facts'] = 'no'
 
-        plays[0]['roles'] = [dict(
-            role=self.project_name
-        )]
-
+        play['tasks'] = []
+        for task in tasks:
+            task['register'] = "output"
+            play['tasks'].append(task)
+            play['tasks'].append(dict(
+                debug="var=output",
+                when="playbook_debug"
+            ))
+        stream = yaml.safe_dump([play], default_flow_style=False)
         with open(os.path.join(deploy_path, SHIPIT_PLAYBOOK_NAME), 'w') as f:
-            f.write(yaml.safe_dump(plays, default_flow_style=False))
+            f.write(re.sub(r'^  - ', u'\n  - ', stream, flags=re.M))
+
+    def update_config(self):
+        # Create or update an ansible.cfg file
+        config_path = os.path.join(self.project_dir, SHIPIT_PATH, 'ansible.cfg')
+        hosts_path = os.path.join(self.project_dir, SHIPIT_PATH, 'hosts')
+        config = ConfigParser.ConfigParser()
+        if os.path.isfile(config_path):
+            config.read([config_path])
+        if not config.has_section('defaults'):
+            config.add_section('defaults')
+        module_path = os.path.join(os.path.dirname(__file__), 'modules')
+        if not config.has_option('defaults', 'library'):
+            config.set('defaults', 'library', module_path)
+        if not config.has_option('defaults', 'inventory'):
+            config.set('defaults', 'inventory', hosts_path)
+        with open(config_path, 'w') as f:
+            config.write(f)
+
+    def create_inventory(self):
+        hosts_path = os.path.join(self.project_dir, SHIPIT_PATH, 'hosts')
+        if not os.path.isfile(hosts_path):
+            with open(hosts_path, 'w') as f:
+                f.write("localhost")
 
     @staticmethod
     def create_path(path):

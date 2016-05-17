@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
+from collections import OrderedDict
 
 
 import logging
@@ -65,12 +66,12 @@ class K8SService(object):
                 labels=labels
             ),
             spec=dict(
-                selector=dict(
-                    app=service['name']
-                ),
+                selector=dict(),
                 ports=ports,
             )
         )
+
+        template['spec']['selector'][service['name']] = 'yes'
 
         if labels.get('service_type') == 'loadbalancer':
             template['spec']['type'] = 'LoadBalancer'
@@ -87,28 +88,34 @@ class K8SService(object):
 
         labels = self._get_labels(service)
         ports = self._get_ports(service)
+        name = "%s-%s" % (self.project_name, service['name'])
 
         template = dict(
-            k8s_service=dict(
+            k8s_service=OrderedDict(
                 project_name=self.project_name,
-                service_name=service['name'],
+                service_name=name,
                 labels=labels,
                 ports=ports,
+                selector=dict()
             )
         )
 
         if labels.get('service_type') == 'loadbalancer':
             template['k8s_service']['loadbalancer'] = True
 
+        template['k8s_service']['selector'][service['name']] = 'yes'
+
         return template
 
     @staticmethod
     def _get_labels(service):
+        other_labels = dict()
+        other_labels[service['name']] = 'yes'
         if service.get('labels'):
             labels = service['labels']
-            labels.update(dict(app=service['name']))
+            labels.update(other_labels)
         else:
-            labels = dict(app=service['name'])
+            labels = other_labels
 
         for key, value in labels.items():
             if not isinstance(value, str):

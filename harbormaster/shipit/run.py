@@ -16,4 +16,6 @@ def run_shipit(type=None, config=None, project_name=None, project_dir=None, host
     #       the option to deploy to other things...
     playbook = K8SPlaybook(config=config, project_name=project_name, project_dir=project_dir)
     playbook.write_deployment(hosts=hosts, connection=connection, gather_facts=gather_facts)
+    playbook.update_config()
+    playbook.create_inventory()
 

@@ -15,3 +15,4 @@ six==1.10.0
 texttable==0.8.4
 websocket-client==0.37.0
 wheel==0.24.0
+configparser==3.3.0.post2

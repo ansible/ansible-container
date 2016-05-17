@@ -4,7 +4,7 @@ import harbormaster
 setup(
     name='harbormaster',
     version=harbormaster.__version__,
-    packages=['harbormaster', 'harbormaster.shipit'],
+    packages=['harbormaster', 'harbormaster.shipit', 'harbormaster.shipit.modules'],
     include_package_data=True,
     url='https://github.com/j00bar/ansibleharbormaster',
     license='LGPLv3 (See LICENSE file for terms)',

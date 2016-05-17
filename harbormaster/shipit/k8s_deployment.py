@@ -61,6 +61,7 @@ class K8SDeployment(object):
                 target = link.split(':')[0]
             else:
                 target = link
+            # TODO - If the linked container has a port, ignore the link
             result.append(target)
         return result
 
@@ -78,27 +79,29 @@ class K8SDeployment(object):
             kind="DeploymentConfig",
             metadata=dict(
                 name=name,
+                labels=dict()
             ),
             spec=dict(
                 template=dict(
                     metadata=dict(
-                        labels=dict(
-                            app=service_names[0]
-                        )
+                        labels=dict()
                     ),
                     spec=dict(
                         containers=containers
                     )
                 ),
                 replicas=1,
-                selector=dict(
-                    name=service_names[0]
-                ),
+                selector=dict(),
                 strategy=dict(
                     type='Rolling'
                 )
             )
         )
+
+        for service_name in service_names:
+            template['metadata']['labels'][service_name] = 'yes'
+            template['spec']['template']['metadata']['labels'][service_name] = 'yes'
+            template['spec']['selector'][service_name] = 'yes'
 
         return template
 
@@ -111,19 +114,21 @@ class K8SDeployment(object):
         '''
 
         containers = self._services_to_containers(service_names, type="task")
+        name = "%s-%s" % (self.project_name, service_names[0])
 
         template = dict(
-            k8s_deployment=dict(
+            k8s_deployment=OrderedDict(
                 project_name=self.project_name,
-                service_name=service_names[0],
-                labels=dict(
-                    app=service_names[0]
-                ),
+                deployment_name=name,
+                labels=dict(),
                 containers=containers,
-                replicas=1,
-                strategy='Rolling'
+                selector=dict()
             )
         )
+
+        for service_name in service_names:
+            template['k8s_deployment']['labels'][service_name] = 'yes'
+            template['k8s_deployment']['selector'][service_name] = 'yes'
 
         return template
 
@@ -134,23 +139,29 @@ class K8SDeployment(object):
                 container = OrderedDict(name=service['name'])
                 for key, value in service.items():
                     if key == 'ports' and type == 'config':
-                        container['ports'] = self._get_container_ports(value)
-                    elif key == 'labels' and type == 'config':
+                        container['ports'] = self._get_config_ports(value)
+                    elif key=='ports' and type == 'task':
+                        container['ports'] = self._get_task_ports(value)
+                    elif key in ('labels', 'links'):
                         pass
-                    elif key == 'environment' and type == 'config':
-                        container['env'] = self._expand_env_vars(value)
+                    elif key == 'environment':
+                        expanded_vars = self._expand_env_vars(value)
+                        if type == 'config':
+                            container['env'] = expanded_vars
+                        else:
+                            container['env'] = self._env_vars_to_task(expanded_vars)
                     else:
                         container[key] = value
                 results.append(container)
         return results
 
     @staticmethod
-    def _get_container_ports(ports):
+    def _get_config_ports(ports):
         '''
         Convert docker ports to list of kube containerPort
         :param ports:
         :type ports: list
-        :return:
+        :return: list
         '''
         results = []
         for port in ports:
@@ -158,11 +169,39 @@ class K8SDeployment(object):
                 parts = port.split(':')
                 results.append(dict(containerPort=int(parts[1])))
             else:
-                results.append(port)
+                results.append(dict(containerPort=int(port)))
         return results
 
     @staticmethod
-    def _expand_env_vars(env_variables):
+    def _get_task_ports(ports):
+        '''
+        Convert docker ports to list of ports to expose to the pod
+        :param ports: list of compose style ports
+        :type ports: list
+        :return: list
+        '''
+        results = []
+        for port in ports:
+            if ':' in port:
+                parts = port.split(':')
+                results.append(int(parts[1]))
+            else:
+                results.append(int(port))
+        return results
+
+    @staticmethod
+    def _env_vars_to_task(env_vars):
+        '''
+        Turn list of vars into a dict for playbook task.
+        :param env_variables: list of dicts
+        :return: dict
+        '''
+        result = dict()
+        for var in env_vars:
+            result[var['name']] = var['value']
+        return result
+
+    def _expand_env_vars(self, env_variables):
         '''
         Turn container environment attribute into kube env dictionary of name/value pairs.
 
