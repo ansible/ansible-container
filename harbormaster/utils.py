@@ -132,7 +132,7 @@ DEFAULT_COMPOSE_UP_OPTIONS = {
 }
 
 def launch_docker_compose(base_path, temp_dir, verb, services=[], no_color=False,
-                          **context):
+                          extra_command_options=dict(), **context):
     version = compose_format_version(base_path)
     jinja_render_to_temp(('%s-docker-compose.j2.yml' if version == 2
                          else '%s-docker-compose-v1.j2.yml') % (verb,),
@@ -158,6 +158,7 @@ def launch_docker_compose(base_path, temp_dir, verb, services=[], no_color=False
     command_options[u'--no-build'] = True
     command_options[u'--no-color'] = no_color
     command_options[u'SERVICE'] = services
+    command_options.update(extra_command_options)
     os.environ['HARBORMASTER_BASE'] = os.path.realpath(base_path)
     project = project_from_options('.', options)
     command = main.TopLevelCommand(project)
@@ -256,3 +257,15 @@ def assert_initialized(base_path):
         os.path.join(base_path, 'harbormaster'))
     if not os.path.exists(harbormaster_dir) or not os.path.isdir(harbormaster_dir):
         raise HarbormasterNotInitializedException()
+
+def get_latest_image_for(project_name, host, client):
+    image_data = client.images(
+        '%s-%s' % (project_name, host,)
+    )
+    latest_image_data, = [datum for datum in image_data
+                          if '%s-%s:latest' % (project_name, host,) in
+                          datum['RepoTags']]
+    image_buildstamp = [tag for tag in latest_image_data['RepoTags']
+                        if not tag.endswith(':latest')][0].split(':')[-1]
+    image_id = latest_image_data['Id']
+    return image_id, image_buildstamp

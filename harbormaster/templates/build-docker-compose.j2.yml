@@ -20,12 +20,5 @@ services:
     tty: true
   {% for host in hosts %}
   {{ host }}:
-    environment:
-      - DOCKER_HOST
-      - DOCKER_TLS_VERIFY
-      - DOCKER_CERT_PATH=/docker-certs/
-    command: sh -c 'sleep 5 && docker wait harbormaster_harbormaster_1'
-    volumes:
-      - {{ which_docker }}:/usr/bin/docker
-      - $DOCKER_CERT_PATH:/docker-certs/
+    command: sh -c "while true; do sleep 1; done"
   {% endfor %}

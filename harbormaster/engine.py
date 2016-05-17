@@ -25,7 +25,8 @@ from .utils import (extract_hosts_from_harbormaster_compose,
                     which_docker,
                     extract_hosts_touched_by_playbook,
                     get_current_logged_in_user,
-                    assert_initialized)
+                    assert_initialized,
+                    get_latest_image_for)
 
 
 def cmdrun_init(base_path, **kwargs):
@@ -75,7 +76,8 @@ def build_buildcontainer_image(base_path):
                                                           tag='ansible-builder')]
 
 
-def cmdrun_build(base_path, recreate=True, **kwargs):
+def cmdrun_build(base_path, recreate=True, flatten=True, purge_last=True,
+                 **kwargs):
     assert_initialized(base_path)
     # To ensure version compatibility, we have to generate the kwargs ourselves
     client_kwargs = kwargs_from_env(assert_hostname=False)
@@ -93,7 +95,8 @@ def cmdrun_build(base_path, recreate=True, **kwargs):
                                                           harbormaster_img_id)
         launch_docker_compose(base_path, temp_dir, 'build',
                               which_docker=which_docker(),
-                              harbormaster_img_id=harbormaster_img_id)
+                              harbormaster_img_id=harbormaster_img_id,
+                              extra_command_options={'--abort-on-container-exit': True})
         build_container_info, = client.containers(
             filters={'name': 'harbormaster_harbormaster_1'},
             limit=1, all=True
@@ -117,11 +120,23 @@ def cmdrun_build(base_path, recreate=True, **kwargs):
                 filters={'name': 'harbormaster_%s_1' % host},
                 limit=1, all=True, quiet=True
             )
-            exported = client.export(container_id)
-            client.import_image_from_data(
-                exported.read(),
-                repository='%s-%s' % (project_name, host),
-                tag=version)
+            previous_image_id, previous_image_buildstamp = get_latest_image_for(
+                project_name, host, client
+            )
+            if flatten:
+                logger.info('Flattening image...')
+                exported = client.export(container_id)
+                client.import_image_from_data(
+                    exported.read(),
+                    repository='%s-%s' % (project_name, host),
+                    tag=version)
+            else:
+                logger.info('Committing image...')
+                client.commit(container_id,
+                              repository='%s-%s' % (project_name, host),
+                              tag=version,
+                              message='Built using Harbormaster'
+                              )
             image_id, = client.images(
                 '%s-%s:%s' % (project_name, host, version),
                 quiet=True
@@ -132,6 +147,9 @@ def cmdrun_build(base_path, recreate=True, **kwargs):
                        force=True)
             logger.info('Cleaning up %s build container...', host)
             client.remove_container(container_id)
+            if purge_last:
+                logger.info('Removing previous image...')
+                client.remove_image(previous_image_id)
         for host in set(extract_hosts_from_harbormaster_compose(base_path)) - set(touched_hosts):
             logger.info('Cleaning up %s build container...', host)
             container_id, = client.containers(
@@ -175,15 +193,8 @@ def cmdrun_push(base_path, username=None, password=None, url=None, **kwargs):
     project_name = os.path.basename(base_path).lower()
     for host in extract_hosts_touched_by_playbook(base_path,
                                                   harbormaster_img_id):
-        image_data = client.images(
-            '%s-%s' % (project_name, host,)
-        )
-        latest_image_data, = [datum for datum in image_data
-                              if '%s-%s:latest' % (project_name, host,) in
-                              datum['RepoTags']]
-        image_buildstamp = [tag for tag in latest_image_data['RepoTags']
-                            if not tag.endswith(':latest')][0].split(':')[-1]
-        client.tag(latest_image_data['Id'],
+        image_id, image_buildstamp = get_latest_image_for(project_name, host, client)
+        client.tag(image_id,
                    '%s/%s-%s' % (username, project_name, host),
                    tag=image_buildstamp)
         logger.info('Pushing %s-%s:%s...', project_name, host, image_buildstamp)

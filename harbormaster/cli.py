@@ -59,6 +59,16 @@ def subcmd_build_parser(subparser):
     subparser.add_argument('--recreate', action='store_true',
                            help=u'Recreate the build container image',
                            dest='recreate', default=False)
+    subparser.add_argument('--no-flatten', action='store_false',
+                           help=u'By default, Harbormaster will flatten your '
+                                u'build image into a single layer. With this '
+                                u'flag, it will preserve the history of your '
+                                u'base image.',
+                           dest='flatten', default=True)
+    subparser.add_argument('--no-purge-last', action='store_false',
+                           help=u'By default, Harbormaster will remove the '
+                                u'previously built image for your hosts. Disable '
+                                u'that with this flag.')
 
 def subcmd_run_parser(subparser):
     return
