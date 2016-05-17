@@ -20,7 +20,7 @@ from compose.cli.command import project_from_options
 from compose.cli import main
 from compose.cli.log_printer import LogPrinter, build_log_presenters
 
-from .exceptions import HarbormasterNotInitializedException
+from .exceptions import AnsibleContainerNotInitializedException
 
 # Don't try this at home, kids.
 
@@ -138,7 +138,7 @@ def launch_docker_compose(base_path, temp_dir, verb, services=[], no_color=False
                          else '%s-docker-compose-v1.j2.yml') % (verb,),
                          temp_dir,
                          'docker-compose.yml',
-                         hosts=extract_hosts_from_harbormaster_compose(
+                         hosts=extract_hosts_from_docker_compose(
                              base_path),
                          **context)
     options = DEFAULT_COMPOSE_OPTIONS.copy()
@@ -146,8 +146,8 @@ def launch_docker_compose(base_path, temp_dir, verb, services=[], no_color=False
         u'--file': [
             os.path.normpath(
                 os.path.join(base_path,
-                             'harbormaster',
-                             'harbormaster.yml')
+                             'ansible',
+                             'container.yml')
             ),
             os.path.join(temp_dir,
                          'docker-compose.yml')],
@@ -159,39 +159,39 @@ def launch_docker_compose(base_path, temp_dir, verb, services=[], no_color=False
     command_options[u'--no-color'] = no_color
     command_options[u'SERVICE'] = services
     command_options.update(extra_command_options)
-    os.environ['HARBORMASTER_BASE'] = os.path.realpath(base_path)
+    os.environ['ANSIBLE_CONTAINER_BASE'] = os.path.realpath(base_path)
     project = project_from_options('.', options)
     command = main.TopLevelCommand(project)
     command.up(command_options)
 
-def extract_hosts_from_harbormaster_compose(base_path):
+def extract_hosts_from_docker_compose(base_path):
     compose_data = parse_compose_file(base_path)
     if compose_format_version(base_path, compose_data) == 2:
         services = compose_data.pop('services', {})
     else:
         services = compose_data
-    return [key for key in services.keys() if key != 'harbormaster']
+    return [key for key in services.keys() if key != 'ansible-container']
 
-def extract_hosts_touched_by_playbook(base_path, harbormaster_img_id):
+def extract_hosts_touched_by_playbook(base_path, builder_img_id):
     compose_data = parse_compose_file(base_path)
     if compose_format_version(base_path, compose_data) == 2:
         services = compose_data.pop('services', {})
     else:
         services = compose_data
-    ansible_args = services.get('harbormaster', {}).get('command', [])
+    ansible_args = services.get('ansible-container', {}).get('command', [])
     if not ansible_args:
-        logger.warning('No ansible playbook arguments found in harbormaster.yml')
+        logger.warning('No ansible playbook arguments found in container.yml')
         return []
     with teed_stdout() as stdout, make_temp_dir() as temp_dir:
         launch_docker_compose(base_path, temp_dir, 'listhosts',
-                              services=['harbormaster'], no_color=True,
+                              services=['ansible-container'], no_color=True,
                               which_docker=which_docker(),
-                              harbormaster_img_id=harbormaster_img_id)
+                              builder_img_id=builder_img_id)
         # We need to cleverly extract the host names from the output...
         lines = stdout.getvalue().split('\r\n')
-        lines_minus_harbormaster_host = [line.rsplit('|', 1)[1] for line
+        lines_minus_builder_host = [line.rsplit('|', 1)[1] for line
                                          in lines if '|' in line]
-        host_lines = [line for line in lines_minus_harbormaster_host
+        host_lines = [line for line in lines_minus_builder_host
                       if line.startswith('       ')]
         hosts = list(set([line.strip() for line in host_lines]))
     return hosts
@@ -217,14 +217,14 @@ def parse_compose_file(base_path):
     compose_file = os.path.normpath(
         os.path.join(
             base_path,
-            'harbormaster',
-            'harbormaster.yml'
+            'ansible',
+            'container.yml'
         )
     )
     try:
         ifs = open(compose_file)
     except OSError:
-        raise HarbormasterNotInitializedException()
+        raise AnsibleContainerNotInitializedException()
     compose_data = yaml_load(ifs)
     ifs.close()
     return compose_data
@@ -253,10 +253,12 @@ def get_current_logged_in_user(registry_url):
         return username
 
 def assert_initialized(base_path):
-    harbormaster_dir = os.path.normpath(
-        os.path.join(base_path, 'harbormaster'))
-    if not os.path.exists(harbormaster_dir) or not os.path.isdir(harbormaster_dir):
-        raise HarbormasterNotInitializedException()
+    ansible_dir = os.path.normpath(
+        os.path.join(base_path, 'ansible'))
+    container_file = os.path.join(ansible_dir, 'container.yml')
+    if not os.path.exists(ansible_dir) or not os.path.isdir(ansible_dir) or \
+            not os.path.exists(container_file) or not os.path.isfile(container_file):
+        raise AnsibleContainerNotInitializedException()
 
 def get_latest_image_for(project_name, host, client):
     image_data = client.images(

@@ -1,4 +1,4 @@
-harbormaster:
+ansible-container:
   image: tianon/true
   command: /bin/false
 {% for host in hosts %}
