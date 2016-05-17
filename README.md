@@ -31,11 +31,18 @@ edit to suit your needs.
 
 ## To use Harbormaster
 
-1. `harbormaster build` - This will make your Harbormaster build container and
+1. `harbormaster init` - This will initialize your project for Harbormaster. If
+you are using somebody else's project already initialized for Harbormaster, you
+do not need to run this command.
+
+2. `harbormaster build` - This will make your Harbormaster build container and
 use Ansible to build the images for your other containers. By the end of this
 run, you will have flattened, tagged images in your local Docker engine.
 
-2. `harbormaster run` - This will run your non-`harbormaster` images as described
+3. `harbormaster run` - This will run your non-`harbormaster` images as described
 in your `harbormaster.yml` file.
+
+4. `harbormaster push` - This will push your non-`harbormaster` images to a
+registry of your choice.
 
 Feel free to see the `test` or `test-v1` projects as an examples.
