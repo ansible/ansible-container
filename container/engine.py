@@ -16,10 +16,10 @@ from docker.utils import kwargs_from_env
 from compose.config.config import load as config_load, find as config_find
 
 
-from .exceptions import (HarbormasterNotInitializedException,
-                         HarbormasterAlreadyInitializedException,
-                         HarbormasterNoAuthenticationProvided)
-from .utils import (extract_hosts_from_harbormaster_compose,
+from .exceptions import (AnsibleContainerNotInitializedException,
+                         AnsibleContainerAlreadyInitializedException,
+                         AnsibleContainerNoAuthenticationProvided)
+from .utils import (extract_hosts_from_docker_compose,
                     jinja_render_to_temp,
                     launch_docker_compose,
                     make_temp_dir,
@@ -30,21 +30,23 @@ from .utils import (extract_hosts_from_harbormaster_compose,
                     assert_initialized,
                     get_latest_image_for)
 
-from harbormaster.shipit.run import run_shipit
+from container.shipit.run import run_shipit
 
 
 def cmdrun_init(base_path, **kwargs):
-    harbormaster_dir = os.path.normpath(
-        os.path.join(base_path, 'harbormaster'))
-    if os.path.exists(harbormaster_dir):
-        raise HarbormasterAlreadyInitializedException()
-    os.mkdir('harbormaster')
-    template_dir = os.path.join(jinja_template_path(), 'harbormaster')
+    container_dir = os.path.normpath(
+        os.path.join(base_path, 'ansible'))
+    container_cfg = os.path.join(container_dir, 'container.yml')
+    if os.path.exists(container_cfg):
+        raise AnsibleContainerAlreadyInitializedException()
+    if not os.path.exists(container_dir):
+        os.mkdir(container_dir)
+    template_dir = os.path.join(jinja_template_path(), 'ansible')
     for tmpl_filename in os.listdir(template_dir):
-        jinja_render_to_temp('harbormaster/%s' % tmpl_filename,
-                             harbormaster_dir,
+        jinja_render_to_temp('ansible/%s' % tmpl_filename,
+                             container_dir,
                              tmpl_filename.replace('.j2', ''))
-    logger.info('Harbormaster initialized.')
+    logger.info('Ansible Container initialized.')
 
 def build_buildcontainer_image(base_path):
     assert_initialized(base_path)
@@ -57,27 +59,27 @@ def build_buildcontainer_image(base_path):
         tarball_file = open(tarball_path, 'wb')
         tarball = tarfile.TarFile(fileobj=tarball_file,
                                   mode='w')
-        harbormaster_dir = os.path.normpath(os.path.join(base_path,
-                                                         'harbormaster'))
+        container_dir = os.path.normpath(os.path.join(base_path,
+                                                      'ansible'))
         try:
-            tarball.add(harbormaster_dir, arcname='harbormaster')
+            tarball.add(container_dir, arcname='ansible')
         except OSError:
-            raise HarbormasterNotInitializedException()
+            raise AnsibleContainerNotInitializedException()
         jinja_render_to_temp('ansible-dockerfile.j2', temp_dir, 'Dockerfile')
         tarball.add(os.path.join(temp_dir, 'Dockerfile'),
                     arcname='Dockerfile')
         jinja_render_to_temp('hosts.j2', temp_dir, 'hosts',
-                             hosts=extract_hosts_from_harbormaster_compose(base_path))
+                             hosts=extract_hosts_from_docker_compose(base_path))
         tarball.add(os.path.join(temp_dir, 'hosts'), arcname='hosts')
         tarball.close()
         tarball_file = open(tarball_path, 'rb')
-        logger.info('Starting Docker build of Harbormaster image...')
+        logger.info('Starting Docker build of Ansible Container image...')
         return [streamline for streamline in client.build(fileobj=tarball_file,
                                                           rm=True,
                                                           custom_context=True,
                                                           pull=True,
                                                           forcerm=True,
-                                                          tag='ansible-builder')]
+                                                          tag='ansible-container-builder')]
 
 
 def cmdrun_build(base_path, recreate=True, flatten=True, purge_last=True,
@@ -86,32 +88,32 @@ def cmdrun_build(base_path, recreate=True, flatten=True, purge_last=True,
     # To ensure version compatibility, we have to generate the kwargs ourselves
     client_kwargs = kwargs_from_env(assert_hostname=False)
     client = docker.AutoVersionClient(**client_kwargs)
-    if recreate or not client.images(name='ansible-builder', quiet=True):
-        logger.info('(Re)building the Harbormaster image is necessary.')
+    if recreate or not client.images(name='ansible-container-builder', quiet=True):
+        logger.info('(Re)building the Ansible Container image is necessary.')
         build_output = build_buildcontainer_image(base_path)
         for line in build_output:
             logger.debug(line)
-    harbormaster_img_id = client.images(name='ansible-builder', quiet=True)[0]
-    logger.info('Harbormaster image has ID %s', harbormaster_img_id)
+    builder_img_id = client.images(name='ansible-container-builder', quiet=True)[0]
+    logger.info('Ansible Container image has ID %s', builder_img_id)
     with make_temp_dir() as temp_dir:
         logger.info('Starting Compose engine to build your images...')
         touched_hosts = extract_hosts_touched_by_playbook(base_path,
-                                                          harbormaster_img_id)
+                                                          builder_img_id)
         launch_docker_compose(base_path, temp_dir, 'build',
                               which_docker=which_docker(),
-                              harbormaster_img_id=harbormaster_img_id,
+                              builder_img_id=builder_img_id,
                               extra_command_options={'--abort-on-container-exit': True})
         build_container_info, = client.containers(
-            filters={'name': 'harbormaster_harbormaster_1'},
+            filters={'name': 'ansible_ansible-container_1'},
             limit=1, all=True
         )
-        harbormaster_container_id = build_container_info['Id']
+        builder_container_id = build_container_info['Id']
         # Not the best way to test for success or failure, but it works.
         exit_status = build_container_info['Status']
         if '(0)' not in exit_status:
             logger.error('Ansible playbook run failed.')
-            logger.info('Cleaning up harbormaster build container...')
-            client.remove_container(harbormaster_container_id)
+            logger.info('Cleaning up Ansible Container builder...')
+            client.remove_container(builder_container_id)
             return
         # Cool - now export those containers as images
         # FIXME: support more-than-one-instance
@@ -121,7 +123,7 @@ def cmdrun_build(base_path, recreate=True, flatten=True, purge_last=True,
         logger.info('Exporting built containers as images...')
         for host in touched_hosts:
             container_id, = client.containers(
-                filters={'name': 'harbormaster_%s_1' % host},
+                filters={'name': 'ansible_%s_1' % host},
                 limit=1, all=True, quiet=True
             )
             previous_image_id, previous_image_buildstamp = get_latest_image_for(
@@ -139,7 +141,7 @@ def cmdrun_build(base_path, recreate=True, flatten=True, purge_last=True,
                 client.commit(container_id,
                               repository='%s-%s' % (project_name, host),
                               tag=version,
-                              message='Built using Harbormaster'
+                              message='Built using Ansible Container'
                               )
             image_id, = client.images(
                 '%s-%s:%s' % (project_name, host, version),
@@ -154,15 +156,15 @@ def cmdrun_build(base_path, recreate=True, flatten=True, purge_last=True,
             if purge_last and previous_image_id:
                 logger.info('Removing previous image...')
                 client.remove_image(previous_image_id)
-        for host in set(extract_hosts_from_harbormaster_compose(base_path)) - set(touched_hosts):
+        for host in set(extract_hosts_from_docker_compose(base_path)) - set(touched_hosts):
             logger.info('Cleaning up %s build container...', host)
             container_id, = client.containers(
-                filters={'name': 'harbormaster_%s_1' % host},
+                filters={'name': 'ansible_%s_1' % host},
                 limit=1, all=True, quiet=True
             )
             client.remove_container(container_id)
-        logger.info('Cleaning up harbormaster build container...')
-        client.remove_container(harbormaster_container_id)
+        logger.info('Cleaning up Ansible Container builder...')
+        client.remove_container(builder_container_id)
 
 def cmdrun_run(base_path, **kwargs):
     assert_initialized(base_path)
@@ -170,7 +172,7 @@ def cmdrun_run(base_path, **kwargs):
         project_name = os.path.basename(base_path).lower()
         logger.debug('project_name is %s' % project_name)
         launch_docker_compose(base_path, temp_dir, 'run',
-                              services=extract_hosts_from_harbormaster_compose(base_path),
+                              services=extract_hosts_from_docker_compose(base_path),
                               project_name=project_name)
 
 DEFAULT_DOCKER_REGISTRY_URL = 'https://index.docker.io/v1/'
@@ -191,13 +193,13 @@ def cmdrun_push(base_path, username=None, password=None, url=None, **kwargs):
         client.login(username, password, registry=url)
     username = get_current_logged_in_user(url)
     if not username:
-        raise HarbormasterNoAuthenticationProvided(u'Please provide login '
-                                                   u'credentials for this registry.')
+        raise AnsibleContainerNoAuthenticationProvided(u'Please provide login '
+                                                       u'credentials for this registry.')
     logger.info('Pushing to repository for user %s', username)
-    harbormaster_img_id = client.images(name='ansible-builder', quiet=True)[0]
+    builder_img_id = client.images(name='ansible-container-builder', quiet=True)[0]
     project_name = os.path.basename(base_path).lower()
     for host in extract_hosts_touched_by_playbook(base_path,
-                                                  harbormaster_img_id):
+                                                  builder_img_id):
         image_id, image_buildstamp = get_latest_image_for(project_name, host, client)
         client.tag(image_id,
                    '%s/%s-%s' % (username, project_name, host),

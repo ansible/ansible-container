@@ -1,6 +1,6 @@
 version: "2"
 services:
-  harbormaster:
+  ansible-container:
     command:
       - sample.yml
   host1:

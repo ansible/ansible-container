@@ -1,4 +1,4 @@
-harbormaster:
+ansible-container:
   command:
     - sample.yml
 host1:

@@ -42,8 +42,8 @@ import logging
 import logging.config
 
 from ansible.module_utils.basic import *
-from harbormaster.shipit.k8s_api import K8sApi
-from harbormaster.shipit.exceptions import ShipItException
+from .k8s_api import K8sApi
+from .shipit.exceptions import ShipItException
 
 K8_TEMPLATE_DIR = 'k8s_templates'
 
@@ -62,7 +62,7 @@ logging.config.dictConfig(
             'file': {
                 'level': 'DEBUG',
                 'class': 'logging.FileHandler',
-                'filename': 'harbormaster.log'
+                'filename': 'ansible-container.log'
             }
         },
         'loggers': {
@@ -70,7 +70,7 @@ logging.config.dictConfig(
                 'handlers': ['file'],
                 'level': 'DEBUG',
             },
-            'harbormaster': {
+            'container': {
                 'handlers': ['file'],
                 'level': 'DEBUG',
             },

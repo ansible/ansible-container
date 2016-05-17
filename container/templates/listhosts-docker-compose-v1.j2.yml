@@ -1,6 +1,6 @@
-harbormaster:
-  image: "{{ harbormaster_img_id }}"
-  entrypoint: ansible-playbook -i /etc/ansible/inventory/hosts -c docker
+ansible-container:
+  image: "{{ builder_img_id }}"
+  entrypoint: ansible-playbook -i /etc/ansible/inventory/hosts -c docker --list-hosts
   environment:
     - DOCKER_HOST
     - DOCKER_TLS_VERIFY
@@ -9,8 +9,8 @@ harbormaster:
   volumes:
     - {{ which_docker }}:/usr/bin/docker
     - $DOCKER_CERT_PATH:/docker-certs/
-    - $HARBORMASTER_BASE/harbormaster:/harbormaster/
-  working_dir: /harbormaster/
+    - $ANSIBLE_CONTAINER_BASE/ansible:/ansible/
+  working_dir: /ansible/
   stdin_open: true
   tty: true
 {% for host in hosts %}

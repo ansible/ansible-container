@@ -1,0 +1,3 @@
+[docker]
+{% for host in hosts %}{{ host }} ansible_host=ansible_{{ host }}_1
+{% endfor %}

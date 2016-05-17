@@ -23,7 +23,7 @@ LOGGING = {
             },
         },
         'loggers': {
-            'harbormaster': {
+            'container': {
                 'handlers': ['console'],
                 'level': 'INFO',
                 'propagate': False
@@ -47,9 +47,9 @@ LOGGING = {
 
 
 AVAILABLE_COMMANDS = {'help': 'Display this help message',
-                      'init': 'Initialize a new harbormaster project',
-                      'build': 'Build new images based on harbormaster.yml',
-                      'run': 'Run and orchestrate built images based on harbormaster.yml',
+                      'init': 'Initialize a new Ansible Container project',
+                      'build': 'Build new images based on ansible/container.yml',
+                      'run': 'Run and orchestrate built images based on container.yml',
                       'push': 'Push your built images to a Docker Hub compatible registry',
                       'shipit': 'Deploy the application to OpenShift'}
 
@@ -61,13 +61,13 @@ def subcmd_build_parser(subparser):
                            help=u'Recreate the build container image',
                            dest='recreate', default=False)
     subparser.add_argument('--no-flatten', action='store_false',
-                           help=u'By default, Harbormaster will flatten your '
+                           help=u'By default, Ansible Container will flatten your '
                                 u'build image into a single layer. With this '
                                 u'flag, it will preserve the history of your '
                                 u'base image.',
                            dest='flatten', default=True)
     subparser.add_argument('--no-purge-last', action='store_false',
-                           help=u'By default, Harbormaster will remove the '
+                           help=u'By default, Ansible Container will remove the '
                                 u'previously built image for your hosts. Disable '
                                 u'that with this flag.')
 
@@ -111,19 +111,20 @@ def commandline():
         parser.print_help()
         sys.exit(0)
     if args.debug:
-        LOGGING['loggers']['harbormaster']['level'] = 'DEBUG'
+        LOGGING['loggers']['container']['level'] = 'DEBUG'
     config.dictConfig(LOGGING)
 
     try:
         getattr(engine, u'cmdrun_{}'.format(args.subcommand))(os.getcwd(),
                                                               **vars(args))
-    except exceptions.HarbormasterAlreadyInitializedException, e:
-        logger.error('Harbormaster is already initialized')
+    except exceptions.AnsibleContainerAlreadyInitializedException, e:
+        logger.error('Ansible Container is already initialized')
         sys.exit(1)
-    except exceptions.HarbormasterNotInitializedException, e:
-        logger.error('No harbormaster project data found - do you need to run "harbormaster init"?')
+    except exceptions.AnsibleContainerNotInitializedException, e:
+        logger.error('No Ansible Container project data found - do you need to '
+                     'run "ansible-container init"?')
         sys.exit(1)
-    except exceptions.HarbormasterNoAuthenticationProvided, e:
+    except exceptions.AnsibleContainerNoAuthenticationProvided, e:
         logger.error(unicode(e))
         sys.exit(1)
     except Exception, e:
