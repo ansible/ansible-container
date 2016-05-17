@@ -13,7 +13,7 @@ import json
 
 import docker
 from docker.utils import kwargs_from_env
-from compose.config.config import load as config.load, find as config.find
+from compose.config.config import load as config_load, find as config_find
 
 
 from .exceptions import (HarbormasterNotInitializedException,
@@ -207,7 +207,8 @@ def cmdrun_push(base_path, username=None, password=None, url=None, **kwargs):
                 logger.debug(line)
     logger.info('Done!')
 
-def cmdrun_shipit(base_path):
+
+def cmdrun_shipit(base_path, **kwargs):
     project_name = os.path.basename(base_path).lower()
     config = config_load(config_find('.', None, dict()))
     run_shipit(config=config, project_name=project_name, project_dir='.',)
