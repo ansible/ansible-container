@@ -155,7 +155,7 @@ def cmdrun_build(base_path, recreate=True, flatten=True, purge_last=True,
             client.remove_container(container_id)
             if purge_last and previous_image_id:
                 logger.info('Removing previous image...')
-                client.remove_image(previous_image_id)
+                client.remove_image(previous_image_id, force=True)
         for host in set(extract_hosts_from_docker_compose(base_path)) - set(touched_hosts):
             logger.info('Cleaning up %s build container...', host)
             container_id, = client.containers(
