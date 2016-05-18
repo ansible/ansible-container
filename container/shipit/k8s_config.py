@@ -10,8 +10,9 @@ from .constants import SHIPIT_CONFIG_PATH
 from .k8s_service import K8SService
 from .k8s_deployment import K8SDeployment
 from .k8s_route import K8SRoute
+from .exceptions import ShipItException
 
-logger = logging.getLogger('container')
+logger = logging.getLogger(__name__)
 
 
 class K8SConfig(object):
