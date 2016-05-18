@@ -177,20 +177,22 @@ def cmdrun_run(base_path, **kwargs):
 
 DEFAULT_DOCKER_REGISTRY_URL = 'https://index.docker.io/v1/'
 
-def cmdrun_push(base_path, username=None, password=None, url=None, **kwargs):
+def cmdrun_push(base_path, username=None, password=None, email=None, url=None,
+                **kwargs):
     assert_initialized(base_path)
     # To ensure version compatibility, we have to generate the kwargs ourselves
     client_kwargs = kwargs_from_env(assert_hostname=False)
     client = docker.AutoVersionClient(**client_kwargs)
     if not url:
         url = DEFAULT_DOCKER_REGISTRY_URL
-    if username:
+    if username and email:
         # We assume if no username was given, the docker config file suffices
         while not password:
             password = getpass.getpass(u'Enter password for %s at %s: ' % (
                 username, url
             ))
-        client.login(username, password, registry=url)
+        client.login(username=username, password=password, email=email,
+                     registry=url)
     username = get_current_logged_in_user(url)
     if not username:
         raise AnsibleContainerNoAuthenticationProvided(u'Please provide login '

@@ -83,6 +83,11 @@ def subcmd_push_parser(subparser):
                                  u'it is expected that your ~/.docker/config.json '
                                  u'contains your login information.'),
                            dest='username', default=None)
+    subparser.add_argument('--email', action='store',
+                           help=(u'Email to log into the registry. If not provided, '
+                                 u'it is expected that your ~/.docker/config.json '
+                                 u'contains your login information.'),
+                           dest='email', default=None)
     subparser.add_argument('--password', action='store',
                            help=(u'Password to log into registry. If not provided, '
                                  u'you will be prompted for it.'),
