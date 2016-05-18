@@ -93,7 +93,9 @@ def subcmd_push_parser(subparser):
                            dest='url', default=None)
 
 def subcmd_shipit_parser(subparser):
-    return
+    subparser.add_argument('--save-config', action='store_true',
+                           help=(u'Generate and save the Kubernetes configuration files.'),
+                           dest='save_config', default=False)
 
 def commandline():
     parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '

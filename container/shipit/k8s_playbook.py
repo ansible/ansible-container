@@ -11,6 +11,7 @@ import re
 from .constants import SHIPIT_PATH, SHIPIT_PLAYBOOK_NAME
 from .k8s_service import K8SService
 from .k8s_deployment import K8SDeployment
+from .k8s_route import K8SRoute
 from .exceptions import ShipItException
 from collections import OrderedDict
 
@@ -58,6 +59,9 @@ class K8SPlaybook(object):
         services = K8SService(config=self.config, project_name=self.project_name).get_task()
         tasks += services
 
+        routes = K8SRoute(config=self.config, project_name=self.project_name).get_task()
+        tasks += routes
+
         deployments = K8SDeployment(config=self.config, project_name=self.project_name).get_task()
         tasks += deployments
 
@@ -81,12 +85,8 @@ class K8SPlaybook(object):
         '''
 
         deploy_path = os.path.join(self.project_dir, SHIPIT_PATH)
-        #role_path = os.path.join(self.project_dir, 'roles', self.project_name)
-        #tasks_path = os.path.join(role_path, 'tasks')
-        #vars_path = os.path.join(role_path, 'vars')
 
         self.create_path(deploy_path)
-        #self.create_path(vars_path)
 
         yaml.SafeDumper.add_representer(OrderedDict,
                                         lambda dumper, value: represent_odict(dumper, u'tag:yaml.org,2002:map', value))
@@ -132,6 +132,8 @@ class K8SPlaybook(object):
             config.set('defaults', 'library', module_path)
         if not config.has_option('defaults', 'inventory'):
             config.set('defaults', 'inventory', hosts_path)
+        if not config.has_option('defaults', 'nocows'):
+            config.set('defaults', 'nocows', 1)
         with open(config_path, 'w') as f:
             config.write(f)
 
@@ -150,7 +152,6 @@ class K8SPlaybook(object):
             pass
         except Exception as exc:
             raise ShipItException("Error creating %s - %s" % (path, str(exc)))
-
 
 
 

@@ -26,20 +26,25 @@ class K8SDeployment(object):
     def _get_template_or_task(self, request_type="task", service_names=None):
         templates = []
         resolved = []
-        for service in self.config.services:
-            # group linked services
-            if not service_names or service['name'] in service_names:
-                if service.get('links'):
-                    linked_containers = self._resolve_links(service.get('links'))
-                    logger.debug("linked containers: %s" % '.'.join(linked_containers))
-                    linked_containers.append(service['name'])
-                    logger.debug("linked containers: %s" % '.'.join(linked_containers))
-                    resolved += linked_containers
-                    if request_type == 'task':
-                        new_template = self._create_task(linked_containers)
-                    elif request_type == 'config':
-                        new_template = self._create_template(linked_containers)
-                    templates.append(new_template)
+
+        #
+        # Grouping linked containers in the same pod is not working - that is communicating via 'localhost'
+        # is not working.
+        #
+        # for service in self.config.services:
+        #     # group linked services
+        #     if not service_names or service['name'] in service_names:
+        #         if service.get('links'):
+        #             linked_containers = self._resolve_links(service.get('links'))
+        #             logger.debug("linked containers: %s" % '.'.join(linked_containers))
+        #             linked_containers.append(service['name'])
+        #             logger.debug("linked containers: %s" % '.'.join(linked_containers))
+        #             resolved += linked_containers
+        #             if request_type == 'task':
+        #                 new_template = self._create_task(linked_containers)
+        #             elif request_type == 'config':
+        #                 new_template = self._create_template(linked_containers)
+        #             templates.append(new_template)
 
         for service in self.config.services:
             # add any non-linked services
@@ -127,8 +132,8 @@ class K8SDeployment(object):
         )
 
         for service_name in service_names:
-            template['k8s_deployment']['labels'][service_name] = 'yes'
-            template['k8s_deployment']['selector'][service_name] = 'yes'
+            template['k8s_deployment']['labels'][service_name] = service_name
+            template['k8s_deployment']['selector'][service_name] = service_name
 
         return template
 
@@ -152,6 +157,15 @@ class K8SDeployment(object):
                             container['env'] = self._env_vars_to_task(expanded_vars)
                     else:
                         container[key] = value
+
+                if service.get('labels'):
+                    # check for k8s_publish_port
+                    for key, value in service['labels'].items():
+                        if key == 'k8s_publish_port':
+                            if not container.get('ports'):
+                                container['ports'] = []
+                            container['ports'].append(int(value))
+
                 results.append(container)
         return results
 
@@ -203,7 +217,7 @@ class K8SDeployment(object):
 
     def _expand_env_vars(self, env_variables):
         '''
-        Turn container environment attribute into kube env dictionary of name/value pairs.
+        Turn containier environment attribute into kube env dictionary of name/value pairs.
 
         :param env_variables: container env attribute value
         :type env_variables: dict or list
@@ -233,10 +247,12 @@ class K8SDeployment(object):
                     results.append(r(parts[0], parts[1]))
         return results
 
-    @staticmethod
-    def _resolve_resource(path):
+    def _resolve_resource(self, path):
         result = path
         if '/' in path:
+            # TODO - support other resource types?
             res_type, res_name = path.split('/')
-            result = unicode("{{ %s_%s }} " % (res_type, res_name))
+            if res_type == 'service':
+                parts = res_name.split(':')
+                result = unicode("{{ %s_service.spec.clusterIP }}:%s" % (parts[0].replace('-', '_'), parts[1]))
         return result
