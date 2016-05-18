@@ -7,8 +7,8 @@ instead of SSH.
 
 ## Why? Why not just use standard Docker tools?
 
-1. I hate `Dockerfile` with a passion. It does everything wrong that Ansible
-does right. We're past the point where we should be managing build processes
+1. `Dockerfile` does wrong many of the things Ansible does right. 
+We're well past the point where we should be managing build processes
 with manually maintained series of shell scripts. That's why we wrote Ansible
 in the first place.
 2. Ansible Container permits orchestration even during the build process, whereas
