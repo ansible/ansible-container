@@ -35,10 +35,11 @@ edit to suit your needs.
 use Ansible to build the images for your other containers. By the end of this
 run, you will have flattened, tagged images in your local Docker engine.
 
-2. `ansible-container run` - This will run your non-`ansible-container` images as described
-in your `container.yml` file.
+2. `ansible-container run` - This will orchestrate running your images as described
+in your `container.yml` file, using the Ansible-Container-built images instead of
+the base images.
 
-3. `ansible-container push` - This will push your non-`ansible-container` images to a
+3. `ansible-container push` - This will push your Ansible-Container-built images to a
 registry of your choice.
 
 Feel free to see the `test` or `test-v1` projects as an examples.
