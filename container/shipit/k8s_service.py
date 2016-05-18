@@ -30,6 +30,13 @@ class K8SService(object):
                         templates.append(self._create_task(service))
                     elif request_type=="config":
                         templates.append(self._create_template(service))
+                elif service.get('labels'):
+                    for key, value in service['labels'].items():
+                        if key == 'k8s_publish_port':
+                            if request_type == "task":
+                                templates.append(self._create_task(service))
+                            elif request_type=="config":
+                                templates.append(self._create_template(service))
 
         return templates
 
@@ -56,8 +63,15 @@ class K8SService(object):
 
         labels = self._get_labels(service)
         ports = self._get_ports(service)
-
         name = "%s-%s" % (self.project_name, service['name'])
+
+        # Add port names. Otherwise, any routes mapped to the service won't work.
+        count = 0
+        for port in ports:
+            if not port.get('name'):
+                port['name'] = "port%s" % count
+                count += 1
+
         template = dict(
             apiVersion="v1",
             kind="Service",
@@ -73,7 +87,7 @@ class K8SService(object):
 
         template['spec']['selector'][service['name']] = 'yes'
 
-        if labels.get('service_type') == 'loadbalancer':
+        if self._get_load_balancer(service):
             template['spec']['type'] = 'LoadBalancer'
 
         return template
@@ -100,42 +114,54 @@ class K8SService(object):
             )
         )
 
-        if labels.get('service_type') == 'loadbalancer':
+        if self._get_load_balancer(service):
             template['k8s_service']['loadbalancer'] = True
 
-        template['k8s_service']['selector'][service['name']] = 'yes'
+        template['k8s_service']['selector'][service['name']] = service['name']
 
         return template
 
     @staticmethod
-    def _get_labels(service):
-        other_labels = dict()
-        other_labels[service['name']] = 'yes'
+    def _get_load_balancer(service):
+        result = None
         if service.get('labels'):
             labels = service['labels']
-            labels.update(other_labels)
-        else:
-            labels = other_labels
+            if labels.get('k8s_service_type') == 'loadbalancer':
+                result = labels['k8s_service_type']
+        return result
 
-        for key, value in labels.items():
+    @staticmethod
+    def _get_labels(service):
+        result = dict()
+        result[service['name']] = service['name']
+        if service.get('labels'):
+            labels = service['labels']
+            for key, value in labels.items():
+                if 'k8s_' not in key:
+                    result[key] = value
+
+        for key, value in result.items():
             if not isinstance(value, str):
-                labels[key] = str(value)
-        return labels
+                result[key] = str(value)
+        return result
 
     @staticmethod
     def _get_ports(service):
-        #TODO - Add UDP support. Don't assume all ports are TCP.
+        # TODO - handle port ranges
         ports = []
         labels = service.get('labels')
-        if labels and labels.get('service_port'):
-            parts = labels.get('service_port').split(':')
-            ports.append(dict(port=int(parts[0]), targetPort=int(parts[1]), protocol='TCP'))
-            labels.pop('service_port')
+        if labels and labels.get('k8s_publish_port'):
+            pub_port = labels['k8s_publish_port']
+            if isinstance(pub_port, str) and ':' in pub_port:
+                parts = pub_port.split(':')
+                ports.append(dict(port=int(parts[0]), targetPort=int(parts[1])))
+            else:
+                ports.append(dict(port=int(pub_port), targetPort=int(pub_port)))
         else:
             for port in service['ports']:
-                if ':' in port:
+                if isinstance(port, str) and ':' in port:
                     parts = port.split(':')
-                    ports.append(dict(port=int(parts[0]), targetPort=int(parts[1]), protocol='TCP'))
+                    ports.append(dict(port=int(parts[0]), targetPort=int(parts[1])))
                 else:
-                    ports.append(dict(port=int(port), targetPort=int(port), protocol='TCP'))
+                    ports.append(dict(port=int(port), targetPort=int(port)))
         return ports

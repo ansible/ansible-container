@@ -42,15 +42,12 @@ import logging
 import logging.config
 
 from ansible.module_utils.basic import *
-from .k8s_api import K8sApi
-from .shipit.exceptions import ShipItException
-
-K8_TEMPLATE_DIR = 'k8s_templates'
-
+from container.shipit.k8s_api import K8sApi
+from container.shipit.exceptions import ShipItException
 
 logger = logging.getLogger('k8s_deployment')
 
-logging.config.dictConfig(
+LOGGING = (
     {
         'version': 1,
         'disable_existing_loggers': True,
@@ -68,11 +65,11 @@ logging.config.dictConfig(
         'loggers': {
             'k8s_deployment': {
                 'handlers': ['file'],
-                'level': 'DEBUG',
+                'level': 'INFO',
             },
             'container': {
                 'handlers': ['file'],
-                'level': 'DEBUG',
+                'level': 'INFO',
             },
             'compose': {
                 'handlers': [],
@@ -86,7 +83,7 @@ logging.config.dictConfig(
     }
 )
 
-class K8sDeploymentManager(AnsibleModule):
+class K8SDeploymentManager(AnsibleModule):
 
     def __init__(self):
 
@@ -101,10 +98,11 @@ class K8sDeploymentManager(AnsibleModule):
             replicas=dict(type='int', default=1),
             containers=dict(type='list'),
             strategy=dict(type='str', default='Rolling', choices=['Recreate', 'Rolling']),
-            cli=dict(type='str', choices=['kubectl', 'oc'], default='oc')
+            cli=dict(type='str', choices=['kubectl', 'oc'], default='oc'),
+            debug=dict(type='bool', default=False)
         )
 
-        super(K8sDeploymentManager, self).__init__(self.arg_spec,
+        super(K8SDeploymentManager, self).__init__(self.arg_spec,
                                                    supports_check_mode=True)
 
         self.project_name = None
@@ -120,11 +118,17 @@ class K8sDeploymentManager(AnsibleModule):
         self.recreate = None
         self.cli = None
         self.api = None
+        self.debug = None
 
     def exec_module(self):
 
         for key in self.arg_spec:
             setattr(self, key, self.params.get(key))
+
+        if self.debug:
+            LOGGING['loggers']['container']['level'] = 'DEBUG'
+            LOGGING['loggers']['k8s_deployment']['level'] = 'DEBUG'
+        logging.config.dictConfig(LOGGING)
 
         self.api = K8sApi(target=self.cli)
 
@@ -133,7 +137,10 @@ class K8sDeploymentManager(AnsibleModule):
         deployments = dict()
         results = dict()
 
-        project_switch = self.api.set_project(self.project_name)
+        try:
+            project_switch = self.api.set_project(self.project_name)
+        except ShipItException as exc:
+            self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
         if not project_switch:
             actions.append("Create project %s" % self.project_name)
             if not self.check_mode:
@@ -141,6 +148,7 @@ class K8sDeploymentManager(AnsibleModule):
                     self.api.create_project(self.project_name)
                 except ShipItException as exc:
                     self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+
         if self.state == 'present':
             deployment = self.api.get_resource('dc', self.deployment_name)
             if not deployment:
@@ -177,7 +185,7 @@ class K8sDeploymentManager(AnsibleModule):
                     except ShipItException as exc:
                         self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
 
-            deployments[self.deployment_name] = self.api.get_resource('dc', self.deployment_name)
+            deployments[self.deployment_name.replace('-', '_') + '_deployment'] = self.api.get_resource('dc', self.deployment_name)
         elif self.state == 'absent':
             if self.api.get_resource('deployment', self.deployment_name):
                 changed = True
@@ -231,8 +239,7 @@ class K8sDeploymentManager(AnsibleModule):
 
         return template
 
-    @staticmethod
-    def _env_to_list(env_variables):
+    def _env_to_list(self, env_variables):
         result = []
         for name, value in env_variables.items():
             result.append(dict(
@@ -248,9 +255,8 @@ class K8sDeploymentManager(AnsibleModule):
             result.append(dict(containerPort=port))
         return result
 
-
 def main():
-    manager = K8sDeploymentManager()
+    manager = K8SDeploymentManager()
     results = manager.exec_module()
     manager.exit_json(**results)
 
