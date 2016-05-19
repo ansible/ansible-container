@@ -44,7 +44,7 @@ import logging.config
 from container.shipit.k8s_api import K8sApi
 
 from ansible.module_utils.basic import *
-from container.shipit.openshift.exceptions import ShipItException
+from container.exceptions import AnsibleContainerShipItException
 
 logger = logging.getLogger('k8s_route')
 
@@ -136,7 +136,7 @@ class K8SRouteManager(AnsibleModule):
 
         try:
             project_switch = self.api.set_project(self.project_name)
-        except ShipItException as exc:
+        except AnsibleContainerShipItException as exc:
             self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
 
         if not project_switch:
@@ -144,7 +144,7 @@ class K8SRouteManager(AnsibleModule):
             if not self.check_mode:
                 try:
                     self.api.create_project(self.project_name)
-                except ShipItException as exc:
+                except AnsibleContainerShipItException as exc:
                     self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
 
         if self.state == 'present':

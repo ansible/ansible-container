@@ -10,7 +10,7 @@ from .constants import SHIPIT_CONFIG_PATH
 from .k8s_service import K8SService
 from .k8s_deployment import K8SDeployment
 from .k8s_route import K8SRoute
-from .exceptions import ShipItException
+from container.exceptions import AnsibleContainerShipItException
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class K8SConfig(object):
             # ignore if path already exists
             pass
         except Exception as exc:
-            raise ShipItException("Error creating %s - %s" % (path, str(exc)))
+            raise AnsibleContainerShipItException("Error creating %s - %s" % (path, str(exc)))
 
 
 

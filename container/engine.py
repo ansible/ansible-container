@@ -10,6 +10,7 @@ import tarfile
 import datetime
 import getpass
 import json
+import importlib
 
 import docker
 from docker.utils import kwargs_from_env
@@ -224,12 +225,21 @@ def cmdrun_push(base_path, username=None, password=None, email=None, url=None,
     logger.info('Done!')
 
 
-def cmdrun_shipit(base_path, **kwargs):
+def cmdrun_shipit(base_path, engine='openshift', **kwargs):
+    try:
+        engine_module = importlib.import_module('.shipit.%s.run' % engine)
+        engine_cls = getattr(engine_module, 'ShipItModule')
+    except ImportError:
+        raise ImportError('No shipit module for %s found.' % engine)
+    else:
+        engine_obj = engine_cls(base_path)
+
     logger.debug("Running shipit")
     project_name = os.path.basename(base_path).lower()
     logger.debug('project_name is %s' % project_name)
-    config = config_load(config_find('.', None, dict()))
+    config = config_load(config_find(base_path, None, dict()))
     logger.debug('config loaded.')
     create_templates = kwargs.pop('save_config')
     logger.debug('create_templates: %s' % create_templates)
-    run_shipit(config=config, project_name=project_name, project_dir='.', create_templates=create_templates)
+    engine_obj.run(config=config, project_name=project_name,
+                   project_dir=base_path, create_templates=create_templates)

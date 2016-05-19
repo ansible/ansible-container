@@ -44,7 +44,7 @@ import logging.config
 from container.shipit.k8s_api import K8sApi
 
 from ansible.module_utils.basic import *
-from container.shipit.openshift.exceptions import ShipItException
+from container.exceptions import AnsibleContainerShipItException
 
 logger = logging.getLogger('k8s_deployment')
 
@@ -140,14 +140,14 @@ class K8SDeploymentManager(AnsibleModule):
 
         try:
             project_switch = self.api.set_project(self.project_name)
-        except ShipItException as exc:
+        except AnsibleContainerShipItException as exc:
             self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
         if not project_switch:
             actions.append("Create project %s" % self.project_name)
             if not self.check_mode:
                 try:
                     self.api.create_project(self.project_name)
-                except ShipItException as exc:
+                except AnsibleContainerShipItException as exc:
                     self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
 
         if self.state == 'present':
@@ -159,7 +159,7 @@ class K8SDeploymentManager(AnsibleModule):
                 if not self.check_mode:
                     try:
                         self.api.create_from_template(template=template)
-                    except ShipItException as exc:
+                    except AnsibleContainerShipItException as exc:
                         self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
             elif deployment and self.recreate:
                 actions.append("Delete deployment %s" % self.deployment_name)
@@ -169,7 +169,7 @@ class K8SDeploymentManager(AnsibleModule):
                     try:
                         self.api.delete_resource('dc', self.deployment_name)
                         self.api.create_from_template(template=template)
-                    except ShipItException as exc:
+                    except AnsibleContainerShipItException as exc:
                         self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
             elif deployment and self.replace:
                 template = self._create_template()
@@ -183,7 +183,7 @@ class K8SDeploymentManager(AnsibleModule):
                 if not self.check_mode:
                     try:
                         self.api.replace_from_template(template=template)
-                    except ShipItException as exc:
+                    except AnsibleContainerShipItException as exc:
                         self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
 
             deployments[self.deployment_name.replace('-', '_') + '_deployment'] = self.api.get_resource('dc', self.deployment_name)
@@ -194,7 +194,7 @@ class K8SDeploymentManager(AnsibleModule):
                 if self.check_mode:
                     try:
                         self.api.delete_resource('deployment', self.deployment_name)
-                    except ShipItException as exc:
+                    except AnsibleContainerShipItException as exc:
                         self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
         results['changed'] = changed
         if self.check_mode:

@@ -26,8 +26,7 @@ import pipes
 import json
 import select
 
-from .exceptions import ShipItException
-
+from container.exceptions import AnsibleContainerShipItException
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +52,7 @@ class K8sApi(object):
         try:
             os.chdir(os.path.expanduser(path))
         except Exception as exc:
-            raise ShipItException("Failed to access %s - %s" % (path, str(exc)))
+            raise AnsibleContainerShipItException("Failed to access %s - %s" % (path, str(exc)))
         
         project_path = os.getcwd()
         name = os.path.basename(project_path)
@@ -114,14 +113,14 @@ class K8sApi(object):
                 args = args.encode('utf-8')
             args = shlex.split(args)
         else:
-            raise ShipItException("Argument 'args' to run_command must be list or string")
+            raise AnsibleContainerShipItException("Argument 'args' to run_command must be list or string")
 
         prompt_re = None
         if prompt_regex:
             try:
                 prompt_re = re.compile(prompt_regex, re.MULTILINE)
             except re.error:
-                raise ShipItException("Invalid prompt regular expression given to run_command")
+                raise AnsibleContainerShipItException("Invalid prompt regular expression given to run_command")
 
         # expand things like $HOME and ~
         if not shell:
@@ -181,7 +180,7 @@ class K8sApi(object):
             try:
                 os.chdir(cwd)
             except (OSError, IOError) as exc:
-                raise ShipItException("Could not open %s, %s" % (cwd, str(exc)))
+                raise AnsibleContainerShipItException("Could not open %s, %s" % (cwd, str(exc)))
 
         try:
 
@@ -246,7 +245,7 @@ class K8sApi(object):
                 os.environ[key] = val
 
         if rc != 0 and check_rc:
-            raise ShipItException("Subprocess execution failed with rc %s" % rc)
+            raise AnsibleContainerShipItException("Subprocess execution failed with rc %s" % rc)
         # reset the pwd
         os.chdir(prev_dir)
 
@@ -263,7 +262,7 @@ class K8sApi(object):
             logger.debug("stderr:")
             logger.debug(stderr)
             if rc != 0:
-                raise ShipItException("Error creating %s" % template_path, stdout=stdout, stderr=stderr)
+                raise AnsibleContainerShipItException("Error creating %s" % template_path, stdout=stdout, stderr=stderr)
             return stdout
         if template:
             logger.debug("Create from template:")
@@ -277,7 +276,7 @@ class K8sApi(object):
             logger.debug("stderr:")
             logger.debug(stderr)
             if rc != 0:
-                raise ShipItException("Error creating from template", stdout=stdout, stderr=stderr)
+                raise AnsibleContainerShipItException("Error creating from template", stdout=stdout, stderr=stderr)
             return stdout
 
     def replace_from_template(self, template=None, template_path=None):
@@ -291,7 +290,7 @@ class K8sApi(object):
             logger.debug("stderr:")
             logger.debug(stderr)
             if rc != 0:
-                raise ShipItException("Error replacing %s" % template_path, stdout=stdout, stderr=stderr)
+                raise AnsibleContainerShipItException("Error replacing %s" % template_path, stdout=stdout, stderr=stderr)
             return stdout
         if template:
             logger.debug("Replace from template:")
@@ -305,7 +304,7 @@ class K8sApi(object):
             logger.debug("stderr:")
             logger.debug(stderr)
             if rc != 0:
-                raise ShipItException("Error replacing from template", stdout=stdout, stderr=stderr)
+                raise AnsibleContainerShipItException("Error replacing from template", stdout=stdout, stderr=stderr)
             return stdout
 
     def delete_resource(self, type, name):
@@ -318,7 +317,7 @@ class K8sApi(object):
         logger.debug("stderr:")
         logger.debug(stderr)
         if rc != 0:
-            raise ShipItException("Error deleting %s/%s" % (type, name), stdout=stdout, stderr=stderr)
+            raise AnsibleContainerShipItException("Error deleting %s/%s" % (type, name), stdout=stdout, stderr=stderr)
         return stdout
 
     def get_resource(self, type, name):
@@ -334,7 +333,7 @@ class K8sApi(object):
         if rc == 0:
             result = json.loads(stdout) 
         elif rc != 0 and not re.search('not found', stderr):
-            raise ShipItException("Error getting %s/%s" % (type, name), stdout=stdout, stderr=stderr)
+            raise AnsibleContainerShipItException("Error getting %s/%s" % (type, name), stdout=stdout, stderr=stderr)
         return result
    
     def set_context(self, context_name):
@@ -347,7 +346,7 @@ class K8sApi(object):
         logger.debug("stderr:")
         logger.debug(stderr)
         if rc != 0:
-            raise ShipItException("Error switching to context %s" % context_name, stdout=stdout, stderr=stderr)
+            raise AnsibleContainerShipItException("Error switching to context %s" % context_name, stdout=stdout, stderr=stderr)
         return stdout
 
     def set_project(self, project_name):
@@ -363,7 +362,7 @@ class K8sApi(object):
         if rc != 0:
             result = False
             if not re.search('does not exist', stderr):
-                raise ShipItException("Error switching to project %s" % project_name, stdout=stdout, stderr=stderr)
+                raise AnsibleContainerShipItException("Error switching to project %s" % project_name, stdout=stdout, stderr=stderr)
         return result
 
     def create_project(self, project_name):
@@ -377,7 +376,7 @@ class K8sApi(object):
         logger.debug("stderr:")
         logger.debug(stderr)
         if rc != 0:
-            raise ShipItException("Error creating project %s" % project_name, stdout=stdout, stderr=stderr)
+            raise AnsibleContainerShipItException("Error creating project %s" % project_name, stdout=stdout, stderr=stderr)
         return result
 
     def get_deployment(self, deployment_name):
@@ -392,5 +391,5 @@ class K8sApi(object):
         if rc != 0:
             result = False
             if not re.search('not found', stderr):
-                raise ShipItException("Error getting deployment state %s" % deployment_name, stdout=stdout, stderr=stderr)
+                raise AnsibleContainerShipItException("Error getting deployment state %s" % deployment_name, stdout=stdout, stderr=stderr)
         return stdout

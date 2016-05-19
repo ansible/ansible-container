@@ -6,9 +6,21 @@ import logging
 
 from .k8s_playbook import K8SPlaybook
 from .k8s_config import K8SConfig
+from ..base import BaseShipItEngine
 
 logger = logging.getLogger(__name__)
 
+class ShipItEngine(BaseShipItEngine):
+    def add_options(self, subparser):
+        subparser.add_argument('--save-config', action='store_true',
+                               help=(
+                                   u'Generate and save the Kubernetes '
+                                   u'configuration files.'),
+                               dest='save_config', default=False)
+
+    def run(self, **kwargs):
+        # House! Implement me!
+        raise NotImplementedError()
 
 def run_shipit(type=None, config=None, project_name=None, project_dir=None, hosts="localhost", connection="local",
                gather_facts=False, create_templates=False):

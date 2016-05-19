@@ -5,11 +5,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class ShipItEngine(object):
+class BaseShipItEngine(object):
     def __init__(self, base_path):
         self.base_path = base_path
 
-    def parse_options(self, subparser):
+    def add_options(self, subparser):
         """
         Given an argument subparser, add to it the arguments and options
         this engine allows.
