@@ -41,9 +41,10 @@ RETURN = '''
 import logging
 import logging.config
 
-from ansible.module_utils.basic import *
 from container.shipit.k8s_api import K8sApi
-from container.shipit.exceptions import ShipItException
+
+from ansible.module_utils.basic import *
+from container.shipit.openshift.exceptions import ShipItException
 
 logger = logging.getLogger('k8s_deployment')
 
