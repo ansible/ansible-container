@@ -5,7 +5,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class BaseShipItEngine(object):
+
     def __init__(self, base_path):
         self.base_path = base_path
 
@@ -28,3 +30,4 @@ class BaseShipItEngine(object):
         :param kwargs: The commandline options provided at runtime
         :return:
         """
+        raise NotImplementedError()

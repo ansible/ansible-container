@@ -6,3 +6,4 @@
 SHIPIT_PATH = ''
 SHIPIT_PLAYBOOK_NAME = "shipit.yml"
 SHIPIT_CONFIG_PATH = "k8s_config"
+SHIPIT_ROLES_DIR = 'roles'

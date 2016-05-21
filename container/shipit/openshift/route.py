@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class K8SRoute(object):
+class Route(object):
 
     def __init__(self, config=None, project_name=None):
         self.project_name = project_name

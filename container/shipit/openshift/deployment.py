@@ -11,7 +11,7 @@ from collections import OrderedDict
 logger = logging.getLogger(__name__)
 
 
-class K8SDeployment(object):
+class Deployment(object):
 
     def __init__(self, config=None, project_name=None):
         self.project_name = project_name
