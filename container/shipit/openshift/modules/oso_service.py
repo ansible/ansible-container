@@ -69,7 +69,7 @@ LOGGING = (
 )
 
 
-class OSOServiceManager(AnsibleModule):
+class OSOServiceManager(object):
 
     def __init__(self):
 
@@ -86,8 +86,8 @@ class OSOServiceManager(AnsibleModule):
             debug=dict(type='bool', default=False)
         )
 
-        super(OSOServiceManager, self).__init__(self.arg_spec,
-                                                supports_check_mode=True)
+        self.module = AnsibleModule(self.arg_spec,
+                                    supports_check_mode=True)
 
         self.project_name = None
         self.state = None
@@ -100,18 +100,19 @@ class OSOServiceManager(AnsibleModule):
         self.cli = None
         self.api = None
         self.debug = None
+        self.check_mode = self.module.check_mode
 
     def exec_module(self):
 
         for key in self.arg_spec:
-            setattr(self, key, self.params.get(key))
+            setattr(self, key, self.module.params.get(key))
 
         if self.debug:
             LOGGING['loggers']['container']['level'] = 'DEBUG'
             LOGGING['loggers']['oso_service']['level'] = 'DEBUG'
         logging.config.dictConfig(LOGGING)
 
-        self.api = OriginAPI(target=self.cli)
+        self.api = OriginAPI(self.module)
 
         actions = []
         changed = False
@@ -122,7 +123,7 @@ class OSOServiceManager(AnsibleModule):
         try:
             project_switch = self.api.set_project(self.project_name)
         except OriginAPIException as exc:
-            self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+            self.module.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
 
         if not project_switch:
             actions.append("Create project %s" % self.project_name)
@@ -130,7 +131,7 @@ class OSOServiceManager(AnsibleModule):
                 try:
                     self.api.create_project(self.project_name)
                 except OriginAPIException as exc:
-                    self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+                    self.module.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
 
         if self.state == 'present':
             service = self.api.get_resource('service', self.service_name)
@@ -155,11 +156,14 @@ class OSOServiceManager(AnsibleModule):
                     self.api.delete_resource('service', self.service_name)
 
         results['changed'] = changed
+
         if self.check_mode:
             results['actions'] = actions
+
         if services:
             results['ansible_facts'] = services
-        return results
+
+        self.module.exit_json(**results)
 
     def _create_template(self):
         '''
@@ -220,8 +224,7 @@ class OSOServiceManager(AnsibleModule):
 
 def main():
     manager = OSOServiceManager()
-    results = manager.exec_module()
-    manager.exit_json(**results)
+    manager.exec_module()
 
 if __name__ == '__main__':
     main()

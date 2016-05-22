@@ -69,7 +69,7 @@ LOGGING = (
 )
 
 
-class DeploymentManager(AnsibleModule):
+class DeploymentManager(object):
 
     def __init__(self):
 
@@ -88,8 +88,8 @@ class DeploymentManager(AnsibleModule):
             debug=dict(type='bool', default=False)
         )
 
-        super(DeploymentManager, self).__init__(self.arg_spec,
-                                                supports_check_mode=True)
+        self.module = AnsibleModule(self.arg_spec,
+                                    supports_check_mode=True)
 
         self.project_name = None
         self.state = None
@@ -105,18 +105,19 @@ class DeploymentManager(AnsibleModule):
         self.cli = None
         self.api = None
         self.debug = None
+        self.check_mode = self.module.check_mode
 
     def exec_module(self):
 
         for key in self.arg_spec:
-            setattr(self, key, self.params.get(key))
+            setattr(self, key, self.module.params.get(key))
 
         if self.debug:
             LOGGING['loggers']['container']['level'] = 'DEBUG'
             LOGGING['loggers']['k8s_deployment']['level'] = 'DEBUG'
         logging.config.dictConfig(LOGGING)
 
-        self.api = OriginAPI(target=self.cli)
+        self.api = OriginAPI(self.module)
 
         actions = []
         changed = False
@@ -127,7 +128,7 @@ class DeploymentManager(AnsibleModule):
         try:
             project_switch = self.api.set_project(self.project_name)
         except OriginAPIException as exc:
-            self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+            self.module.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
 
         if not project_switch:
             actions.append("Create project %s" % self.project_name)
@@ -135,7 +136,7 @@ class DeploymentManager(AnsibleModule):
                 try:
                     self.api.create_project(self.project_name)
                 except OriginAPIException as exc:
-                    self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+                    self.module.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
 
         if self.state == 'present':
             deployment = self.api.get_resource('dc', self.deployment_name)
@@ -147,7 +148,7 @@ class DeploymentManager(AnsibleModule):
                     try:
                         self.api.create_from_template(template=template)
                     except OriginAPIException as exc:
-                        self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+                        self.module.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
             elif deployment and self.recreate:
                 actions.append("Delete deployment %s" % self.deployment_name)
                 changed = True
@@ -157,13 +158,13 @@ class DeploymentManager(AnsibleModule):
                         self.api.delete_resource('dc', self.deployment_name)
                         self.api.create_from_template(template=template)
                     except OriginAPIException as exc:
-                        self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+                        self.module.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
             elif deployment and self.replace:
                 template = self._create_template()
                 try:
                     template['status'] = dict(latestVersion=deployment['status']['latestVersion'] + 1)
                 except Exception as exc:
-                    self.fail_json(msg="Failed to increment latestVersion for %s - %s" % (self.deployment_name,
+                    self.module.fail_json(msg="Failed to increment latestVersion for %s - %s" % (self.deployment_name,
                                                                                           str(exc)))
                 changed = True
                 actions.append("Update deployment %s" % self.deployment_name)
@@ -171,7 +172,7 @@ class DeploymentManager(AnsibleModule):
                     try:
                         self.api.replace_from_template(template=template)
                     except OriginAPIException as exc:
-                        self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+                        self.module.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
 
             deployments[self.deployment_name.replace('-', '_') + '_deployment'] = self.api.get_resource('dc', self.deployment_name)
         elif self.state == 'absent':
@@ -182,13 +183,17 @@ class DeploymentManager(AnsibleModule):
                     try:
                         self.api.delete_resource('deployment', self.deployment_name)
                     except OriginAPIException as exc:
-                        self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+                        self.module.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+
         results['changed'] = changed
+
         if self.check_mode:
             results['actions'] = actions
+
         if deployments:
             results['ansible_facts'] = deployments
-        return results
+
+        self.module.exit_json(**results)
 
     def _create_template(self):
 
@@ -249,9 +254,7 @@ class DeploymentManager(AnsibleModule):
 
 def main():
     manager = DeploymentManager()
-    results = manager.exec_module()
-    manager.exit_json(**results)
-
+    manager.exec_module()
 
 if __name__ == '__main__':
     main()

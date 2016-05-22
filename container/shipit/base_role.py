@@ -231,12 +231,14 @@ class BaseShipItRole(object):
         play = OrderedDict()
         play['name'] = "Deploy %s" % self.project_name
         play['hosts'] = 'all'
+        play['gather_facts'] = False
+        play['connection'] = 'local'
         play['vars'] = dict(
             playbook_debug=False
         )
-        play['roles'] = dict(
+        play['roles'] = [dict(
             role=self.project_name
-        )
+        )]
         playbook_path = os.path.join(self.project_dir, SHIPIT_PATH, SHIPIT_PLAYBOOK_NAME)
         with open(playbook_path, 'w') as f:
             f.write(yaml.safe_dump([play], default_flow_style=False))

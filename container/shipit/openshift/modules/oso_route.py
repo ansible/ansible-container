@@ -69,7 +69,7 @@ LOGGING = (
 )
 
 
-class RouteManager(AnsibleModule):
+class RouteManager(object):
 
     def __init__(self):
 
@@ -86,8 +86,8 @@ class RouteManager(AnsibleModule):
             debug=dict(type='bool', default=False)
         )
 
-        super(RouteManager, self).__init__(self.arg_spec,
-                                           supports_check_mode=True)
+        self.module = AnsibleModule(self.arg_spec,
+                                    supports_check_mode=True)
 
         self.project_name = None
         self.state = None
@@ -100,18 +100,19 @@ class RouteManager(AnsibleModule):
         self.cli = None
         self.api = None
         self.debug = None
+        self.check_mode = self.module.check_mode
 
     def exec_module(self):
 
         for key in self.arg_spec:
-            setattr(self, key, self.params.get(key))
+            setattr(self, key, self.module.params.get(key))
 
         if self.debug:
             LOGGING['loggers']['container']['level'] = 'DEBUG'
             LOGGING['loggers']['oso_route']['level'] = 'DEBUG'
         logging.config.dictConfig(LOGGING)
 
-        self.api = OriginAPI(target=self.cli)
+        self.api = OriginAPI(self.module)
 
         actions = []
         changed = False
@@ -155,11 +156,14 @@ class RouteManager(AnsibleModule):
                     self.api.delete_resource('route', self.route_name)
 
         results['changed'] = changed
+
         if self.check_mode:
             results['actions'] = actions
+
         if routes:
             results['ansible_facts'] = routes
-        return results
+
+        self.module.exit_json(**results)
 
     def _create_template(self):
         '''
@@ -207,9 +211,7 @@ class RouteManager(AnsibleModule):
 
 def main():
     manager = RouteManager()
-    results = manager.exec_module()
-    manager.exit_json(**results)
-
+    manager.exec_module()
 
 if __name__ == '__main__':
     main()
