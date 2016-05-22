@@ -9,6 +9,8 @@ import re
 import subprocess
 import select
 import logging
+import glob
+import shutil
 
 from .constants import SHIPIT_PATH, SHIPIT_PLAYBOOK_NAME, SHIPIT_ROLES_DIR
 from container.exceptions import AnsibleContainerShipItException
@@ -125,10 +127,21 @@ def run_command(args):
 
 class BaseShipItRole(object):
 
-    def __init__(self, config=None, project_name=None, project_dir=None):
+    def __init__(self, config=None, project_name=None, project_dir=None, engine=None):
         self.config = config
         self.project_name = project_name
         self.project_dir = project_dir
+        self.engine = engine
+
+        self.roles_path = os.path.join(self.project_dir, SHIPIT_PATH, SHIPIT_ROLES_DIR)
+
+    def _create_path(self, path):
+        try:
+            os.makedirs(path)
+        except OSError:
+            pass
+        except Exception as exc:
+            raise Exception("Error creating %s - %s" % (path, str(exc)))
 
     def _get_tasks(self):
         '''
@@ -141,12 +154,36 @@ class BaseShipItRole(object):
 
     def _copy_modules(self):
         '''
-        Copy cloud specific ansible modules to role library path.
-
-        :return: None
+        Copy cloud ansible modules to role library path.
         '''
+        cls_dir = os.path.dirname(os.path.realpath(__file__))
+        modules_dir = os.path.join(cls_dir, self.engine, 'modules')
+        library_path = os.path.join(self.roles_path, self.project_name, 'library')
+        self._create_path(library_path)
 
-        raise NotImplementedError()
+        include_files = []
+        for mod in glob.glob(modules_dir + '/*.py'):
+            with open(mod, 'r') as mod_file:
+                for line in mod_file:
+                    match = re.search('#include--> ?(\w+.py)', line)
+                    if match and match.groups():
+                        include_files += list(match.groups())
+
+        include_files = list(set(include_files))
+        for mod in glob.glob(modules_dir + '/*.py'):
+            base_file = os.path.basename(mod)
+            if base_file not in include_files:
+                with open(os.path.join(library_path, base_file), 'w') as new_file:
+                    with open(mod, 'r') as mod_file:
+                        for line in mod_file:
+                            match = re.search('#include--> ?(\w+.py)', line)
+                            if match and match.groups():
+                                with open(os.path.join(modules_dir, match.group(1)), 'r') as inc:
+                                    inc_contents = inc.read()
+                                new_file.write('\n')
+                                new_file.write(inc_contents)
+                            else:
+                                new_file.write(line)
 
     def create_role(self):
         '''
@@ -156,16 +193,15 @@ class BaseShipItRole(object):
         :return: None
         '''
         # Call ansible-galaxy init
-        roles_path = os.path.join(self.project_dir, SHIPIT_PATH, SHIPIT_ROLES_DIR)
         try:
-            os.makedirs(roles_path)
+            os.makedirs(self.roles_path)
         except OSError:
             # ignore if path already exists
             pass
         except Exception as exc:
-            raise AnsibleContainerShipItException("Error creating %s - %s" % (roles_path, str(exc)))
+            raise AnsibleContainerShipItException("Error creating %s - %s" % (self.roles_path, str(exc)))
 
-        run_command("ansible-galaxy init -p %s %s" % (roles_path, self.project_name))
+        run_command("ansible-galaxy init -p %s %s" % (self.roles_path, self.project_name))
 
         yaml.SafeDumper.add_representer(OrderedDict,
                                         lambda dumper, value: represent_odict(dumper, u'tag:yaml.org,2002:map', value))
@@ -181,8 +217,8 @@ class BaseShipItRole(object):
                 when="playbook_debug"
             ))
         stream = yaml.safe_dump(output_tasks, default_flow_style=False)
-        with open(os.path.join(deploy_path, SHIPIT_PLAYBOOK_NAME), 'w') as f:
-            f.write(re.sub(r'^  - ', u'\n  - ', stream, flags=re.M))
+        with open(os.path.join(self.roles_path, self.project_name, 'tasks', 'main.yml'), 'w') as f:
+            f.write(re.sub(r'^-', u'\n-', stream, flags=re.M))
 
         self._copy_modules()
 
@@ -203,7 +239,7 @@ class BaseShipItRole(object):
         )
         playbook_path = os.path.join(self.project_dir, SHIPIT_PATH, SHIPIT_PLAYBOOK_NAME)
         with open(playbook_path, 'w') as f:
-            f.write(yaml.safe_dump(play, default_flow_style=False))
+            f.write(yaml.safe_dump([play], default_flow_style=False))
 
     # def update_config(self):
     #     # Create or update an ansible.cfg file

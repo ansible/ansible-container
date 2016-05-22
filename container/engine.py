@@ -31,8 +31,6 @@ from .utils import (extract_hosts_from_docker_compose,
                     assert_initialized,
                     get_latest_image_for)
 
-from container.shipit.run import run_shipit
-
 
 def cmdrun_init(base_path, **kwargs):
     container_dir = os.path.normpath(
@@ -227,8 +225,8 @@ def cmdrun_push(base_path, username=None, password=None, email=None, url=None,
 
 def cmdrun_shipit(base_path, engine='openshift', **kwargs):
     try:
-        engine_module = importlib.import_module('.shipit.%s.run' % engine)
-        engine_cls = getattr(engine_module, 'ShipItModule')
+        engine_module = importlib.import_module('container.shipit.%s.engine' % engine)
+        engine_cls = getattr(engine_module, 'ShipItEngine')
     except ImportError:
         raise ImportError('No shipit module for %s found.' % engine)
     else:

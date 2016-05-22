@@ -32,7 +32,7 @@ class Service(object):
                         templates.append(self._create_template(service))
                 elif service.get('labels'):
                     for key, value in service['labels'].items():
-                        if key == 'k8s_publish_port':
+                        if key == 'oso_publish_port':
                             if request_type == "task":
                                 templates.append(self._create_task(service))
                             elif request_type=="config":
@@ -105,7 +105,7 @@ class Service(object):
         name = "%s-%s" % (self.project_name, service['name'])
 
         template = dict(
-            k8s_service=OrderedDict(
+            oso_service=OrderedDict(
                 project_name=self.project_name,
                 service_name=name,
                 labels=labels,
@@ -115,9 +115,9 @@ class Service(object):
         )
 
         if self._get_load_balancer(service):
-            template['k8s_service']['loadbalancer'] = True
+            template['oso_service']['loadbalancer'] = True
 
-        template['k8s_service']['selector'][service['name']] = service['name']
+        template['oso_service']['selector'][service['name']] = service['name']
 
         return template
 
@@ -126,8 +126,8 @@ class Service(object):
         result = None
         if service.get('labels'):
             labels = service['labels']
-            if labels.get('k8s_service_type') == 'loadbalancer':
-                result = labels['k8s_service_type']
+            if labels.get('oso_service_type') == 'loadbalancer':
+                result = labels['oso_service_type']
         return result
 
     @staticmethod
@@ -137,7 +137,7 @@ class Service(object):
         if service.get('labels'):
             labels = service['labels']
             for key, value in labels.items():
-                if 'k8s_' not in key:
+                if 'oso_' not in key:
                     result[key] = value
 
         for key, value in result.items():
@@ -150,8 +150,8 @@ class Service(object):
         # TODO - handle port ranges
         ports = []
         labels = service.get('labels')
-        if labels and labels.get('k8s_publish_port'):
-            pub_port = labels['k8s_publish_port']
+        if labels and labels.get('oso_publish_port'):
+            pub_port = labels['oso_publish_port']
             if isinstance(pub_port, str) and ':' in pub_port:
                 parts = pub_port.split(':')
                 ports.append(dict(port=int(parts[0]), targetPort=int(parts[1])))

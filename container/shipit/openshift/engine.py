@@ -26,7 +26,7 @@ class ShipItEngine(BaseShipItEngine):
         project_dir = kwargs.pop('project_dir')
         create_templates = kwargs.pop('create_templates')
 
-        role = ShipItRole(config=config, project_name=project_name, project_dir=project_dir)
+        role = ShipItRole(config=config, project_name=project_name, project_dir=project_dir, engine='openshift')
         role.create_role()
         role.create_playbook()
 

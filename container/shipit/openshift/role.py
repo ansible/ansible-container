@@ -18,9 +18,5 @@ class ShipItRole(BaseShipItRole):
         tasks = []
         tasks += Service(config=self.config, project_name=self.project_name).get_task()
         tasks += Route(config=self.config, project_name=self.project_name).get_task()
-        tasks += Deployment(config=self.config, project_name=self.project_name)
+        tasks += Deployment(config=self.config, project_name=self.project_name).get_task()
         return tasks
-
-    def _copy_modules(self):
-        cls_dir = os.path.dirname(os.path.realpath(__file__))
-        logger.debug("shipitrole path is: %s" % cls_dir)

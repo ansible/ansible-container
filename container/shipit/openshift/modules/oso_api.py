@@ -1,42 +1,15 @@
-
-import logging
 import os
 import re
 import subprocess
 import shlex
-import pipes
 import json
 import select
 
-from container.exceptions import AnsibleContainerShipItException
 
-logger = logging.getLogger(__name__)
-
-
-class K8sApi(object):
+class OriginAPI(object):
 
     def __init__(self, target="oc"):
         self.target = target
-        super(K8sApi, self).__init__()
-
-    @staticmethod
-    def get_project_name(path):
-        '''
-        Return the basename of the requested path. Attempts to resolve relative paths.
-
-        :param path: target path
-        :return: basename of target path
-        '''
-        original_cwd = os.getcwd()
-        try:
-            os.chdir(os.path.expanduser(path))
-        except Exception as exc:
-            raise AnsibleContainerShipItException("Failed to access %s - %s" % (path, str(exc)))
-        
-        project_path = os.getcwd()
-        name = os.path.basename(project_path)
-        os.chdir(original_cwd)
-        return name
 
     @staticmethod
     def use_multiple_deployments(services):
@@ -54,21 +27,14 @@ class K8sApi(object):
                 multiple = False
         return multiple
 
-    def run_command(self, args, check_rc=False, close_fds=True, executable=None, data=None, binary_data=False,
-                    path_prefix=None, cwd=None, use_unsafe_shell=False, prompt_regex=None, environ_update=None):
+    def run_command(self, args, data=None, path_prefix=None, cwd=None, prompt_regex=None, environ_update=None):
         '''
         Execute a command, returns rc, stdout, and stderr.
 
         :arg args: is the command to run
             * If args is a list, the command will be run with shell=False.
-            * If args is a string and use_unsafe_shell=False it will split args to a list and run with shell=False
-            * If args is a string and use_unsafe_shell=True it runs with shell=True.
-        :kw check_rc: Whether to call fail_json in case of non zero RC.
-            Default False
-        :kw close_fds: See documentation for subprocess.Popen(). Default True
-        :kw executable: See documentation for subprocess.Popen(). Default None
+            * If args is a string, it will split args to a list and run with shell=False
         :kw data: If given, information to write to the stdin of the command
-        :kw binary_data: If False, append a newline to the data.  Default False
         :kw path_prefix: If given, additional path to find the command in.
             This adds to the PATH environment vairable so helper commands in
             the same directory can also be found
@@ -81,25 +47,19 @@ class K8sApi(object):
         '''
 
         shell = False
-        if isinstance(args, list):
-            if use_unsafe_shell:
-                args = " ".join([pipes.quote(x) for x in args])
-                shell = True
-        elif isinstance(args, basestring) and use_unsafe_shell:
-            shell = True
-        elif isinstance(args, basestring):
+        if isinstance(args, basestring):
             if isinstance(args, unicode):
                 args = args.encode('utf-8')
             args = shlex.split(args)
         else:
-            raise AnsibleContainerShipItException("Argument 'args' to run_command must be list or string")
+            raise OriginAPIException("Argument 'args' to run_command must be list or string")
 
         prompt_re = None
         if prompt_regex:
             try:
                 prompt_re = re.compile(prompt_regex, re.MULTILINE)
             except re.error:
-                raise AnsibleContainerShipItException("Invalid prompt regular expression given to run_command")
+                raise OriginAPIException("Invalid prompt regular expression given to run_command")
 
         # expand things like $HOME and ~
         if not shell:
@@ -140,9 +100,9 @@ class K8sApi(object):
             st_in = subprocess.PIPE
 
         kwargs = dict(
-            executable=executable,
+            executable=None,
             shell=shell,
-            close_fds=close_fds,
+            close_fds=True,
             stdin=st_in,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -159,22 +119,16 @@ class K8sApi(object):
             try:
                 os.chdir(cwd)
             except (OSError, IOError) as exc:
-                raise AnsibleContainerShipItException("Could not open %s, %s" % (cwd, str(exc)))
+                raise OriginAPIException("Could not open %s, %s" % (cwd, str(exc)))
 
         try:
-
             cmd = subprocess.Popen(args, **kwargs)
-
-            # the communication logic here is essentially taken from that
-            # of the _communicate() function in ssh.py
-
             stdout = ''
             stderr = ''
             rpipes = [cmd.stdout, cmd.stderr]
 
             if data:
-                if not binary_data:
-                    data += '\n'
+                data += '\n'
                 cmd.stdin.write(data)
                 cmd.stdin.close()
 
@@ -208,10 +162,8 @@ class K8sApi(object):
                     # The process is terminated. Since no pipes to read from are
                     # left, there is no need to call select() again.
                     break
-
             cmd.stdout.close()
             cmd.stderr.close()
-
             rc = cmd.returncode
         except Exception:
             raise
@@ -223,11 +175,7 @@ class K8sApi(object):
             else:
                 os.environ[key] = val
 
-        if rc != 0 and check_rc:
-            raise AnsibleContainerShipItException("Subprocess execution failed with rc %s" % rc)
-        # reset the pwd
         os.chdir(prev_dir)
-
         return rc, stdout, stderr
 
     def create_from_template(self, template=None, template_path=None):
@@ -241,7 +189,7 @@ class K8sApi(object):
             logger.debug("stderr:")
             logger.debug(stderr)
             if rc != 0:
-                raise AnsibleContainerShipItException("Error creating %s" % template_path, stdout=stdout, stderr=stderr)
+                raise OriginAPIException("Error creating %s" % template_path, stderr=stderr, stdout=stdout)
             return stdout
         if template:
             logger.debug("Create from template:")
@@ -255,7 +203,7 @@ class K8sApi(object):
             logger.debug("stderr:")
             logger.debug(stderr)
             if rc != 0:
-                raise AnsibleContainerShipItException("Error creating from template", stdout=stdout, stderr=stderr)
+                raise OriginAPIException("Error creating from template.", stderr=stderr, stdout=stdout)
             return stdout
 
     def replace_from_template(self, template=None, template_path=None):
@@ -269,7 +217,7 @@ class K8sApi(object):
             logger.debug("stderr:")
             logger.debug(stderr)
             if rc != 0:
-                raise AnsibleContainerShipItException("Error replacing %s" % template_path, stdout=stdout, stderr=stderr)
+                raise OriginAPIException("Error replacing %s" % template_path, stderr=stderr, stdout=stdout)
             return stdout
         if template:
             logger.debug("Replace from template:")
@@ -283,7 +231,7 @@ class K8sApi(object):
             logger.debug("stderr:")
             logger.debug(stderr)
             if rc != 0:
-                raise AnsibleContainerShipItException("Error replacing from template", stdout=stdout, stderr=stderr)
+                raise Exception("Error replacing from template", stderr=stderr, stdout=stdout)
             return stdout
 
     def delete_resource(self, type, name):
@@ -296,7 +244,7 @@ class K8sApi(object):
         logger.debug("stderr:")
         logger.debug(stderr)
         if rc != 0:
-            raise AnsibleContainerShipItException("Error deleting %s/%s" % (type, name), stdout=stdout, stderr=stderr)
+            raise OriginAPIException("Error deleting %s/%s" % (type, name), stderr=stderr, stdout=stdout)
         return stdout
 
     def get_resource(self, type, name):
@@ -312,7 +260,7 @@ class K8sApi(object):
         if rc == 0:
             result = json.loads(stdout) 
         elif rc != 0 and not re.search('not found', stderr):
-            raise AnsibleContainerShipItException("Error getting %s/%s" % (type, name), stdout=stdout, stderr=stderr)
+            raise OriginAPIException("Error getting %s/%s" % (type, name), stderr=stderr, stdout=stdout)
         return result
    
     def set_context(self, context_name):
@@ -325,7 +273,7 @@ class K8sApi(object):
         logger.debug("stderr:")
         logger.debug(stderr)
         if rc != 0:
-            raise AnsibleContainerShipItException("Error switching to context %s" % context_name, stdout=stdout, stderr=stderr)
+            raise OriginAPIException("Error switching to context %s" % context_name, stderr=stderr, stdout=stdout)
         return stdout
 
     def set_project(self, project_name):
@@ -341,7 +289,7 @@ class K8sApi(object):
         if rc != 0:
             result = False
             if not re.search('does not exist', stderr):
-                raise AnsibleContainerShipItException("Error switching to project %s" % project_name, stdout=stdout, stderr=stderr)
+                raise OriginAPIException("Error switching to project %s" % project_name, stderr=stderr, stdout=stdout)
         return result
 
     def create_project(self, project_name):
@@ -355,7 +303,7 @@ class K8sApi(object):
         logger.debug("stderr:")
         logger.debug(stderr)
         if rc != 0:
-            raise AnsibleContainerShipItException("Error creating project %s" % project_name, stdout=stdout, stderr=stderr)
+            raise OriginAPIException("Error creating project %s" % project_name, stderr=stderr, stdout=stdout)
         return result
 
     def get_deployment(self, deployment_name):
@@ -368,7 +316,16 @@ class K8sApi(object):
         logger.debug("stderr:")
         logger.debug(stderr)
         if rc != 0:
-            result = False
             if not re.search('not found', stderr):
-                raise AnsibleContainerShipItException("Error getting deployment state %s" % deployment_name, stdout=stdout, stderr=stderr)
+                raise OriginAPIException("Error getting deployment state %s" % deployment_name, stderr=stderr,
+                                         stdout=stdout)
         return stdout
+
+
+class OriginAPIException(Exception):
+
+    def __init__(self, msg, stdout=None, stderr=None):
+        self.stderr = stderr
+        self.stdout = stdout
+
+        Exception.__init__(self, msg)

@@ -2,25 +2,12 @@
 #
 # Copyright 2016 Red Hat | Ansible
 #
-# This file is part of Ansible
+# This file is part of ansible-container
 #
-# Ansible is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# Ansible is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
-
 
 DOCUMENTATION = '''
 
-module: k8s_service
+module: oso_service
 
 short_description: Create or remove a service on a Kubernetes or OpenShift cluster.
 
@@ -41,12 +28,9 @@ RETURN = '''
 import logging
 import logging.config
 
-from container.shipit.k8s_api import K8sApi
-
 from ansible.module_utils.basic import *
-from container.exceptions import AnsibleContainerShipItException
 
-logger = logging.getLogger('k8s_service')
+logger = logging.getLogger('oso_service')
 
 LOGGING = (
     {
@@ -64,7 +48,7 @@ LOGGING = (
             }
         },
         'loggers': {
-            'k8s_service': {
+            'oso_service': {
                 'handlers': ['file'],
                 'level': 'INFO',
             },
@@ -85,7 +69,7 @@ LOGGING = (
 )
 
 
-class K8SServiceManager(AnsibleModule):
+class OSOServiceManager(AnsibleModule):
 
     def __init__(self):
 
@@ -102,7 +86,7 @@ class K8SServiceManager(AnsibleModule):
             debug=dict(type='bool', default=False)
         )
 
-        super(K8SServiceManager, self).__init__(self.arg_spec,
+        super(OSOServiceManager, self).__init__(self.arg_spec,
                                                 supports_check_mode=True)
 
         self.project_name = None
@@ -124,19 +108,20 @@ class K8SServiceManager(AnsibleModule):
 
         if self.debug:
             LOGGING['loggers']['container']['level'] = 'DEBUG'
-            LOGGING['loggers']['k8s_service']['level'] = 'DEBUG'
+            LOGGING['loggers']['oso_service']['level'] = 'DEBUG'
         logging.config.dictConfig(LOGGING)
 
-        self.api = K8sApi(target=self.cli)
+        self.api = OriginAPI(target=self.cli)
 
         actions = []
         changed = False
         services = dict()
         results = dict()
+        project_switch = None
 
         try:
             project_switch = self.api.set_project(self.project_name)
-        except AnsibleContainerShipItException as exc:
+        except OriginAPIException as exc:
             self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
 
         if not project_switch:
@@ -144,7 +129,7 @@ class K8SServiceManager(AnsibleModule):
             if not self.check_mode:
                 try:
                     self.api.create_project(self.project_name)
-                except AnsibleContainerShipItException as exc:
+                except OriginAPIException as exc:
                     self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
 
         if self.state == 'present':
@@ -229,11 +214,14 @@ class K8SServiceManager(AnsibleModule):
             if not port.get('type'):
                 port['type'] = "TCP"
 
+#The following will be included by `ansble-container shipit` when cloud modules are copied into the role library path.
+#include--> oso_api.py
+
+
 def main():
-    manager = K8SServiceManager()
+    manager = OSOServiceManager()
     results = manager.exec_module()
     manager.exit_json(**results)
-
 
 if __name__ == '__main__':
     main()

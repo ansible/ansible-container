@@ -122,7 +122,7 @@ class Deployment(object):
         name = "%s-%s" % (self.project_name, service_names[0])
 
         template = dict(
-            k8s_deployment=OrderedDict(
+            oso_deployment=OrderedDict(
                 project_name=self.project_name,
                 deployment_name=name,
                 labels=dict(),
@@ -132,8 +132,8 @@ class Deployment(object):
         )
 
         for service_name in service_names:
-            template['k8s_deployment']['labels'][service_name] = service_name
-            template['k8s_deployment']['selector'][service_name] = service_name
+            template['oso_deployment']['labels'][service_name] = service_name
+            template['oso_deployment']['selector'][service_name] = service_name
 
         return template
 
@@ -159,9 +159,9 @@ class Deployment(object):
                         container[key] = value
 
                 if service.get('labels'):
-                    # check for k8s_publish_port
+                    # check for oso_publish_port
                     for key, value in service['labels'].items():
-                        if key == 'k8s_publish_port':
+                        if key == 'oso_publish_port':
                             if not container.get('ports'):
                                 container['ports'] = []
                             container['ports'].append(int(value))
@@ -224,10 +224,10 @@ class Deployment(object):
         :return: dict
         '''
         def f(x):
-            return re.sub('^k8s_', '', x, flags=re.I)
+            return re.sub('^oso_', '', x, flags=re.I)
 
         def m(x):
-            return re.match('k8s_', x, flags=re.I)
+            return re.match('oso_', x, flags=re.I)
 
         def r(x, y):
             if m(x):

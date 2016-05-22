@@ -27,7 +27,7 @@ class Route(object):
             if not service_names or service['name'] in service_names:
                 if service.get('labels'):
                     for key, value in service['labels'].items():
-                        if key == 'k8s_expose_as':
+                        if key == 'oso_expose_as':
                             if request_type == "task":
                                 templates.append(self._create_task(service))
                             elif request_type=="config":
@@ -90,7 +90,7 @@ class Route(object):
         name = "%s-route" % service['name']
 
         template = dict(
-            k8s_route=OrderedDict(
+            oso_route=OrderedDict(
                 project_name=self.project_name,
                 route_name=name,
                 labels=labels,
@@ -106,7 +106,7 @@ class Route(object):
     def _get_host(service):
         host = None
         for key, value in service['labels'].items():
-            if key == 'k8s_expose_as':
+            if key == 'oso_expose_as':
                 host = value
         return host
 
@@ -117,7 +117,7 @@ class Route(object):
         if service.get('labels'):
             labels = service['labels']
             for key, value in labels.items():
-                if 'k8s_' not in key:
+                if 'oso_' not in key:
                     result[key] = value
 
         for key, value in result.items():

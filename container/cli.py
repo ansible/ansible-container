@@ -105,14 +105,17 @@ def subcmd_shipit_parser(parser, subparser):
                            dest='engine', default='openshift')
     args = parser.parse_args()
     try:
-        engine_module = importlib.import_module('.shipit.%s.run' % args.engine)
-        engine_cls = getattr(engine_module, 'ShipItModule')
-    except ImportError:
-        raise ImportError('No shipit module for %s found.' % engine)
-    else:
-        engine_obj = engine_cls(os.getcwd())
-        engine_obj.add_options(subparser)
+        engine_module = importlib.import_module('container.shipit.%s.engine' % args.engine)
+    except ImportError as exc:
+        raise ImportError('No shipit module for %s found - %s' % (args.engine, str(exc)))
 
+    try:
+        engine_cls = getattr(engine_module, 'ShipItEngine')
+    except Exception as exc:
+        raise Exception('Error getting ShipItEngine for %s - %s' % (args.engine, str(exc)))
+
+    engine_obj = engine_cls(os.getcwd())
+    engine_obj.add_options(subparser)
 
 
 def commandline():
