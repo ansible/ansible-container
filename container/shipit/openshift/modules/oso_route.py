@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2016 Red Hat | Ansible
+# Copyright 2016 Ansible by Red Hat
 #
 # This file is part of ansible-container
 #
