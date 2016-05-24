@@ -103,6 +103,9 @@ def subcmd_shipit_parser(parser, subparser):
                            help=(u'The shipit engine for the cloud provider you '
                                  u'wish to ship to'),
                            dest='engine', default='openshift')
+    subparser.add_argument('--save-config', action='store_true',
+                           help=(u'Save cloud configuration files'),
+                           dest='save_config', default='store_false')
     args = parser.parse_args()
     try:
         engine_module = importlib.import_module('container.shipit.%s.engine' % args.engine)
@@ -126,13 +129,15 @@ def commandline():
                         help=u'Enable debug output', default=False)
     subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
     for subcommand in AVAILABLE_COMMANDS:
-        subparser = subparsers.add_parser(subcommand,
-                                          help=AVAILABLE_COMMANDS[subcommand])
-        globals()['subcmd_%s_parser' % subcommand](parser, subparser)
+        subparser = subparsers.add_parser(subcommand, help=AVAILABLE_COMMANDS[subcommand])
+        #globals()['subcmd_%s_parser' % subcommand](parser, subparser)
+
     args = parser.parse_args()
+
     if args.subcommand == 'help':
         parser.print_help()
         sys.exit(0)
+
     if args.debug:
         LOGGING['loggers']['container']['level'] = 'DEBUG'
     config.dictConfig(LOGGING)
