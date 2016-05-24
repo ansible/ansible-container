@@ -1,26 +1,13 @@
 #!/usr/bin/python
 #
-# Copyright 2016 Red Hat | Ansible
+# Copyright 2016 Ansible by Red Hat
 #
-# This file is part of Ansible
+# This file is part of ansible-container
 #
-# Ansible is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# Ansible is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
-
 
 DOCUMENTATION = '''
 
-module: k8s_deployment
+module: oso_deployment
 
 short_description: Start, cancel or retry a deployment on a Kubernetes or OpenShift cluster.
 
@@ -42,10 +29,8 @@ import logging
 import logging.config
 
 from ansible.module_utils.basic import *
-from container.shipit.k8s_api import K8sApi
-from container.shipit.exceptions import ShipItException
 
-logger = logging.getLogger('k8s_deployment')
+logger = logging.getLogger('oso_deployment')
 
 LOGGING = (
     {
@@ -63,7 +48,7 @@ LOGGING = (
             }
         },
         'loggers': {
-            'k8s_deployment': {
+            'oso_deployment': {
                 'handlers': ['file'],
                 'level': 'INFO',
             },
@@ -83,7 +68,8 @@ LOGGING = (
     }
 )
 
-class K8SDeploymentManager(AnsibleModule):
+
+class DeploymentManager(object):
 
     def __init__(self):
 
@@ -102,8 +88,8 @@ class K8SDeploymentManager(AnsibleModule):
             debug=dict(type='bool', default=False)
         )
 
-        super(K8SDeploymentManager, self).__init__(self.arg_spec,
-                                                   supports_check_mode=True)
+        self.module = AnsibleModule(self.arg_spec,
+                                    supports_check_mode=True)
 
         self.project_name = None
         self.state = None
@@ -119,35 +105,38 @@ class K8SDeploymentManager(AnsibleModule):
         self.cli = None
         self.api = None
         self.debug = None
+        self.check_mode = self.module.check_mode
 
     def exec_module(self):
 
         for key in self.arg_spec:
-            setattr(self, key, self.params.get(key))
+            setattr(self, key, self.module.params.get(key))
 
         if self.debug:
             LOGGING['loggers']['container']['level'] = 'DEBUG'
             LOGGING['loggers']['k8s_deployment']['level'] = 'DEBUG'
         logging.config.dictConfig(LOGGING)
 
-        self.api = K8sApi(target=self.cli)
+        self.api = OriginAPI(self.module)
 
         actions = []
         changed = False
         deployments = dict()
         results = dict()
+        project_switch = None
 
         try:
             project_switch = self.api.set_project(self.project_name)
-        except ShipItException as exc:
-            self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+        except OriginAPIException as exc:
+            self.module.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+
         if not project_switch:
             actions.append("Create project %s" % self.project_name)
             if not self.check_mode:
                 try:
                     self.api.create_project(self.project_name)
-                except ShipItException as exc:
-                    self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+                except OriginAPIException as exc:
+                    self.module.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
 
         if self.state == 'present':
             deployment = self.api.get_resource('dc', self.deployment_name)
@@ -158,8 +147,8 @@ class K8SDeploymentManager(AnsibleModule):
                 if not self.check_mode:
                     try:
                         self.api.create_from_template(template=template)
-                    except ShipItException as exc:
-                        self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+                    except OriginAPIException as exc:
+                        self.module.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
             elif deployment and self.recreate:
                 actions.append("Delete deployment %s" % self.deployment_name)
                 changed = True
@@ -168,22 +157,22 @@ class K8SDeploymentManager(AnsibleModule):
                     try:
                         self.api.delete_resource('dc', self.deployment_name)
                         self.api.create_from_template(template=template)
-                    except ShipItException as exc:
-                        self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+                    except OriginAPIException as exc:
+                        self.module.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
             elif deployment and self.replace:
                 template = self._create_template()
                 try:
                     template['status'] = dict(latestVersion=deployment['status']['latestVersion'] + 1)
                 except Exception as exc:
-                    self.fail_json(msg="Failed to increment latestVersion for %s - %s" % (self.deployment_name,
+                    self.module.fail_json(msg="Failed to increment latestVersion for %s - %s" % (self.deployment_name,
                                                                                           str(exc)))
                 changed = True
                 actions.append("Update deployment %s" % self.deployment_name)
                 if not self.check_mode:
                     try:
                         self.api.replace_from_template(template=template)
-                    except ShipItException as exc:
-                        self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+                    except OriginAPIException as exc:
+                        self.module.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
 
             deployments[self.deployment_name.replace('-', '_') + '_deployment'] = self.api.get_resource('dc', self.deployment_name)
         elif self.state == 'absent':
@@ -193,14 +182,18 @@ class K8SDeploymentManager(AnsibleModule):
                 if self.check_mode:
                     try:
                         self.api.delete_resource('deployment', self.deployment_name)
-                    except ShipItException as exc:
-                        self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+                    except OriginAPIException as exc:
+                        self.module.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+
         results['changed'] = changed
+
         if self.check_mode:
             results['actions'] = actions
+
         if deployments:
             results['ansible_facts'] = deployments
-        return results
+
+        self.module.exit_json(**results)
 
     def _create_template(self):
 
@@ -255,11 +248,13 @@ class K8SDeploymentManager(AnsibleModule):
             result.append(dict(containerPort=port))
         return result
 
-def main():
-    manager = K8SDeploymentManager()
-    results = manager.exec_module()
-    manager.exit_json(**results)
+#The following will be included by `ansble-container shipit` when cloud modules are copied into the role library path.
+#include--> oso_api.py
 
+
+def main():
+    manager = DeploymentManager()
+    manager.exec_module()
 
 if __name__ == '__main__':
     main()

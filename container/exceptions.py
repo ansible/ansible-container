@@ -14,3 +14,12 @@ class AnsibleContainerAlreadyInitializedException(Exception):
 
 class AnsibleContainerNoAuthenticationProvided(Exception):
     pass
+
+
+class AnsibleContainerShipItException(Exception):
+
+    def __init__(self, msg, stdout=None, stderr=None):
+        self.stderr = stderr
+        self.stdout = stdout
+
+        Exception.__init__(self, msg)

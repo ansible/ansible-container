@@ -5,6 +5,11 @@ using only Ansible playbooks. It does this by building a container from which
 to execute Ansible and connects to your other containers via the Docker engine
 instead of SSH.
 
+And when you're ready to deploy to the cloud, use Ansible Container's *shipit* 
+command to generate an Ansible Role that deploys your application. The role is 
+generated from your project's docker-compose file, leveraging the time
+and work already invested in Docker compose.
+
 ## Why? Why not just use standard Docker tools?
 
 1. `Dockerfile` does wrong many of the things Ansible does right. 
@@ -22,6 +27,10 @@ the same playbooks and roles in your Docker environment as in your production
 environments.
 4. Ansible Container does all of this without installing SSH, leaving Ansible 
 droppings on your built images, or having excess layers to the union filesystem.
+5. When you're ready to deploy to the cloud, Docker compose leaves you with only one 
+option. Ansible Container's *shipit* command enables the deployment of your app on a 
+a number of cloud infrastructures without you having to write a single
+line of code.
 
 ## To Ansible-Container-ize your project
 
@@ -41,5 +50,11 @@ the base images.
 
 3. `ansible-container push` - This will push your Ansible-Container-built images to a
 registry of your choice.
+
+When you're ready to deploy to the cloud:
+
+4. `ansible-container shipit` - This will read your docker-container.yml file and create an Ansible
+role for deploying your project to [OpenShift](https://www.openshift.org/). Additional cloud providers 
+are under development, including: Google Container Engine and Amazon EC2 Container Service.
 
 Feel free to see the `test` or `test-v1` projects as an examples.

@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 import os
 import sys
 import argparse
+import importlib
 
 from . import engine
 from . import exceptions
@@ -51,12 +52,12 @@ AVAILABLE_COMMANDS = {'help': 'Display this help message',
                       'build': 'Build new images based on ansible/container.yml',
                       'run': 'Run and orchestrate built images based on container.yml',
                       'push': 'Push your built images to a Docker Hub compatible registry',
-                      'shipit': 'Deploy the application to OpenShift'}
+                      'shipit': 'Generate a deployment playbook to your cloud of choice.'}
 
-def subcmd_init_parser(subparser):
+def subcmd_init_parser(parser, subparser):
     return
 
-def subcmd_build_parser(subparser):
+def subcmd_build_parser(parser, subparser):
     subparser.add_argument('--recreate', action='store_true',
                            help=u'Recreate the build container image',
                            dest='recreate', default=False)
@@ -71,13 +72,13 @@ def subcmd_build_parser(subparser):
                                 u'previously built image for your hosts. Disable '
                                 u'that with this flag.')
 
-def subcmd_run_parser(subparser):
+def subcmd_run_parser(parser, subparser):
     return
 
-def subcmd_help_parser(subparser):
+def subcmd_help_parser(parser, subparser):
     return
 
-def subcmd_push_parser(subparser):
+def subcmd_push_parser(parser, subparser):
     subparser.add_argument('--username', action='store',
                            help=(u'Username to log into registry. If not provided, '
                                  u'it is expected that your ~/.docker/config.json '
@@ -97,10 +98,25 @@ def subcmd_push_parser(subparser):
                                  u'Docker Hub will be used.'),
                            dest='url', default=None)
 
-def subcmd_shipit_parser(subparser):
-    subparser.add_argument('--save-config', action='store_true',
-                           help=(u'Generate and save the Kubernetes configuration files.'),
-                           dest='save_config', default=False)
+def subcmd_shipit_parser(parser, subparser):
+    subparser.add_argument('--engine', action='store',
+                           help=(u'The shipit engine for the cloud provider you '
+                                 u'wish to ship to'),
+                           dest='engine', default='openshift')
+    args = parser.parse_args()
+    try:
+        engine_module = importlib.import_module('container.shipit.%s.engine' % args.engine)
+    except ImportError as exc:
+        raise ImportError('No shipit module for %s found - %s' % (args.engine, str(exc)))
+
+    try:
+        engine_cls = getattr(engine_module, 'ShipItEngine')
+    except Exception as exc:
+        raise Exception('Error getting ShipItEngine for %s - %s' % (args.engine, str(exc)))
+
+    engine_obj = engine_cls(os.getcwd())
+    engine_obj.add_options(subparser)
+
 
 def commandline():
     parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '
@@ -112,7 +128,7 @@ def commandline():
     for subcommand in AVAILABLE_COMMANDS:
         subparser = subparsers.add_parser(subcommand,
                                           help=AVAILABLE_COMMANDS[subcommand])
-        globals()['subcmd_%s_parser' % subcommand](subparser)
+        globals()['subcmd_%s_parser' % subcommand](parser, subparser)
     args = parser.parse_args()
     if args.subcommand == 'help':
         parser.print_help()
