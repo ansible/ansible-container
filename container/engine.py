@@ -237,7 +237,8 @@ def cmdrun_shipit(base_path, engine='openshift', **kwargs):
     logger.debug('project_name is %s' % project_name)
     config = config_load(config_find(base_path, None, dict()))
     logger.debug('config loaded.')
-    create_templates = kwargs.pop('save_config')
+    #create_templates = kwargs.pop('save_config')
+    create_templates = False
     logger.debug('create_templates: %s' % create_templates)
     engine_obj.run(config=config, project_name=project_name,
                    project_dir=base_path, create_templates=create_templates)
