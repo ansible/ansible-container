@@ -10,12 +10,12 @@ command to generate an Ansible Role that deploys your application. The role is
 generated from your project's docker-compose file, leveraging the time
 and work already invested in Docker compose.
 
-## Why? Why not just use standard Docker tools?
+## Why not just use standard Docker tools?
 
-1. `Dockerfile` does wrong many of the things Ansible does right. 
+1. A `Dockerfile` is not much more than a script with hand-crafted shell commands. 
 We're well past the point where we should be managing build processes
 with manually maintained series of shell scripts. That's why we wrote Ansible
-in the first place.
+in the first place, and this is just as applicable to containers.
 2. Ansible Container permits orchestration even during the build process, whereas
 `docker build` does not. For example, in a Django project, your VCS may contain
 a bunch of sources for static assets that need to be compiled and then 
@@ -23,10 +23,10 @@ collected. With Ansible Container, you can compile the static assets in your Dja
 container and then collect them into your static file serving container.
 3. Many people use Docker for development environments only but then use
 Ansible playbooks to push out to staging or production. This allows you to use
-the same playbooks and roles in your Docker environment as in your production
+the same playbooks and roles in your Docker dev environment as in your production
 environments.
 4. Ansible Container does all of this without installing SSH, leaving Ansible 
-droppings on your built images, or having excess layers to the union filesystem.
+artifacts on your built images, or having excess layers to the union filesystem.
 5. When you're ready to deploy to the cloud, Docker compose leaves you with only one 
 option. Ansible Container's *shipit* command enables the deployment of your app on a 
 a number of cloud infrastructures without you having to write a single
