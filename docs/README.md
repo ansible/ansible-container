@@ -2,7 +2,7 @@
 
 Update the documentation by modifying the .rst files found in the *rst* folder.
 
-When you're ready to build, you'll need the following the Python sphinx modules installed:
+When you're ready to build, you'll need the following Python sphinx modules installed:
 
 ```
 pip install sphinx sphinx-autobuild
