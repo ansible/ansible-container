@@ -46,8 +46,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'ansible-container'
-copyright = u'2016, j00bar'
-author = u'j00bar'
+copyright = u'2016, Red Hat, Inc'
+author = u'Red Hat'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
