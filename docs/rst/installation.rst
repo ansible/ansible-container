@@ -34,7 +34,7 @@ Build and install ansible-container:
 
 .. code-block:: bash
 
-    $ python ./setup.by build
+    $ python ./setup.py build
     $ python ./setup.py install
 
 
