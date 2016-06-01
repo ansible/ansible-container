@@ -58,9 +58,6 @@ def subcmd_init_parser(parser, subparser):
     return
 
 def subcmd_build_parser(parser, subparser):
-    subparser.add_argument('--recreate', action='store_true',
-                           help=u'Recreate the build container image',
-                           dest='recreate', default=False)
     subparser.add_argument('--no-flatten', action='store_false',
                            help=u'By default, Ansible Container will flatten your '
                                 u'build image into a single layer. With this '
@@ -127,6 +124,9 @@ def commandline():
                                                  u'Ansible playbooks')
     parser.add_argument('--debug', action='store_true', dest='debug',
                         help=u'Enable debug output', default=False)
+    parser.add_argument('--engine', action='store', dest='engine',
+                        help=u'Select your container engine and orchestrator',
+                        default='docker')
     subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
     for subcommand in AVAILABLE_COMMANDS:
         subparser = subparsers.add_parser(subcommand, help=AVAILABLE_COMMANDS[subcommand])
