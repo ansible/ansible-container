@@ -32,6 +32,13 @@ option. Ansible Container's *shipit* command enables the deployment of your app 
 a number of cloud infrastructures without you having to write a single
 line of code.
 
+## To install Ansible Container
+
+1. `sudo pip install docker-compose` - Ansible Container relies upon the docker-compose
+library.
+
+2. `sudo python setup.py install` 
+
 ## To Ansible-Container-ize your project
 
 Run `ansible-container init` in the root directory of your project. This will create
