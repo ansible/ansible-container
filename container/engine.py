@@ -204,7 +204,7 @@ def cmdrun_init(base_path, **kwargs):
     logger.info('Ansible Container initialized.')
 
 
-def cmdrun_build(base_path, engine, flatten=True, purge_last=True,
+def cmdrun_build(base_path, engine, flatten=True, purge_last=True, rebuild=False,
                  **kwargs):
     assert_initialized(base_path)
     engine_obj = load_engine(engine, base_path)
@@ -219,7 +219,7 @@ def cmdrun_build(base_path, engine, flatten=True, purge_last=True,
         logger.info('Starting %s engine to build your images...'
                     % engine_obj.orchestrator_name)
         touched_hosts = engine_obj.hosts_touched_by_playbook()
-        engine_obj.orchestrate('build', temp_dir)
+        engine_obj.orchestrate('build', temp_dir, context=dict(rebuild=rebuild))
         if not engine_obj.build_was_successful():
             logger.error('Ansible playbook run failed.')
             logger.info('Cleaning up Ansible Container builder...')

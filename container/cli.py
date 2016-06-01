@@ -68,6 +68,12 @@ def subcmd_build_parser(parser, subparser):
                            help=u'By default, Ansible Container will remove the '
                                 u'previously built image for your hosts. Disable '
                                 u'that with this flag.')
+    subparser.add_argument('--rebuild', action='store_true',
+                           help=u'Instead of starting from the base image, '
+                                u'perform the Ansible Container build against '
+                                u'the last built image. This may be faster than '
+                                u'starting from scratch.',
+                           dest='rebuild', default=False)
 
 def subcmd_run_parser(parser, subparser):
     return
@@ -95,27 +101,41 @@ def subcmd_push_parser(parser, subparser):
                                  u'Docker Hub will be used.'),
                            dest='url', default=None)
 
+class LoadSubmoduleAction(argparse.Action):
+    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+        if nargs is not None:
+            raise ValueError("nargs not allowed")
+        super(LoadSubmoduleAction, self).__init__(option_strings, dest, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        # Rudimentary input sanitation
+        engine_name = values.split(' ', 1)[0].strip('.')
+        try:
+            engine_module = importlib.import_module(
+                'container.shipit.%s.engine' % engine_name)
+        except ImportError as exc:
+            raise ImportError(
+                'No shipit module for %s found - %s' % (engine_name, str(exc)))
+
+        try:
+            engine_cls = getattr(engine_module, 'ShipItEngine')
+        except Exception as exc:
+            raise Exception('Error getting ShipItEngine for %s - %s' % (
+            engine_name, str(exc)))
+
+        engine_obj = engine_cls(os.getcwd())
+        setattr(namespace, self.dest, engine_obj)
+
 def subcmd_shipit_parser(parser, subparser):
-    subparser.add_argument('--engine', action='store',
+    subparser.add_argument('--engine', action=LoadSubmoduleAction,
                            help=(u'The shipit engine for the cloud provider you '
                                  u'wish to ship to'),
                            dest='engine', default='openshift')
     subparser.add_argument('--save-config', action='store_true',
                            help=(u'Save cloud configuration files'),
                            dest='save_config', default='store_false')
-    args = parser.parse_args()
-    try:
-        engine_module = importlib.import_module('container.shipit.%s.engine' % args.engine)
-    except ImportError as exc:
-        raise ImportError('No shipit module for %s found - %s' % (args.engine, str(exc)))
-
-    try:
-        engine_cls = getattr(engine_module, 'ShipItEngine')
-    except Exception as exc:
-        raise Exception('Error getting ShipItEngine for %s - %s' % (args.engine, str(exc)))
-
-    engine_obj = engine_cls(os.getcwd())
-    engine_obj.add_options(subparser)
+    # FIXME: This needs to be moved into the LoadSubmoduleAction
+    # engine_obj.add_options(subparser)
 
 
 def commandline():
@@ -129,8 +149,9 @@ def commandline():
                         default='docker')
     subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
     for subcommand in AVAILABLE_COMMANDS:
+        logger.debug('Registering subcommand %s', subcommand)
         subparser = subparsers.add_parser(subcommand, help=AVAILABLE_COMMANDS[subcommand])
-        #globals()['subcmd_%s_parser' % subcommand](parser, subparser)
+        globals()['subcmd_%s_parser' % subcommand](parser, subparser)
 
     args = parser.parse_args()
 

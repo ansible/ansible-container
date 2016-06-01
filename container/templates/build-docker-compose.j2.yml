@@ -20,5 +20,8 @@ services:
     tty: true
   {% for host in hosts %}
   {{ host }}:
+    {% if rebuild %}
+    image: "{{ project_name }}-{{ host }}:latest"
+    {% endif %}
     command: sh -c "while true; do sleep 1; done"
   {% endfor %}

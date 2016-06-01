@@ -148,7 +148,6 @@ def launch_docker_compose(base_path, project_name, temp_dir, verb, services=[],
     os.environ['ANSIBLE_CONTAINER_BASE'] = os.path.realpath(base_path)
     project = project_from_options(base_path, options)
     command = main.TopLevelCommand(project)
-    import pdb; pdb.set_trace()
     command.up(command_options)
 
 def extract_hosts_from_docker_compose(base_path):
