@@ -28,9 +28,16 @@ environments.
 4. Ansible Container does all of this without installing SSH, leaving Ansible 
 artifacts on your built images, or having excess layers to the union filesystem.
 5. When you're ready to deploy to the cloud, Docker compose leaves you with only one 
-option. Ansible Container's *shipit* command enables the deployment of your app on a 
+option. Ansible Container's *shipit* command enables the deployment of your app on
 a number of cloud infrastructures without you having to write a single
 line of code.
+
+## To install Ansible Container
+
+1. `sudo pip install docker-compose` - Ansible Container relies upon the docker-compose
+library.
+
+2. `sudo python setup.py install` 
 
 ## To Ansible-Container-ize your project
 
