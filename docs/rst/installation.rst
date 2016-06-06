@@ -17,6 +17,8 @@ Running from Source
 First, you'll need python 2.7 and `git <https://git-scm.com/book/en/v2/Getting-Started-Installing-Git>`_. You will
 also need access to a Docker daemon, which may require installing Docker or Docker Machine.
 
+We also recommend installing Ansible Container within a Python `virtualenv <https://virtualenv.pypa.io/en/stable/>`_.
+
 Clone the repo:
 
 .. code-block:: bash
@@ -30,11 +32,10 @@ Install prerequisites using the requirements file in your local ansible-containe
     $ cd ansible-container
     $ pip install -r requirements.txt
 
-Build and install ansible-container:
+Install ansible-container:
 
 .. code-block:: bash
 
-    $ python ./setup.py build
     $ python ./setup.py install
 
 
