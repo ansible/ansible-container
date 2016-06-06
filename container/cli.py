@@ -120,7 +120,7 @@ class LoadSubmoduleAction(argparse.Action):
         try:
             engine_cls = getattr(engine_module, 'ShipItEngine')
         except Exception as exc:
-            raise Exception('Error getting ShipItEngine for %s - %s' % (
+            raise ImportError('Error getting ShipItEngine for %s - %s' % (
             engine_name, str(exc)))
 
         engine_obj = engine_cls(os.getcwd())
