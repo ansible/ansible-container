@@ -23,8 +23,9 @@ class Service(object):
 
     def _get_task_or_config(self, request_type="task", service_names=None):
         templates = []
-        for service in self.config.services:
-            if not service_names or service['name'] in service_names:
+
+        for name, service in self.config.get('services', {}).iteritems():
+            if not service_names or name in service_names:
                 if service.get('ports'):
                     if request_type == "task":
                         templates.append(self._create_task(service))

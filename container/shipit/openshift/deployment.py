@@ -46,10 +46,10 @@ class Deployment(object):
         #                 new_template = self._create_template(linked_containers)
         #             templates.append(new_template)
 
-        for service in self.config.services:
+        for name, service in self.config.get('services', {}).iteritems():
             # add any non-linked services
-            if not service_names or service['name'] in service_names:
-                if service['name'] not in resolved:
+            if not service_names or name in service_names:
+                if name not in resolved:
                     if request_type == 'task':
                         new_template = self._create_task([service['name']])
                     elif request_type == 'config':
@@ -139,9 +139,9 @@ class Deployment(object):
 
     def _services_to_containers(self, service_names, type="task"):
         results = []
-        for service in self.config.services:
-            if service['name'] in service_names:
-                container = OrderedDict(name=service['name'])
+        for name, service in self.config.get('services', {}).iteritems():
+            if name in service_names:
+                container = OrderedDict(name=name)
                 for key, value in service.items():
                     if key == 'ports' and type == 'config':
                         container['ports'] = self._get_config_ports(value)

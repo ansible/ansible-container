@@ -13,13 +13,6 @@ logger = logging.getLogger(__name__)
 
 class ShipItEngine(BaseShipItEngine):
 
-    def add_options(self, subparser):
-        subparser.add_argument('--save-config', action='store_true',
-                               help=(
-                                   u'Generate and save the OpenShift '
-                                   u'configuration files.'),
-                               dest='save_config', default=False)
-
     def run(self, **kwargs):
         config = kwargs.pop('config')
         project_name = kwargs.pop('project_name')
