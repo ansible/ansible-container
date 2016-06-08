@@ -118,7 +118,7 @@ DEFAULT_COMPOSE_UP_OPTIONS = {
 
 def launch_docker_compose(base_path, project_name, temp_dir, verb, services=[],
                           no_color=False, extra_command_options=dict(), **context):
-    version = compose_format_version(base_path)
+    version = config_format_version(base_path)
     jinja_render_to_temp(('%s-docker-compose.j2.yml' if version == 2
                          else '%s-docker-compose-v1.j2.yml') % (verb,),
                          temp_dir,
@@ -151,8 +151,8 @@ def launch_docker_compose(base_path, project_name, temp_dir, verb, services=[],
     command.up(command_options)
 
 def extract_hosts_from_docker_compose(base_path):
-    compose_data = parse_compose_file(base_path)
-    if compose_format_version(base_path, compose_data) == 2:
+    compose_data = get_config(base_path)
+    if config_format_version(base_path, compose_data) == 2:
         services = compose_data.pop('services', {})
     else:
         services = compose_data

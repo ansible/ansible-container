@@ -35,8 +35,8 @@ class Engine(BaseEngine):
 
         :return: list of strings
         """
-        compose_data = parse_compose_file(self.base_path)
-        if compose_format_version(self.base_path, compose_data) == 2:
+        compose_data = get_config(self.base_path)
+        if config_format_version(self.base_path, compose_data) == 2:
             services = compose_data.pop('services', {})
         else:
             services = compose_data
@@ -48,8 +48,8 @@ class Engine(BaseEngine):
 
         :return: list of strings
         """
-        compose_data = parse_compose_file(self.base_path)
-        if compose_format_version(self.base_path, compose_data) == 2:
+        compose_data = get_config(self.base_path)
+        if config_format_version(self.base_path, compose_data) == 2:
             services = compose_data.pop('services', {})
         else:
             services = compose_data
