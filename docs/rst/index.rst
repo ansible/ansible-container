@@ -8,7 +8,7 @@ Welcome to ansible-container!
 Ansible Container is the ultimate workflow for container development, testing, and deployment.
 
 Ansible Container enables you to build Docker images and orchestrate containers using only Ansible playbooks. Describe
-your application in Docker Compose and, rather than a Dockerfile, provide a playbook with tasks for building images.
+your application in Docker Compose and, rather than using a Dockerfile, provide a playbook with tasks for building images.
 Ansible Container will take it from there.
 
 With Ansible Container, you are no longer limited by Dockerfile. You can now apply the power of Ansible to the image build
