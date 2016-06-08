@@ -19,5 +19,5 @@ setup(
     entry_points={
         'console_scripts': ['ansible-container = container.cli:commandline']
     },
-    install_reqs=reqs
+    install_requires=reqs
 )
