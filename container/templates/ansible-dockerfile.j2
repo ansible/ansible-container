@@ -6,7 +6,7 @@ RUN apt-get -y update && \
 ADD ansible/ /ansible/
 ADD hosts  /etc/ansible/inventory/hosts
 # RUN pip install -q --no-cache-dir 'ansible=={{ ansible_version }}'
-RUN pip install -q --no-cache-dir -e git+git://github.com/ansible/ansible.git@devel#egg=ansible
+RUN pip install -q --no-cache-dir -e git+https://github.com/ansible/ansible.git@devel#egg=ansible
 RUN test '(! -f /ansible/requirements.txt)' || pip install --no-cache-dir -r /ansible/requirements.txt
 
 ENV ANSIBLE_LIBRARY /opt/ansible/library
