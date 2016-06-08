@@ -1,12 +1,12 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 import container
 
 setup(
     name='ansible-container',
     version=container.__version__,
-    packages=['container', 'container.shipit', 'container.shipit.openshift', 'container.shipit.openshift.modules'],
+    packages=find_packages(include='container'),
     include_package_data=True,
-    url='https://github.com/j00bar/ansible-container',
+    url='https://github.com/ansible/ansible-container',
     license='LGPLv3 (See LICENSE file for terms)',
     author='Joshua "jag" Ginsberg and others (See AUTHORS file for contributors)',
     author_email='jag@flowtheory.net',

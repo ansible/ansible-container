@@ -126,6 +126,7 @@ def launch_docker_compose(base_path, project_name, temp_dir, verb, services=[],
                          hosts=extract_hosts_from_docker_compose(
                              base_path),
                          project_name=project_name,
+                         base_path=os.path.realpath(base_path),
                          **context)
     options = DEFAULT_COMPOSE_OPTIONS.copy()
     options.update({
@@ -145,7 +146,6 @@ def launch_docker_compose(base_path, project_name, temp_dir, verb, services=[],
     command_options[u'--no-color'] = no_color
     command_options[u'SERVICE'] = services
     command_options.update(extra_command_options)
-    os.environ['ANSIBLE_CONTAINER_BASE'] = os.path.realpath(base_path)
     project = project_from_options(base_path, options)
     command = main.TopLevelCommand(project)
     command.up(command_options)
