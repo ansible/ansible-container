@@ -13,9 +13,18 @@ class BaseShipItEngine(object):
 
     def run(self, **kwargs):
         """
-        Actually generate the Ansible role to deploy to this target.
+        Generate an Ansible role and sample playbook to deploy to the target cloud.
 
-        :param kwargs: The commandline options provided at runtime
+        :param kwargs: Commandline options provided at runtime
+        :return:
+        """
+        raise NotImplementedError()
+
+    def save_config(self, kwargs):
+        """
+        Called when --save-config option True. Generate configuration templates and write to filesystem.
+
+        :param kwargs: Comandline options provided at runtime.
         :return:
         """
         raise NotImplementedError()

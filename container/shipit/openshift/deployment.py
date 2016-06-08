@@ -158,14 +158,6 @@ class Deployment(object):
                     else:
                         container[key] = value
 
-                if service.get('labels'):
-                    # check for oso_publish_port
-                    for key, value in service['labels'].items():
-                        if key == 'oso_publish_port':
-                            if not container.get('ports'):
-                                container['ports'] = []
-                            container['ports'].append(int(value))
-
                 results.append(container)
         return results
 
@@ -217,21 +209,15 @@ class Deployment(object):
 
     def _expand_env_vars(self, env_variables):
         '''
-        Turn containier environment attribute into kube env dictionary of name/value pairs.
+        Turn containier environment attribute into dictionary of name/value pairs.
 
         :param env_variables: container env attribute value
         :type env_variables: dict or list
         :return: dict
         '''
-        def f(x):
-            return re.sub('^oso_', '', x, flags=re.I)
-
-        def m(x):
-            return re.match('oso_', x, flags=re.I)
-
         def r(x, y):
-            if m(x):
-                return dict(name=f(x), value=self._resolve_resource(y))
+            if re.match('shipit_', x, flags=re.I):
+                return dict(name=re.sub('^shipit_', '', x, flags=re.I), value=self._resolve_resource(y))
             return dict(name=x, value=y)
 
         results = []
@@ -242,7 +228,7 @@ class Deployment(object):
             for envvar in env_variables:
                 parts = envvar.split('=')
                 if len(parts) == 1:
-                    results.append(dict(name=f(parts[0]), value=None))
+                    results.append(dict(name=re.sub('^shipit_', '', parts[0], flags=re.I), value=None))
                 elif len(parts) == 2:
                     results.append(r(parts[0], parts[1]))
         return results
