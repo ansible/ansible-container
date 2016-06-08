@@ -11,6 +11,4 @@ ansible-container:
     - $DOCKER_CERT_PATH:/docker-certs/
     - {{ base_path }}:/ansible-container/
   working_dir: /ansible-container/ansible/
-  stdin_open: true
-  tty: true
 {{ config }}

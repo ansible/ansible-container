@@ -1,0 +1,53 @@
+- hosts: all
+  tasks:
+    - name: Install dumb init
+      get_url: dest=/usr/bin/dumb-init url=https://github.com/Yelp/dumb-init/releases/download/v1.0.2/dumb-init_1.0.2_amd64 mode=0775
+- hosts: django
+  tasks:
+    - name: Install python deps
+      yum: name=postgresql-devel,python-devel,gcc,python-virtualenv,sudo state=latest update_cache=yes
+    - name: Make Django user
+      user: name=django state=present createhome=yes home=/django
+    - name: Remote User
+      command: whoami
+      remote_user: django
+    - name: Make virtualenv dir
+      file: name=/venv state=directory owner=django
+    - name: Setup virtualenv
+      command: virtualenv . chdir=/venv creates=/venv/bin/python
+      remote_user: django
+    - name: Copy requirements
+      copy: src="{{ lookup('pipe','dirname `pwd`') }}/" dest=/django owner=django
+      remote_user: django
+    - name: Install requirements
+      pip: executable=/venv/bin/pip requirements=/django/requirements.txt
+      remote_user: django
+- hosts: postgresql
+  tasks:
+    - name: Install PostgreSQL
+      yum: name=postgresql-server,python-psycopg2,sudo state=latest update_cache=yes
+    - name: Init PostgreSQL db
+      command: initdb -D /var/lib/pgsql/data creates=/var/lib/pgsql/data/postgresql.conf
+      remote_user: postgres
+    - name: Start PostgreSQL server
+      command: pg_ctl -D /var/lib/pgsql/data start
+      remote_user: postgres
+    - name: Make PostgreSQL user
+      postgresql_user: name=example password=sesame role_attr_flags=CREATEDB,NOSUPERUSER
+      remote_user: postgres
+    - name: Make PostgreSQL db
+      postgresql_db: name=example encoding='UTF-8' template='template0'
+      remote_user: postgres
+- hosts: django
+  tasks:
+    - name: Apply database migrations
+      command: /venv/bin/python manage.py migrate chdir=/django
+      remote_user: django
+- hosts: postgres
+  become: yes
+  become_user: postgres
+  tasks:
+    - name: Stop PostgreSQL
+      command: pg_ctl -D /var/lib/pgsql/data stop
+      remote_user: postgres
+

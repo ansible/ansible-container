@@ -1,0 +1,29 @@
+version: "1"
+services:
+  django:
+    image: centos:7
+    ports:
+      - "8080"
+    working_dir: '/django'
+    user: 'django'
+    command: ['/usr/sbin/dumb-init', '/venv/bin/python', 'manage.py', 'run_gunicorn', '-w', '2', '-p', '0.0.0.0:8080']
+    dev_overrides:
+      command: ['/usr/sbin/dumb-init', '/venv/bin/python', 'manage.py', 'runserver', '0.0.0.0:8080']
+      volumes: "..:/django"
+  static:
+    image: centos:7
+    ports:
+      - "80:8080"
+    user: 'www-data'
+    links:
+      - django
+      - postgresql
+    command: ['/usr/sbin/dumb-init', 'nginx', '-c', '/etc/nginx/nginx.conf']
+  postgresql:
+    image: centos:7
+    ports:
+      - "5432"
+    user: 'postgres'
+    command: ['/usr/sbin/dumb-init', "postgres", "-h", "0.0.0.0", "-D", "/var/lib/pgsql/data"]
+    volumes:
+      - '/var/lib/postgresql/9.4/main'
