@@ -239,12 +239,15 @@ def cmdrun_build(base_path, engine, flatten=True, purge_last=True, rebuild=False
         engine_obj.remove_container_by_id(builder_container_id)
 
 
-def cmdrun_run(base_path, engine, **kwargs):
+def cmdrun_run(base_path, engine, service=[], use_base_images=False, **kwargs):
     assert_initialized(base_path)
     engine_obj = load_engine(engine, base_path)
     with make_temp_dir() as temp_dir:
+        hosts = service or ([] if use_base_images
+                            else engine_obj.all_hosts_in_orchestration())
         engine_obj.orchestrate('run', temp_dir,
-                              hosts=engine_obj.all_hosts_in_orchestration())
+                               hosts=hosts,
+                               context=dict(use_base_images=use_base_images))
 
 
 def cmdrun_push(base_path, engine, username=None, password=None, email=None,

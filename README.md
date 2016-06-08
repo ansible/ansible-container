@@ -34,10 +34,11 @@ line of code.
 
 ## To install Ansible Container
 
-1. `sudo pip install docker-compose` - Ansible Container relies upon the docker-compose
-library.
+We recommend installing Ansible Container inside of a Python virtualenv.
 
-2. `sudo python setup.py install` 
+1. `pip install -r requirements.txt`
+
+2. `python setup.py install` 
 
 ## To Ansible-Container-ize your project
 

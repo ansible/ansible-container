@@ -105,6 +105,7 @@ class Engine(BaseEngine):
                                      self.base_path))
             tarball.add(os.path.join(temp_dir, 'hosts'), arcname='hosts')
             tarball.close()
+            tarball_file.close()
             tarball_file = open(tarball_path, 'rb')
             logger.info('Starting Docker build of Ansible Container image...')
             return [streamline for streamline in

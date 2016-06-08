@@ -76,7 +76,13 @@ def subcmd_build_parser(parser, subparser):
                            dest='rebuild', default=False)
 
 def subcmd_run_parser(parser, subparser):
-    return
+    subparser.add_argument('--use-base-images', action='store_true',
+                           help=u'Run the base images from your container.yml '
+                                u'instead of the built images',
+                           dest='use_base_images', default=False)
+    subparser.add_argument('service', action='store',
+                           help=u'The specific services you want to run',
+                           nargs='*')
 
 def subcmd_help_parser(parser, subparser):
     return
@@ -120,7 +126,7 @@ class LoadSubmoduleAction(argparse.Action):
         try:
             engine_cls = getattr(engine_module, 'ShipItEngine')
         except Exception as exc:
-            raise Exception('Error getting ShipItEngine for %s - %s' % (
+            raise ImportError('Error getting ShipItEngine for %s - %s' % (
             engine_name, str(exc)))
 
         engine_obj = engine_cls(os.getcwd())

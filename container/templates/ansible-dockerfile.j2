@@ -3,10 +3,9 @@ FROM python:2.7
 RUN apt-get -y update && \
     apt-get install -y python-setuptools git python-pip && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-ADD ansible/ /ansible/
 ADD hosts  /etc/ansible/inventory/hosts
+ADD ansible /ansible-tmp/
 # RUN pip install -q --no-cache-dir 'ansible=={{ ansible_version }}'
-RUN pip install -q --no-cache-dir -e git+https://github.com/ansible/ansible.git@devel#egg=ansible
-RUN test '(! -f /ansible/requirements.txt)' || pip install --no-cache-dir -r /ansible/requirements.txt
-
-ENV ANSIBLE_LIBRARY /opt/ansible/library
+RUN pip install -q --no-cache-dir -e git+git://github.com/ansible/ansible.git@devel#egg=ansible
+RUN test '(! -f /ansible-tmp/requirements.txt)' || pip install --no-cache-dir -r /ansible-tmp/requirements.txt
+RUN rm -rf /ansible-tmp/

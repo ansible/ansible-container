@@ -1,3 +1,13 @@
+{% if use_base_images %}
+ansible-container:
+  image: ansible-container-builder:latest
+  command: sh -c "while true; do sleep 1; done"
+{% for host in hosts %}
+{{ host }}:
+  user: root
+  command: sh -c "while true; do sleep 1; done"
+{% endfor %}
+{% else %}
 ansible-container:
   image: tianon/true
   command: /bin/false
@@ -5,3 +15,4 @@ ansible-container:
 {{ host }}:
   image: {{ project_name }}-{{ host }}:latest
 {% endfor %}
+{% endif %}

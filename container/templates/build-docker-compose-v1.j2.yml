@@ -1,6 +1,6 @@
 ansible-container:
   image: "{{ builder_img_id }}"
-  entrypoint: ansible-playbook -i /etc/ansible/inventory/hosts -c docker
+  entrypoint: ansible-playbook -vvv -i /etc/ansible/inventory/hosts -c docker
   environment:
     - DOCKER_HOST
     - DOCKER_TLS_VERIFY
@@ -9,8 +9,8 @@ ansible-container:
   volumes:
     - {{ which_docker }}:/usr/bin/docker
     - $DOCKER_CERT_PATH:/docker-certs/
-    - $ANSIBLE_CONTAINER_BASE/ansible:/ansible/
-  working_dir: /ansible/
+    - {{ base_path }}:/ansible-container/
+  working_dir: /ansible-container/ansible/
   stdin_open: true
   tty: true
 {% for host in hosts %}
@@ -18,5 +18,7 @@ ansible-container:
   {% if rebuild %}
   image: "{{ project_name }}-{{ host }}:latest"
   {% endif %}
+  user: root
+  working_dir: /
   command: sh -c "while true; do sleep 1; done"
 {% endfor %}

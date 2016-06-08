@@ -14,8 +14,8 @@ services:
     volumes:
       - {{ which_docker }}:/usr/bin/docker
       - $DOCKER_CERT_PATH:/docker-certs/
-      - $ANSIBLE_CONTAINER_BASE/ansible:/ansible/
-    working_dir: /ansible/
+      - {{ base_path }}:/ansible-container/
+    working_dir: /ansible-container/ansible/
     stdin_open: true
     tty: true
   {% for host in hosts %}
@@ -23,5 +23,7 @@ services:
     {% if rebuild %}
     image: "{{ project_name }}-{{ host }}:latest"
     {% endif %}
+    user: root
+    working_dir: /
     command: sh -c "while true; do sleep 1; done"
   {% endfor %}
