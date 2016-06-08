@@ -18,8 +18,19 @@ class AnsibleContainerConfig(Mapping):
 
     def __init__(self, base_path):
         self.base_path = base_path
+        self.set_env('prod')
+
+    def set_env(self, env):
+        assert env in ['dev', 'prod']
         ifs = open(os.path.join(self.base_path, 'ansible/container.yml'))
-        self._config = yaml_load(ifs)
+        config = yaml_load(ifs)
+        ifs.close()
+        for service in config['services']:
+            dev_overrides = service.pop('dev_overrides')
+            if env == 'dev':
+                for key, value in dev_overrides.iteritems():
+                    service[key] = value
+        self._config = config
 
     def __getitem__(self, item):
         return self._config.get(item)
