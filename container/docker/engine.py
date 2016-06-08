@@ -372,7 +372,6 @@ class Engine(BaseEngine):
         if not self._client:
             # To ensure version compatibility, we have to generate the kwargs ourselves
             client_kwargs = kwargs_from_env(assert_hostname=False)
-            client_kwargs['version'] = os.environ.get('DOCKER_API_VERSION') or None
             self._client = docker.AutoVersionClient(**client_kwargs)
         return self._client
 
