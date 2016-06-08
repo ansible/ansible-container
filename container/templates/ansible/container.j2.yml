@@ -1,8 +1,5 @@
-version: "2"
+version: "1"
 services:
-  ansible-container:
-    command:
-      - main.yml
   # Add your containers here, specifying the base image you want to build from
   # For example:
   #
