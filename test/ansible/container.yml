@@ -1,8 +1,5 @@
-version: "2"
+version: "1"
 services:
-  ansible-container:
-    command:
-      - sample.yml
   host1:
     image: "ubuntu:trusty"
     command: /bin/false

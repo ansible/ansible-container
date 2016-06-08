@@ -1,29 +1,16 @@
-version: "2"
-services:
-  ansible-container:
-    image: "{{ builder_img_id }}"
-    entrypoint: ansible-playbook -i /etc/ansible/inventory/hosts -c docker
-    environment:
-      - DOCKER_HOST
-      - DOCKER_TLS_VERIFY
-      - DOCKER_CERT_PATH=/docker-certs/
-      - COMPOSE_HTTP_TIMEOUT=3000
-    depends_on:
-      {% for host in hosts %}- {{ host }}
-      {% endfor %}
-    volumes:
-      - {{ which_docker }}:/usr/bin/docker
-      - $DOCKER_CERT_PATH:/docker-certs/
-      - {{ base_path }}:/ansible-container/
-    working_dir: /ansible-container/ansible/
-    stdin_open: true
-    tty: true
-  {% for host in hosts %}
-  {{ host }}:
-    {% if rebuild %}
-    image: "{{ project_name }}-{{ host }}:latest"
-    {% endif %}
-    user: root
-    working_dir: /
-    command: sh -c "while true; do sleep 1; done"
-  {% endfor %}
+ansible-container:
+  image: "{{ builder_img_id }}"
+  command: ansible-playbook -i /etc/ansible/inventory/hosts -c docker main.yml
+  environment:
+    - DOCKER_HOST
+    - DOCKER_TLS_VERIFY
+    - DOCKER_CERT_PATH=/docker-certs/
+    - COMPOSE_HTTP_TIMEOUT=3000
+  volumes:
+    - {{ which_docker }}:/usr/bin/docker
+    - $DOCKER_CERT_PATH:/docker-certs/
+    - {{ base_path }}:/ansible-container/
+  working_dir: /ansible-container/ansible/
+  stdin_open: true
+  tty: true
+{{ config }}

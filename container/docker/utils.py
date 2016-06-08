@@ -5,22 +5,17 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-import os
 import sys
 from StringIO import StringIO
 from functools import wraps
 from distutils import spawn
 
-from ..utils import *
-
-from compose.cli.command import project_from_options
 from compose.cli import main
 from compose.cli.log_printer import LogPrinter, build_log_presenters
 
 __all__ = ['teed_stdout',
            'which_docker',
-           'launch_docker_compose',
-           'extract_hosts_from_docker_compose']
+           'config_to_compose']
 
 # Don't try this at home, kids.
 
@@ -80,80 +75,14 @@ teed_stdout = TeedStdout
 def which_docker():
     return spawn.find_executable('docker')
 
-# Docker-compose uses docopt, which outputs things like the below
-# So I'm starting with the defaults and then updating them.
-# One structure for the global options and one for the command specific
 
-DEFAULT_COMPOSE_OPTIONS = {
-    u'--help': False,
-    u'--host': None,
-    u'--project-name': None,
-    u'--skip-hostname-check': False,
-    u'--tls': False,
-    u'--tlscacert': None,
-    u'--tlscert': None,
-    u'--tlskey': None,
-    u'--tlsverify': False,
-    u'--verbose': False,
-    u'--version': False,
-    u'-h': False,
-    u'--file': [],
-    u'COMMAND': None,
-    u'ARGS': []
-}
-
-DEFAULT_COMPOSE_UP_OPTIONS = {
-    u'--abort-on-container-exit': False,
-    u'--build': False,
-    u'--force-recreate': False,
-    u'--no-color': False,
-    u'--no-deps': False,
-    u'--no-recreate': False,
-    u'--no-build': False,
-    u'--remove-orphans': False,
-    u'--timeout': None,
-    u'-d': False,
-    u'SERVICE': []
-}
-
-def launch_docker_compose(engine, temp_dir, verb, services=[], no_color=False,
-                          extra_command_options=dict(), **context):
-    version = config_format_version(engine.base_path)
-    jinja_render_to_temp(('%s-docker-compose.j2.yml' if version == 2
-                         else '%s-docker-compose-v1.j2.yml') % (verb,),
-                         temp_dir,
-                         'docker-compose.yml',
-                         hosts=extract_hosts_from_docker_compose(
-                             engine.base_path),
-                         project_name=engine.project_name,
-                         base_path=engine.base_path,
-                         **context)
-    options = DEFAULT_COMPOSE_OPTIONS.copy()
-    options.update({
-        u'--file': [
-            os.path.normpath(
-                os.path.join(engine.base_path,
-                             'ansible',
-                             'container.yml')
-            ),
-            os.path.join(temp_dir,
-                         'docker-compose.yml')],
-        u'COMMAND': 'up',
-        u'ARGS': ['--no-build'] + services
-    })
-    command_options = DEFAULT_COMPOSE_UP_OPTIONS.copy()
-    command_options[u'--no-build'] = True
-    command_options[u'--no-color'] = no_color
-    command_options[u'SERVICE'] = services
-    command_options.update(extra_command_options)
-    project = project_from_options(engine.base_path, options)
-    command = main.TopLevelCommand(project)
-    command.up(command_options)
-
-def extract_hosts_from_docker_compose(base_path):
-    compose_data = get_config(base_path)
-    if config_format_version(base_path, compose_data) == 2:
-        services = compose_data.pop('services', {})
-    else:
-        services = compose_data
-    return [key for key in services.keys() if key != 'ansible-container']
+def config_to_compose(config):
+    # This could probably be better done - include what keys are in compose vs
+    # removing the ones that aren't.
+    compose = config.get('services', {}).copy()
+    for service, service_config in compose.items():
+        if 'options' in service_config:
+            del service_config['options']
+    logger.debug('Compose derived from config:')
+    logger.debug(unicode(compose))
+    return compose

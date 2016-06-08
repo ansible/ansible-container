@@ -25,11 +25,10 @@ class AnsibleContainerConfig(Mapping):
         ifs = open(os.path.join(self.base_path, 'ansible/container.yml'))
         config = yaml_load(ifs)
         ifs.close()
-        for service in config['services']:
-            dev_overrides = service.pop('dev_overrides')
+        for service, service_config in config['services'].items():
+            dev_overrides = service_config.pop('dev_overrides', {})
             if env == 'dev':
-                for key, value in dev_overrides.iteritems():
-                    service[key] = value
+                service_config.update(dev_overrides)
         self._config = config
 
     def __getitem__(self, item):
