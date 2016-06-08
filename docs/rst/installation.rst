@@ -23,17 +23,11 @@ Clone the repo:
 
     $ git clone git@github.com:ansible/ansible-container.git
 
-Install prerequisites using the requirements file in your local ansible-container repo:
-
-.. code-block:: bash
-
-    $ cd ansible-container
-    $ pip install -r requirements.txt
-
 Install ansible-container:
 
 .. code-block:: bash
 
+    $ cd ansible-container
     $ python ./setup.py install
 
 

@@ -1,5 +1,9 @@
 from setuptools import setup, find_packages
+from pip.req import parse_requirements
 import container
+
+install_reqs = parse_requirements('requirements.txt', session=False)
+reqs = [str(ir.req) for ir in install_reqs]
 
 setup(
     name='ansible-container',
@@ -14,5 +18,6 @@ setup(
                  'Docker images built from Ansible playbooks.'),
     entry_points={
         'console_scripts': ['ansible-container = container.cli:commandline']
-    }
+    },
+    install_reqs=reqs
 )
