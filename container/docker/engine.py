@@ -35,12 +35,7 @@ class Engine(BaseEngine):
 
         :return: list of strings
         """
-        compose_data = get_config(self.base_path)
-        if config_format_version(self.base_path, compose_data) == 2:
-            services = compose_data.pop('services', {})
-        else:
-            services = compose_data
-        return [key for key in services.keys() if key != self.builder_container_img_name]
+        return self.config.get('services', {}).keys()
 
     def hosts_touched_by_playbook(self):
         """
@@ -48,21 +43,9 @@ class Engine(BaseEngine):
 
         :return: list of strings
         """
-        compose_data = get_config(self.base_path)
-        if config_format_version(self.base_path, compose_data) == 2:
-            services = compose_data.pop('services', {})
-        else:
-            services = compose_data
-        ansible_args = services.get(self.builder_container_img_name,
-                                    {}).get('command', [])
-        if not ansible_args:
-            logger.warning(
-                'No ansible playbook arguments found in container.yml')
-            return []
         builder_img_id = self.get_image_id_by_tag(self.builder_container_img_tag)
         with teed_stdout() as stdout, make_temp_dir() as temp_dir:
-            launch_docker_compose(self.base_path, self.project_name,
-                                  temp_dir, 'listhosts',
+            launch_docker_compose(self, temp_dir, 'listhosts',
                                   services=[self.builder_container_img_name],
                                   no_color=True,
                                   which_docker=which_docker(),
@@ -211,8 +194,7 @@ class Engine(BaseEngine):
         builder_img_id = self.get_image_id_by_tag(
             self.builder_container_img_tag)
         extra_options = getattr(self, 'orchestrate_%s_extra_args' % operation)()
-        launch_docker_compose(self.base_path, self.project_name,
-                              temp_dir, operation,
+        launch_docker_compose(self, temp_dir, operation,
                               which_docker=which_docker(),
                               services=hosts,
                               builder_img_id=builder_img_id,

@@ -116,23 +116,23 @@ DEFAULT_COMPOSE_UP_OPTIONS = {
     u'SERVICE': []
 }
 
-def launch_docker_compose(base_path, project_name, temp_dir, verb, services=[],
-                          no_color=False, extra_command_options=dict(), **context):
-    version = config_format_version(base_path)
+def launch_docker_compose(engine, temp_dir, verb, services=[], no_color=False,
+                          extra_command_options=dict(), **context):
+    version = config_format_version(engine.base_path)
     jinja_render_to_temp(('%s-docker-compose.j2.yml' if version == 2
                          else '%s-docker-compose-v1.j2.yml') % (verb,),
                          temp_dir,
                          'docker-compose.yml',
                          hosts=extract_hosts_from_docker_compose(
-                             base_path),
-                         project_name=project_name,
-                         base_path=os.path.realpath(base_path),
+                             engine.base_path),
+                         project_name=engine.project_name,
+                         base_path=engine.base_path,
                          **context)
     options = DEFAULT_COMPOSE_OPTIONS.copy()
     options.update({
         u'--file': [
             os.path.normpath(
-                os.path.join(base_path,
+                os.path.join(engine.base_path,
                              'ansible',
                              'container.yml')
             ),
@@ -146,7 +146,7 @@ def launch_docker_compose(base_path, project_name, temp_dir, verb, services=[],
     command_options[u'--no-color'] = no_color
     command_options[u'SERVICE'] = services
     command_options.update(extra_command_options)
-    project = project_from_options(base_path, options)
+    project = project_from_options(engine.base_path, options)
     command = main.TopLevelCommand(project)
     command.up(command_options)
 

@@ -23,6 +23,7 @@ class BaseEngine(object):
     def __init__(self, base_path, project_name):
         self.base_path = base_path
         self.project_name = project_name
+        self.config = get_config(base_path)
 
     def all_hosts_in_orchestration(self):
         """
