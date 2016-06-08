@@ -8,16 +8,14 @@ Installation
 Getting Ansible Container
 `````````````````````````
 
-Because this software project is still in pre-release, the best option for obtaining Ansible Container is to run it from source.
+Since this project is in pre-release, the best option for obtaining Ansible Container is to run from source.
 
 .. _running_from_source:
 
 Running from Source
 ```````````````````
-First, you must have python 2.7 and `git <https://git-scm.com/book/en/v2/Getting-Started-Installing-Git>`_. You also need to have
-access to a Docker daemon, which may require installing Docker or Docker Machine.
-
-It is also recommended that you install Ansible Container within a Python `virtualenv <https://virtualenv.pypa.io/en/stable/>`_.
+First, you must obtain python 2.7 and `git <https://git-scm.com/book/en/v2/Getting-Started-Installing-Git>`_. You 
+also need access to a Docker daemon, which may require installing Docker or Docker Machine.
 
 Clone the repo:
 
