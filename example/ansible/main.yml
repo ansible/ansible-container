@@ -1,11 +1,11 @@
 - hosts: all
   tasks:
     - name: Install dumb init
-      get_url: dest=/usr/bin/dumb-init url=https://github.com/Yelp/dumb-init/releases/download/v1.0.2/dumb-init_1.0.2_amd64 mode=0775
+      get_url: dest=/usr/bin/dumb-init url=https://github.com/Yelp/dumb-init/releases/download/v1.0.2/dumb-init_1.0.2_amd64 mode=0775 validate_certs=no
 - hosts: django
   tasks:
     - name: Install python deps
-      yum: name=postgresql-devel,python-devel,gcc,python-virtualenv,sudo state=latest update_cache=yes
+      yum: name=postgresql-devel,python-devel,gcc,python-virtualenv state=latest update_cache=yes
     - name: Make Django user
       user: name=django state=present createhome=yes home=/django
     - name: Remote User
@@ -16,7 +16,7 @@
     - name: Setup virtualenv
       command: virtualenv . chdir=/venv creates=/venv/bin/python
       remote_user: django
-    - name: Copy requirements
+    - name: Copy source
       copy: src="{{ lookup('pipe','dirname `pwd`') }}/" dest=/django owner=django
       remote_user: django
     - name: Install requirements
@@ -25,29 +25,51 @@
 - hosts: postgresql
   tasks:
     - name: Install PostgreSQL
-      yum: name=postgresql-server,python-psycopg2,sudo state=latest update_cache=yes
+      yum: name=postgresql-server,python-psycopg2 state=latest update_cache=yes
     - name: Init PostgreSQL db
       command: initdb -D /var/lib/pgsql/data creates=/var/lib/pgsql/data/postgresql.conf
       remote_user: postgres
+    - name: Setup pg_hba.conf
+      lineinfile: dest=/var/lib/pgsql/data/pg_hba.conf state=present line="host all all 0.0.0.0/0 md5"
     - name: Start PostgreSQL server
-      command: pg_ctl -D /var/lib/pgsql/data start
+      command: pg_ctl -D /var/lib/pgsql/data -o "-h 0.0.0.0" start
       remote_user: postgres
     - name: Make PostgreSQL user
       postgresql_user: name=example password=sesame role_attr_flags=CREATEDB,NOSUPERUSER
       remote_user: postgres
     - name: Make PostgreSQL db
-      postgresql_db: name=example encoding='UTF-8' template='template0'
+      postgresql_db: name=example encoding='UTF-8' template='template0' owner=example
       remote_user: postgres
 - hosts: django
   tasks:
     - name: Apply database migrations
       command: /venv/bin/python manage.py migrate chdir=/django
       remote_user: django
-- hosts: postgres
-  become: yes
-  become_user: postgres
+- hosts: postgresql
   tasks:
     - name: Stop PostgreSQL
       command: pg_ctl -D /var/lib/pgsql/data stop
       remote_user: postgres
+- hosts: static
+  tasks:
+    - name: Install EPEL
+      yum: name=epel-release state=latest update_cache=yes
+    - name: Install nginx
+      yum: name=nginx state=latest
+    - name: Put nginx config
+      copy: src=nginx.conf dest=/etc/nginx/nginx.conf
+    - name: Make static dir
+      file: name=/static state=directory owner=nginx
+    - name: Make pidfile dir writeable
+      file: name=/run state=directory owner=nginx
+    - name: Setup nodejs
+      yum: name=nodejs,npm state=latest
+    - name: Ensure src directory
+      file: name=/src owner=nginx state=directory
+    - name: Copy source
+      copy: src="{{ lookup('pipe','dirname `pwd`') }}/" dest=/src owner=nginx
+    - name: Install node deps
+      command: npm install chdir=/src
+      remote_user: nginx
+
 

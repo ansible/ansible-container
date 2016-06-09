@@ -5,25 +5,31 @@ services:
     ports:
       - "8080"
     working_dir: '/django'
+    links:
+      - postgresql
     user: 'django'
-    command: ['/usr/sbin/dumb-init', '/venv/bin/python', 'manage.py', 'run_gunicorn', '-w', '2', '-p', '0.0.0.0:8080']
+    command: ['/usr/bin/dumb-init', '/venv/bin/python', 'manage.py', 'run_gunicorn', '-w', '2', '-p', '0.0.0.0:8080']
     dev_overrides:
-      command: ['/usr/sbin/dumb-init', '/venv/bin/python', 'manage.py', 'runserver', '0.0.0.0:8080']
-      volumes: "..:/django"
+      command: ['/usr/bin/dumb-init', '/venv/bin/python', 'manage.py', 'runserver', '0.0.0.0:8080']
+      volumes:
+        - "$PWD:/django"
   static:
     image: centos:7
     ports:
       - "80:8080"
-    user: 'www-data'
+    user: 'nginx'
     links:
       - django
-      - postgresql
-    command: ['/usr/sbin/dumb-init', 'nginx', '-c', '/etc/nginx/nginx.conf']
+    command: ['/usr/bin/dumb-init', 'nginx', '-c', '/etc/nginx/nginx.conf']
+    dev_overrides:
+      command: ['/usr/bin/dumb-init', 'gulp']
+      volumes:
+        - $PWD:/src
   postgresql:
     image: centos:7
     ports:
       - "5432"
     user: 'postgres'
-    command: ['/usr/sbin/dumb-init', "postgres", "-h", "0.0.0.0", "-D", "/var/lib/pgsql/data"]
+    command: ['/usr/bin/dumb-init', "postgres", "-h", "0.0.0.0", "-D", "/var/lib/pgsql/data"]
     volumes:
       - '/var/lib/postgresql/9.4/main'
