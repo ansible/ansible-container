@@ -36,10 +36,11 @@ replaced by modules delivered by the Ansible project. Keep this in mind, if you 
 Dependencies
 ````````````
 
-In addition to Ansible dependencies, execution of the role created by ``shipit`` depends on:
+Execution of the role created by ``shipit`` depends on:
 
+- `Ansible <http://docs.ansible.com/ansible/intro_installation.html>` 2.0 or greater on the control node.
 - `OpenShift Origin 3 <https://www.openshift.org/>` or greater. The role will not work with
   `OpenSift Online <https://www.openshift.com/>`.
 - The `OpenShift command line client <https://docs.openshift.org/latest/cli_reference/get_started_cli.html>`
-  must be installed on the Ansible host nodes. Be sure the verion of the installed client supports the target
+  must be installed on the Ansible target nodes. Be sure the verion of the installed client supports the target
   OpenShift cluster version.
