@@ -5,7 +5,7 @@ shipit
 
 The ``ansible-container shipit`` command generates an Ansible role to deploy your
 project to the cloud and orchestrate the project's containers according to the directives
-in your ``container.yml`` file. Use the ``--engine`` option to specity a cloud provider.
+in your ``container.yml`` file. Use the ``--engine`` option to choose a cloud provider.
 
 When shipit executes, it will create a ``roles`` directory in your project, and within
 the ``roles`` directory a role matching your project's name. Within your project directory
@@ -41,5 +41,5 @@ In addition to Ansible dependencies, execution of the role created by ``shipit``
 - `OpenShift Origin 3 <https://www.openshift.org/>` or greater. The role will not work with
   `OpenSift Online <https://www.openshift.com/>`.
 - The `OpenShift command line client <https://docs.openshift.org/latest/cli_reference/get_started_cli.html>`
-  must be installed on the Ansible host nodes where the modules actually execute. Be sure to have a version of
-  the client installed that supports the version of your OpenShift cluster.
+  must be installed on the Ansible host nodes. Be sure the verion of the installed client supports the target
+  OpenShift cluster version.
