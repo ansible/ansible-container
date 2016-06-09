@@ -1,0 +1,10 @@
+# Execute ansible-galaxy init for the shipit role
+version: "2"
+services:
+  galaxy:
+    image: "{{ builder_img_id }}"
+    volumes:
+      - {{ roles_path }}:/roles
+    command: ansible-galaxy init -p /roles --force {{ role_name }}
+  ansible-container:
+     image: "{{ builder_img_id }}"

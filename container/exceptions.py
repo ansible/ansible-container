@@ -15,6 +15,8 @@ class AnsibleContainerAlreadyInitializedException(Exception):
 class AnsibleContainerNoAuthenticationProvided(Exception):
     pass
 
+class AnsibleContainrRolesPathCreationException(Exception):
+    pass
 
 class AnsibleContainerShipItException(Exception):
 

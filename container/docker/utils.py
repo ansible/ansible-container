@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 import os
 import sys
+
 from StringIO import StringIO
 from functools import wraps
 from distutils import spawn
@@ -118,7 +119,11 @@ DEFAULT_COMPOSE_UP_OPTIONS = {
 
 def launch_docker_compose(base_path, project_name, temp_dir, verb, services=[],
                           no_color=False, extra_command_options=dict(), **context):
-    version = compose_format_version(base_path)
+
+    version = 2
+    if verb != 'galaxy':
+        version = compose_format_version(base_path)
+
     jinja_render_to_temp(('%s-docker-compose.j2.yml' if version == 2
                          else '%s-docker-compose-v1.j2.yml') % (verb,),
                          temp_dir,
@@ -128,6 +133,7 @@ def launch_docker_compose(base_path, project_name, temp_dir, verb, services=[],
                          project_name=project_name,
                          base_path=os.path.realpath(base_path),
                          **context)
+
     options = DEFAULT_COMPOSE_OPTIONS.copy()
     options.update({
         u'--file': [
@@ -141,6 +147,7 @@ def launch_docker_compose(base_path, project_name, temp_dir, verb, services=[],
         u'COMMAND': 'up',
         u'ARGS': ['--no-build'] + services
     })
+
     command_options = DEFAULT_COMPOSE_UP_OPTIONS.copy()
     command_options[u'--no-build'] = True
     command_options[u'--no-color'] = no_color
@@ -149,6 +156,7 @@ def launch_docker_compose(base_path, project_name, temp_dir, verb, services=[],
     project = project_from_options(base_path, options)
     command = main.TopLevelCommand(project)
     command.up(command_options)
+
 
 def extract_hosts_from_docker_compose(base_path):
     compose_data = parse_compose_file(base_path)
