@@ -3,6 +3,8 @@
 from __future__ import absolute_import
 
 import logging
+import os.path
+import json
 
 from ..base_engine import BaseShipItEngine
 from .deployment import Deployment
@@ -25,7 +27,7 @@ class ShipItEngine(BaseShipItEngine):
         role.create_role()
         role.create_playbook()
 
-    def save_config(self, kwargs):
+    def save_config(self, **kwargs):
         config = kwargs.pop('config')
         project_name = kwargs.pop('project_name')
         project_dir = kwargs.pop('project_dir')

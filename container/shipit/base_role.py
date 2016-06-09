@@ -192,16 +192,6 @@ class BaseShipItRole(object):
 
         :return: None
         '''
-        # Call ansible-galaxy init
-        try:
-            os.makedirs(self.roles_path)
-        except OSError:
-            # ignore if path already exists
-            pass
-        except Exception as exc:
-            raise AnsibleContainerShipItException("Error creating %s - %s" % (self.roles_path, str(exc)))
-
-        run_command("ansible-galaxy init -p %s %s" % (self.roles_path, self.project_name))
 
         yaml.SafeDumper.add_representer(OrderedDict,
                                         lambda dumper, value: represent_odict(dumper, u'tag:yaml.org,2002:map', value))

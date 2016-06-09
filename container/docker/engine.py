@@ -27,7 +27,9 @@ class Engine(BaseEngine):
     builder_container_img_name = 'ansible-container'
     builder_container_img_tag = 'ansible-container-builder'
     default_registry_url = 'https://index.docker.io/v1/'
+    galaxy_container_name = 'ansible_galaxy_1'
     _client = None
+    temp_dir = None
 
     def all_hosts_in_orchestration(self):
         """
@@ -184,7 +186,18 @@ class Engine(BaseEngine):
         """
         return self.get_container_id_by_name(self.builder_container_img_name)
 
-    def build_was_successful(self):
+    def galaxy_was_successful(self):
+        return self.build_was_successful(name=self.galaxy_container_name)
+
+    def get_galaxy_container_id(self):
+        """
+        Query the engine to get the galaxy container identifier
+
+        :return: the container identifier
+        """
+        return self.get_container_id_by_name(self.galaxy_container_name)
+
+    def build_was_successful(self, name='ansible_ansible-container_1'):
         """
         After the build was complete, did the build run successfully?
 
@@ -192,7 +205,7 @@ class Engine(BaseEngine):
         """
         client = self.get_client()
         build_container_info, = client.containers(
-            filters={'name': 'ansible_ansible-container_1'},
+            filters={'name': name},
             limit=1, all=True
         )
         # Not the best way to test for success or failure, but it works.
@@ -208,6 +221,7 @@ class Engine(BaseEngine):
         :param hosts: (optional) A list of hosts to limit orchestration to
         :return: The exit status of the builder container (None if it wasn't run)
         """
+        self.temp_dir = temp_dir
         builder_img_id = self.get_image_id_by_tag(
             self.builder_container_img_tag)
         extra_options = getattr(self, 'orchestrate_%s_extra_args' % operation)()
@@ -234,6 +248,11 @@ class Engine(BaseEngine):
         :return: dictionary
         """
         return {}
+
+    def orchestrate_galaxy_extra_args(self):
+        return {
+            u'--file': [os.path.join(self.temp_dir, 'docker-compose.yml')]
+        }
 
     def orchestrate_listhosts_args(self):
         """
