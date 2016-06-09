@@ -52,7 +52,7 @@ class Route(object):
             targetPort: main
         '''
 
-        host = self._get_host(service)
+        service_port, target_hostname, target_port = self._get_port_mapping(service)
         labels = self._get_labels(service)
         name = "%s-route" % service['name']
 
@@ -64,13 +64,13 @@ class Route(object):
                 labels=labels
             ),
             spec=dict(
-                host=host,
+                host=target_hostname,
                 to=dict(
                     kind='Service',
                     name="%s-%s" % (self.project_name, service['name']),
                 ),
                 port=dict(
-                    targetPort="port0"
+                    targetPort="port_%s" % service_port
                 )
             )
         )
@@ -100,8 +100,8 @@ class Route(object):
             )
         )
 
-        if target_port:
-            template['oso_route']['port'] = int(target_port)
+        # if target_port:
+        #     template['oso_route']['port'] = int(target_port)
 
         return template
 

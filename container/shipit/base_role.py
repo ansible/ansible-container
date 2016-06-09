@@ -220,7 +220,7 @@ class BaseShipItRole(object):
         '''
         play = OrderedDict()
         play['name'] = "Deploy %s" % self.project_name
-        play['hosts'] = 'all'
+        play['hosts'] = 'localhost'
         play['gather_facts'] = False
         play['connection'] = 'local'
         play['vars'] = dict(

@@ -289,6 +289,7 @@ def cmdrun_shipit(base_path, engine, **kwargs):
 
     # create the roles path
     roles_path = os.path.join(base_path, SHIPIT_PATH, SHIPIT_ROLES_DIR)
+    logger.info("Creating roles path %s" % roles_path)
     try:
         os.makedirs(roles_path)
     except OSError:
@@ -304,11 +305,11 @@ def cmdrun_shipit(base_path, engine, **kwargs):
 
     # Use the build container to Initialize the role
     with make_temp_dir() as temp_dir:
-        logger.info('Starting %s engine to initialize the shipit role...' % engine_obj.orchestrator_name)
+        logger.info('Executing ansible-galaxy init %s' % project_name)
         engine_obj.orchestrate('galaxy', temp_dir, hosts=[u'galaxy'], context=context)
         if not engine_obj.galaxy_was_successful():
-            logger.error('Shipit role initialization failed.')
-            logger.info('Cleaning up Ansible Container builder...')
+            logger.error('Role initialization failed.')
+            logger.info('Cleaning up and removing build container...')
             galaxy_container_id = engine_obj.get_galaxy_container_id()
             engine_obj.remove_container_by_id(galaxy_container_id)
             return
