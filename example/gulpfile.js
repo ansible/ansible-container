@@ -38,9 +38,9 @@ gulp.task('clean', () => del('dist'))
 // html
 
 gulp.task('html', ['images'], () => {
-  return gulp.src('/mnt/src/html/**/*.html')
+  return gulp.src('src/html/**/*.html')
     .pipe(plumber({ errorHandler: onError }))
-    .pipe(include({ prefix: '@', basepath: '/static/dist/images/' }))
+    .pipe(include({ prefix: '@', basepath: 'dist/images/' }))
     .pipe(htmlmin({ collapseWhitespace: true, removeComments: true }))
     .pipe(gulp.dest('dist'))
 })
@@ -53,19 +53,19 @@ const processors = [
 ]
 
 gulp.task('sass', () => {
-  return gulp.src('/mnt/src/sass/style.scss')
+  return gulp.src('src/sass/style.scss')
     .pipe(plumber({ errorHandler: onError }))
     .pipe(maps.init())
     .pipe(sass())
     .pipe(postcss(processors))
     .pipe(maps.write('./maps', { addComment: false }))
-    .pipe(gulp.dest('/static/dist'))
+    .pipe(gulp.dest('dist'))
 })
 
 // js
 
 const read = {
-  entry: '/mnt/src/js/main.js',
+  entry: 'src/js/main.js',
   sourceMap: true,
   plugins: [
     resolve({ jsnext: true, main: true }),
@@ -88,19 +88,19 @@ gulp.task('js', () => {
       const files = bundle.generate(write)
 
       // write the files to dist
-      fs.writeFileSync('/static/dist/bundle.js', files.code)
-      fs.writeFileSync('/static/dist/maps/bundle.js.map', files.map.toString())
+      fs.writeFileSync('dist/bundle.js', files.code)
+      fs.writeFileSync('dist/maps/bundle.js.map', files.map.toString())
     })
 })
 
 // images
 
 gulp.task('images', () => {
-  return gulp.src('/mnt/src/images/**/*.{gif,jpg,png,svg}')
+  return gulp.src('src/images/**/*.{gif,jpg,png,svg}')
     .pipe(plumber({ errorHandler: onError }))
-    .pipe(changed('/static/dist/images'))
+    .pipe(changed('dist/images'))
     .pipe(imagemin({ progressive: true, interlaced: true }))
-    .pipe(gulp.dest('/static/dist/images'))
+    .pipe(gulp.dest('dist/images'))
 })
 
 // fonts, videos, favicon
@@ -123,9 +123,9 @@ const others = [
 
 others.forEach(object => {
   gulp.task(object.name, () => {
-    return gulp.src('/mnt/src' + object.src)
+    return gulp.src('src' + object.src)
       .pipe(plumber({ errorHandler: onError }))
-      .pipe(gulp.dest('/static/dist' + object.dest))
+      .pipe(gulp.dest('dist' + object.dest))
   })
 })
 
@@ -148,7 +148,7 @@ const sendMaps = (req, res, next) => {
 const options = {
   notify: false,
   server: {
-    baseDir: '/static',
+    baseDir: '/node/dist',
     middleware: [
       sendMaps
     ]
@@ -164,18 +164,18 @@ gulp.task('server', () => sync(options))
 // watch
 
 gulp.task('watch', () => {
-  gulp.watch('/mnt/src/html/**/*.html', ['html', reload])
-  gulp.watch('/mnt/src/sass/**/*.scss', ['sass', reload])
-  gulp.watch('/mnt/src/js/**/*.js', ['js', reload])
-  gulp.watch('/mnt/src/images/**/*.{gif,jpg,png,svg}', ['images', reload])
+  gulp.watch('src/html/**/*.html', ['html', reload])
+  gulp.watch('src/sass/**/*.scss', ['sass', reload])
+  gulp.watch('src/js/**/*.js', ['js', reload])
+  gulp.watch('src/images/**/*.{gif,jpg,png,svg}', ['images', reload])
 })
 
 // build and default tasks
 
 gulp.task('build', ['clean'], () => {
   // create dist directories
-  fs.mkdirSync('/static/dist')
-  fs.mkdirSync('/static/dist/maps')
+  fs.mkdirSync('dist')
+  fs.mkdirSync('dist/maps')
 
   // run the tasks
   gulp.start('html', 'sass', 'js', 'images', 'fonts', 'videos', 'favicon')

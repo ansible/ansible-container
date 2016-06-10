@@ -13,6 +13,8 @@
       remote_user: django
     - name: Make virtualenv dir
       file: name=/venv state=directory owner=django
+    - name: Make staticfiles dir
+      file: name=/static state=directory owner=django
     - name: Setup virtualenv
       command: virtualenv . chdir=/venv creates=/venv/bin/python
       remote_user: django
@@ -43,7 +45,10 @@
 - hosts: django
   tasks:
     - name: Apply database migrations
-      command: /venv/bin/python manage.py migrate chdir=/django
+      command: /venv/bin/python manage.py migrate --noinput chdir=/django
+      remote_user: django
+    - name: Collect staticfiles
+      command: /venv/bin/python manage.py collectstatic --noinput
       remote_user: django
 - hosts: postgresql
   tasks:
@@ -62,14 +67,21 @@
       file: name=/static state=directory owner=nginx
     - name: Make pidfile dir writeable
       file: name=/run state=directory owner=nginx
+  hosts: gulp
+  tasks:
+    - name: Install EPEL
+      yum: name=epel-release state=latest update_cache=yes
+    - name: Make node user
+      user: name=node state=present createhome=yes home=/node
     - name: Setup nodejs
       yum: name=nodejs,npm state=latest
-    - name: Ensure src directory
-      file: name=/src owner=nginx state=directory
     - name: Copy source
-      copy: src="{{ lookup('pipe','dirname `pwd`') }}/" dest=/src owner=nginx
+      copy: src="{{ lookup('pipe','dirname `pwd`') }}/" dest=/node owner=node
     - name: Install node deps
-      command: npm install chdir=/src
-      remote_user: nginx
+      command: npm install chdir=/node
+      remote_user: node
+    - name: Build static assets
+      command: gulp build
+
 
 
