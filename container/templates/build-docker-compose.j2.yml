@@ -12,7 +12,6 @@ services:
       {% for host in hosts %}- {{ host }}
       {% endfor %}
     volumes:
-      - {{ which_docker }}:/usr/bin/docker
       - $DOCKER_CERT_PATH:/docker-certs/
       - {{ base_path }}:/ansible-container/
     working_dir: /ansible-container/ansible/
