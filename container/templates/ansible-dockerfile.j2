@@ -14,6 +14,6 @@ RUN apt-get update -y && \
 ADD hosts  /etc/ansible/inventory/hosts
 ADD ansible /ansible-tmp/
 # RUN pip install -q --no-cache-dir 'ansible=={{ ansible_version }}'
-RUN pip install -q --no-cache-dir -e git+git://github.com/ansible/ansible.git@devel#egg=ansible
+RUN pip install -q --no-cache-dir -e git+https://github.com/ansible/ansible.git@devel#egg=ansible
 RUN test '(! -f /ansible-tmp/requirements.txt)' || pip install --no-cache-dir -r /ansible-tmp/requirements.txt
 RUN rm -rf /ansible-tmp/
