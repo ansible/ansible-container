@@ -1,11 +1,19 @@
 FROM python:2.7
 
-RUN apt-get -y update && \
-    apt-get install -y python-setuptools git python-pip && \
+# Add the dockerproject repo
+RUN apt-get update -y
+RUN apt-get install -y apt-transport-https ca-certificates
+RUN echo "deb https://apt.dockerproject.org/repo debian-jessie main">/etc/apt/sources.list.d/docker.list
+RUN apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
+
+# Install required packages, including docker-engine which gives us access a docker client
+RUN apt-get update -y && \
+    apt-get install -y python-setuptools git python-pip docker-engine && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
 ADD hosts  /etc/ansible/inventory/hosts
 ADD ansible /ansible-tmp/
 # RUN pip install -q --no-cache-dir 'ansible=={{ ansible_version }}'
-RUN pip install -q --no-cache-dir -e git+git://github.com/ansible/ansible.git@devel#egg=ansible
+RUN pip install -q --no-cache-dir -e git+https://github.com/ansible/ansible.git@devel#egg=ansible
 RUN test '(! -f /ansible-tmp/requirements.txt)' || pip install --no-cache-dir -r /ansible-tmp/requirements.txt
 RUN rm -rf /ansible-tmp/
