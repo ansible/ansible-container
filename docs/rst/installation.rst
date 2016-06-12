@@ -45,8 +45,9 @@ Or, if you plan to help develop ansible-container:
 
 Configuring Docker
 ``````````````````
-If you're using Docker Machine, you can skip this section. Otherwise, to use ansible-container, you'll need Docker
-Engine installed and configured for TCP access or access to a remote Docker daemon.
+If you're using `Docker Machine <https://docs.docker.com/machine/>`_, you can skip this section. Otherwise, to use
+ansible-container, you'll need `Docker Engine <https://docs.docker.com/engine/installation/>`_ installed and configured
+for TCP access or access to a remote Docker daemon.
 
 .. _docker_engine:
 
@@ -64,9 +65,6 @@ See :ref:`secure_docker` below.
 For ansible-container to work the Docker daemon must be set to listen on an IP address assigned to the host **NOT**
 0.0.0.0 or 127.0.0.1. This is because the daemon must be accessible remotely from the Ansible build container.
 
-Client Access
--------------
-
 To access the Docker daemon define the DOCKER_HOST environment variable in the user's environment so that it matches the
 -H setting of the Docker daemon:
 
@@ -74,9 +72,8 @@ To access the Docker daemon define the DOCKER_HOST environment variable in the u
 
     DOCKER_HOST=tcp://<host IP address>:2376
 
-As mentioned above in :ref:`docker_engine` the daemon must be accessible via TCP.
-
-**NOTE** ansible-container requires DOCKER_HOST to be defined in the user's environment.
+**NOTE** ansible-container requires DOCKER_HOST to be defined in the user's environment. Without it the build container
+will not be able to access the Docker daemon.
 
 .. _secure_docker:
 
