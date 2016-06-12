@@ -53,12 +53,12 @@ Engine installed and configured for TCP access or access to a remote Docker daem
 
 Docker Engine
 -------------
-After `installing Docker engine <https://docs.docker.com/engine/installation/>_` the daemon is accessible via a Unix
+After `installing Docker engine <https://docs.docker.com/engine/installation/>`_ the daemon is accessible via a Unix
 socket that restricts access to the local root user. Using ansible-container requires changing this so that the Docker
 daemon is accessible via TCP.
 
 You can simply change the -H option in the startup options of the Docker daemon service, setting it to
-*tcp://<host IP address>:2376* and giving access to everyone. This is *NOT recommended* because it will be
+*tcp://<host IP address>:2376* and giving access to everyone. This is **NOT recommended** because it will be
 trivial for anyone to gain root access to the host. Instead, we recommend securing the Docker daemon.
 See :ref:`secure_docker` below.
 
