@@ -62,7 +62,7 @@ You can simply change the -H option in the startup options of the Docker daemon 
 trivial for anyone to gain root access to the host. Instead, we recommend securing the Docker daemon.
 See :ref:`secure_docker` below.
 
-For ansible-container to work the Docker daemon must be set to listen on an IP address assigned to the host *NOT*
+For ansible-container to work the Docker daemon must be set to listen on an IP address assigned to the host **NOT**
 0.0.0.0 or 127.0.0.1. This is because the daemon must be accessible remotely from the Ansible build container.
 
 Client Access

@@ -34,11 +34,26 @@ line of code.
 
 ## To install Ansible Container
 
-We recommend installing Ansible Container inside of a Python virtualenv.
+Prerequisites:
 
-1. `pip install -r requirements.txt`
+* Python 2.7
+* [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+* [Docker](https://docs.docker.com/engine/installation/) or access to a Docker daemon
 
-2. `python setup.py install` 
+
+Clone the repo:
+
+    $ git clone git@github.com:ansible/ansible-container.git
+
+Install ansible-container:
+
+    $ cd ansible-container
+    $ python ./setup.py install
+
+
+If you're using Docker Machine, you should be good to go. Otherwise, check out [detailed instructions on the docs site]
+(http://docs.ansible.com/ansible-container/installation.html) for configuring Docker and accessing a remote Docker 
+daemon.
 
 ## To Ansible-Container-ize your project
 
@@ -66,3 +81,8 @@ role for deploying your project to [OpenShift](https://www.openshift.org/). Addi
 are under development, including: Google Container Engine and Amazon EC2 Container Service.
 
 Feel free to see the `test` or `test-v1` projects as an examples.
+
+## Getting started
+
+For additional help, examples and a tour of ansible-container 
+[visit our docs site](http://docs.ansible.com/ansible-container/).
