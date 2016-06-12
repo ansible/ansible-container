@@ -18,9 +18,8 @@ Prerequisites:
 
 * Python 2.7
 * `Git <https://git-scm.com/book/en/v2/Getting-Started-Installing-Git>`_
-* `Docker <https://docs.docker.com/engine/installation/>`_ or access to a Docker daemon
-
-If you're installing Docker Engine or accessing a remote Docker daemon, see :ref:`configure_docker`.
+* `Docker <https://docs.docker.com/engine/installation/>`_ or access to a Docker daemon. If you're installing Docker
+  Engine or accessing a remote Docker daemon, see :ref:`configure_docker`.
 
 Clone the repo:
 
