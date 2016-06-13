@@ -9,12 +9,10 @@ import os
 import datetime
 import importlib
 
-from compose.config.config import load as config_load, find as config_find
-
-
-from .exceptions import AnsibleContainerAlreadyInitializedException
+from .exceptions import AnsibleContainerAlreadyInitializedException, AnsibleContainrRolesPathCreationException
 from .utils import *
 
+from .shipit.constants import SHIPIT_PATH, SHIPIT_ROLES_DIR
 class BaseEngine(object):
     engine_name = None
     orchestrator_name = None
@@ -101,9 +99,25 @@ class BaseEngine(object):
         """
         raise NotImplementedError()
 
+    def get_galaxy_container_id(self):
+        """
+        Query the engine to get the builder container identifier
+
+        :return: the container identifier
+        """
+        raise NotImplementedError()
+
+    def galaxy_was_successful(self):
+        """
+        After galaxy init completed, was the init run successfully?
+
+        :return: bool
+        """
+        raise NotImplementedError()
+
     def build_was_successful(self):
         """
-        After the build was complete, did the build run successfully?
+        After the build completed, did the build run successfully?
 
         :return: bool
         """
@@ -188,6 +202,9 @@ class BaseEngine(object):
         """
         raise NotImplementedError()
 
+    def get_config(self):
+        raise NotImplementedError()
+
 
 def cmdrun_init(base_path, **kwargs):
     container_dir = os.path.normpath(
@@ -207,15 +224,8 @@ def cmdrun_init(base_path, **kwargs):
 
 def cmdrun_build(base_path, engine, flatten=True, purge_last=True, rebuild=False,
                  **kwargs):
-    assert_initialized(base_path)
     engine_obj = load_engine(engine, base_path)
-    logger.info('(Re)building the Ansible Container image.')
-    build_output = engine_obj.build_buildcontainer_image()
-    for line in build_output:
-        logger.debug(line)
-
-    builder_img_id = engine_obj.get_builder_image_id()
-    logger.info('Ansible Container image has ID %s', builder_img_id)
+    create_build_container(engine_obj, base_path)
     with make_temp_dir() as temp_dir:
         logger.info('Starting %s engine to build your images...'
                     % engine_obj.orchestrator_name)
@@ -265,22 +275,60 @@ def cmdrun_push(base_path, engine, username=None, password=None, email=None,
     logger.info('Done!')
 
 
-def cmdrun_shipit(base_path, engine='openshift', **kwargs):
+def cmdrun_shipit(base_path, engine, **kwargs):
+    shipit_engine = kwargs.pop('shipit_engine')
     try:
-        engine_module = importlib.import_module('container.shipit.%s.engine' % engine)
+        engine_module = importlib.import_module('container.shipit.%s.engine' % shipit_engine)
         engine_cls = getattr(engine_module, 'ShipItEngine')
     except ImportError:
-        raise ImportError('No shipit module for %s found.' % engine)
+        raise ImportError('No shipit module for %s found.' % shipit_engine)
     else:
-        engine_obj = engine_cls(base_path)
+        shipit_engine_obj = engine_cls(base_path)
 
-    logger.debug("Running shipit")
     project_name = os.path.basename(base_path).lower()
-    logger.debug('project_name is %s' % project_name)
-    config = config_load(config_find(base_path, None, dict()))
-    logger.debug('config loaded.')
-    #create_templates = kwargs.pop('save_config')
-    create_templates = False
-    logger.debug('create_templates: %s' % create_templates)
-    engine_obj.run(config=config, project_name=project_name,
-                   project_dir=base_path, create_templates=create_templates)
+    engine_obj = load_engine(engine, base_path)
+
+    # create the roles path
+    roles_path = os.path.join(base_path, SHIPIT_PATH, SHIPIT_ROLES_DIR)
+    logger.info("Creating roles path %s" % roles_path)
+    try:
+        os.makedirs(roles_path)
+    except OSError:
+        # ignore if path already exists
+        pass
+    except Exception as exc:
+        raise AnsibleContainrRolesPathCreationException("Error creating %s - %s" % (roles_path, str(exc)))
+
+    context = dict(
+        roles_path=roles_path,
+        role_name=project_name
+    )
+
+    # Use the build container to Initialize the role
+    with make_temp_dir() as temp_dir:
+        logger.info('Executing ansible-galaxy init %s' % project_name)
+        engine_obj.orchestrate('galaxy', temp_dir, hosts=[u'galaxy'], context=context)
+        if not engine_obj.galaxy_was_successful():
+            logger.error('Role initialization failed.')
+            logger.info('Cleaning up and removing build container...')
+            galaxy_container_id = engine_obj.get_galaxy_container_id()
+            engine_obj.remove_container_by_id(galaxy_container_id)
+            return
+
+    config = engine_obj.get_config()
+    create_templates = kwargs.pop('save_config')
+    shipit_engine_obj.run(config=config, project_name=project_name, project_dir=base_path)
+
+    if create_templates:
+        shipit_engine_obj.save_config(config=config, project_name=project_name, project_dir=base_path)
+
+
+def create_build_container(container_engine_obj, base_path):
+    assert_initialized(base_path)
+    logger.info('(Re)building the Ansible Container image.')
+    build_output = container_engine_obj.build_buildcontainer_image()
+    for line in build_output:
+        logger.debug(line)
+    builder_img_id = container_engine_obj.get_builder_image_id()
+    logger.info('Ansible Container image has ID %s', builder_img_id)
+    return builder_img_id

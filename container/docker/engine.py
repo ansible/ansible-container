@@ -30,7 +30,9 @@ class Engine(BaseEngine):
     builder_container_img_name = 'ansible-container'
     builder_container_img_tag = 'ansible-container-builder'
     default_registry_url = 'https://index.docker.io/v1/'
+    galaxy_container_name = 'ansible_galaxy_1'
     _client = None
+    temp_dir = None
 
     def all_hosts_in_orchestration(self):
         """
@@ -168,7 +170,18 @@ class Engine(BaseEngine):
         """
         return self.get_container_id_by_name(self.builder_container_img_name)
 
-    def build_was_successful(self):
+    def galaxy_was_successful(self):
+        return self.build_was_successful(name=self.galaxy_container_name)
+
+    def get_galaxy_container_id(self):
+        """
+        Query the engine to get the galaxy container identifier
+
+        :return: the container identifier
+        """
+        return self.get_container_id_by_name(self.galaxy_container_name)
+
+    def build_was_successful(self, name='ansible_ansible-container_1'):
         """
         After the build was complete, did the build run successfully?
 
@@ -176,7 +189,7 @@ class Engine(BaseEngine):
         """
         client = self.get_client()
         build_container_info, = client.containers(
-            filters={'name': 'ansible_ansible-container_1'},
+            filters={'name': name},
             limit=1, all=True
         )
         # Not the best way to test for success or failure, but it works.
@@ -228,6 +241,7 @@ class Engine(BaseEngine):
         :param hosts: (optional) A list of hosts to limit orchestration to
         :return: The exit status of the builder container (None if it wasn't run)
         """
+        self.temp_dir = temp_dir
         builder_img_id = self.get_image_id_by_tag(
             self.builder_container_img_tag)
         extra_options = getattr(self, 'orchestrate_%s_extra_args' % operation)()
@@ -279,7 +293,10 @@ class Engine(BaseEngine):
         """
         return {}
 
-    def orchestrate_listhosts_extra_args(self):
+    def orchestrate_galaxy_extra_args(self):
+        return {}
+
+    def orchestrate_listhosts_args(self):
         """
         Provide extra arguments to provide the orchestrator during listhosts.
 
@@ -451,4 +468,26 @@ class Engine(BaseEngine):
             self._client = docker.AutoVersionClient(**client_kwargs)
         return self._client
 
+    def get_config(self):
+        '''
+        Return the complete compose config less the ansible build host.
 
+        :return: dict of compose config
+        '''
+        compose_data = parse_compose_file(self.base_path)
+        version = compose_format_version(self.base_path, compose_data)
+        if version == 2:
+            services = compose_data.get('services', {})
+        else:
+            services = compose_data
+        # remove the ansible build host
+        if services.get(self.builder_container_img_name):
+            services.pop(self.builder_container_img_name)
+        # give each service a name attribute
+        for service in services:
+            services[service]['name'] = service
+        if version == 2:
+            config = compose_data.copy()
+        else:
+            config = dict(services=services.copy())
+        return config

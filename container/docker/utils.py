@@ -6,6 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import sys
+
 from StringIO import StringIO
 from functools import wraps
 from distutils import spawn
@@ -74,7 +75,6 @@ teed_stdout = TeedStdout
 
 def which_docker():
     return spawn.find_executable('docker')
-
 
 def config_to_compose(config):
     # This could probably be better done - include what keys are in compose vs
