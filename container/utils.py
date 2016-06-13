@@ -92,7 +92,7 @@ def get_latest_image_for(project_name, host, client):
         # No previous image built
         return None, None
 
-def load_engine(engine_name, base_path):
+def load_engine(engine_name='', base_path='', **kwargs):
     """
 
     :param engine_name: the string for the module containing the engine.py code
@@ -102,4 +102,4 @@ def load_engine(engine_name, base_path):
     mod = importlib.import_module('container.%s.engine' % engine_name)
     project_name = os.path.basename(base_path).lower()
     logger.debug('Project name is %s', project_name)
-    return mod.Engine(base_path, project_name)
+    return mod.Engine(base_path, project_name, kwargs)

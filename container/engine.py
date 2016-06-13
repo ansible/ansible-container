@@ -18,10 +18,11 @@ class BaseEngine(object):
     orchestrator_name = None
     default_registry_url = ''
 
-    def __init__(self, base_path, project_name):
+    def __init__(self, base_path, project_name, params={}):
         self.base_path = base_path
         self.project_name = project_name
         self.config = get_config(base_path)
+        self.params = params
 
     def all_hosts_in_orchestration(self):
         """
@@ -224,7 +225,7 @@ def cmdrun_init(base_path, **kwargs):
 
 def cmdrun_build(base_path, engine, flatten=True, purge_last=True, rebuild=False,
                  **kwargs):
-    engine_obj = load_engine(engine, base_path)
+    engine_obj = load_engine(**locals())
     create_build_container(engine_obj, base_path)
     with make_temp_dir() as temp_dir:
         logger.info('Starting %s engine to build your images...'
@@ -252,7 +253,7 @@ def cmdrun_build(base_path, engine, flatten=True, purge_last=True, rebuild=False
 
 def cmdrun_run(base_path, engine, service=[], use_base_images=False, **kwargs):
     assert_initialized(base_path)
-    engine_obj = load_engine(engine, base_path)
+    engine_obj = load_engine(**locals())
     with make_temp_dir() as temp_dir:
         hosts = service or ([] if use_base_images
                             else engine_obj.all_hosts_in_orchestration())
@@ -264,7 +265,7 @@ def cmdrun_run(base_path, engine, service=[], use_base_images=False, **kwargs):
 def cmdrun_push(base_path, engine, username=None, password=None, email=None,
                 url=None, **kwargs):
     assert_initialized(base_path)
-    engine_obj = load_engine(engine, base_path)
+    engine_obj = load_engine(**locals())
 
     username = engine_obj.registry_login(username=username, password=password,
                                          email=email, url=url)
@@ -276,6 +277,8 @@ def cmdrun_push(base_path, engine, username=None, password=None, email=None,
 
 
 def cmdrun_shipit(base_path, engine, **kwargs):
+    engine_obj = load_engine(**locals())
+
     shipit_engine = kwargs.pop('shipit_engine')
     try:
         engine_module = importlib.import_module('container.shipit.%s.engine' % shipit_engine)
@@ -286,7 +289,6 @@ def cmdrun_shipit(base_path, engine, **kwargs):
         shipit_engine_obj = engine_cls(base_path)
 
     project_name = os.path.basename(base_path).lower()
-    engine_obj = load_engine(engine, base_path)
 
     # create the roles path
     roles_path = os.path.join(base_path, SHIPIT_PATH, SHIPIT_ROLES_DIR)
