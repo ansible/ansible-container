@@ -8,13 +8,10 @@ services:
     links:
       - postgresql
     user: 'django'
-    volumes:
-      - "/static/"
     command: ['/usr/bin/dumb-init', '/venv/bin/python', 'manage.py', 'run_gunicorn', '-w', '2', '-p', '0.0.0.0:8080']
     dev_overrides:
       command: ['/usr/bin/dumb-init', '/venv/bin/python', 'manage.py', 'runserver', '0.0.0.0:8080']
       volumes:
-        - "/static/"
         - "$PWD:/django"
   static:
     image: centos:7
@@ -24,9 +21,6 @@ services:
     links:
       - django
     command: ['/usr/bin/dumb-init', 'nginx', '-c', '/etc/nginx/nginx.conf']
-    volumes_from:
-      - django
-      - gulp
     dev_overrides:
       ports: []
       command: /bin/false
@@ -44,10 +38,11 @@ services:
     links:
       - django
     command: /bin/false
-    volumes:
-      - "/node/dist"
     dev_overrides:
+      working_dir: '/node'
       command: ['/usr/bin/dumb-init', '/node_modules/.bin/gulp']
       ports:
         - "80:8080"
+      volumes:
+        - "$PWD:/node"
 

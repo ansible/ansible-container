@@ -256,6 +256,7 @@ class Engine(BaseEngine):
                              hosts=self.config.get('services', {}).keys(),
                              project_name=self.project_name,
                              base_path=self.base_path,
+                             params=self.params,
                              builder_img_id=builder_img_id,
                              which_docker=which_docker(),
                              config=config_yaml,
@@ -283,7 +284,8 @@ class Engine(BaseEngine):
 
         :return: dictionary
         """
-        return {'--abort-on-container-exit': True}
+        return {'--abort-on-container-exit': True,
+                '--force-recreate': True}
 
     def orchestrate_run_extra_args(self):
         """
@@ -294,9 +296,14 @@ class Engine(BaseEngine):
         return {}
 
     def orchestrate_galaxy_extra_args(self):
+        """
+        Provide extra arguments to provide the orchestrator during galaxy calls.
+
+        :return: dictionary
+        """
         return {}
 
-    def orchestrate_listhosts_args(self):
+    def orchestrate_listhosts_extra_args(self):
         """
         Provide extra arguments to provide the orchestrator during listhosts.
 
@@ -314,6 +321,9 @@ class Engine(BaseEngine):
                     command='sh -c "while true; do sleep 1; done"'
                 )
             )
+            if not self.params['rebuild']:
+                service_config['image'] = '%s-%s:latest' % (self.project_name,
+                                                            service)
         return compose_config
 
     def get_config_for_run(self):

@@ -151,6 +151,14 @@ class BaseEngine(object):
         """
         raise NotImplementedError()
 
+    def orchestrate_galaxy_extra_args(self):
+        """
+        Provide extra arguments to provide the orchestrator during galaxy calls.
+
+        :return: dictionary
+        """
+        return {}
+
     def orchestrate_listhosts_args(self):
         """
         Provide extra arguments to provide the orchestrator during listhosts.
@@ -223,8 +231,8 @@ def cmdrun_init(base_path, **kwargs):
     logger.info('Ansible Container initialized.')
 
 
-def cmdrun_build(base_path, engine, flatten=True, purge_last=True, rebuild=False,
-                 **kwargs):
+def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, rebuild=False,
+                 ansible_options='', **kwargs):
     engine_obj = load_engine(**locals())
     create_build_container(engine_obj, base_path)
     with make_temp_dir() as temp_dir:
@@ -251,18 +259,16 @@ def cmdrun_build(base_path, engine, flatten=True, purge_last=True, rebuild=False
         engine_obj.remove_container_by_id(builder_container_id)
 
 
-def cmdrun_run(base_path, engine, service=[], use_base_images=False, **kwargs):
+def cmdrun_run(base_path, engine_name, service=[], **kwargs):
     assert_initialized(base_path)
     engine_obj = load_engine(**locals())
     with make_temp_dir() as temp_dir:
-        hosts = service or ([] if use_base_images
-                            else engine_obj.all_hosts_in_orchestration())
+        hosts = service or (engine_obj.all_hosts_in_orchestration())
         engine_obj.orchestrate('run', temp_dir,
-                               hosts=hosts,
-                               context=dict(use_base_images=use_base_images))
+                               hosts=hosts)
 
 
-def cmdrun_push(base_path, engine, username=None, password=None, email=None,
+def cmdrun_push(base_path, engine_name, username=None, password=None, email=None,
                 url=None, **kwargs):
     assert_initialized(base_path)
     engine_obj = load_engine(**locals())
@@ -276,7 +282,7 @@ def cmdrun_push(base_path, engine, username=None, password=None, email=None,
     logger.info('Done!')
 
 
-def cmdrun_shipit(base_path, engine, **kwargs):
+def cmdrun_shipit(base_path, engine_name, **kwargs):
     engine_obj = load_engine(**locals())
 
     shipit_engine = kwargs.pop('shipit_engine')

@@ -1,6 +1,6 @@
 ansible-container:
   image: "{{ builder_img_id }}"
-  command: ansible-playbook -i /etc/ansible/inventory/hosts -c docker --list-hosts main.yml
+  command: ansible-playbook -i /etc/ansible/inventory/hosts -c docker {{ params.ansible_options }} --list-hosts main.yml
   environment:
     - DOCKER_HOST
     - DOCKER_TLS_VERIFY

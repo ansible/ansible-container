@@ -66,16 +66,18 @@
       file: name=/run state=directory owner=nginx
 - hosts: gulp
   tasks:
-    - name: Install EPEL
-      yum: name=epel-release state=latest update_cache=yes
+    #- name: Install EPEL
+    #  yum: name=epel-release state=latest update_cache=yes
     - name: Make node user
       user: name=node state=present createhome=yes home=/node
     - name: Make sure node owns its working dir
       file: name=/node state=directory owner=node recurse=true
     - name: Make node_modules directory
       file: name=/node_modules state=directory owner=node
-    - name: Setup nodejs
-      yum: name=nodejs,npm state=latest
+    #- name: Setup nodejs
+    #  yum: name=nodejs,npm state=latest
+    - name: Install nodejs
+      yum: name=https://rpm.nodesource.com/pub_5.x/el/7/x86_64/nodejs-5.9.1-1nodesource.el7.centos.x86_64.rpm
     - name: Copy source
       copy: src="{{ lookup('pipe','dirname `pwd`') }}/" dest=/node owner=node
       remote_user: node

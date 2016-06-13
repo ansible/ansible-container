@@ -147,16 +147,11 @@ const sendMaps = function(req, res, next) {
 
 const options = {
   notify: false,
-  server: {
-    baseDir: '/node/dist',
-    middleware: [
-      sendMaps
-    ]
-  },
+  proxy: 'django:8080',
   watchOptions: {
     ignored: '*.map'
   },
-  proxy: 'django:8080'
+  port: 8080
 }
 
 gulp.task('server', function() {sync(options)})
@@ -173,9 +168,19 @@ gulp.task('watch', function() {
 // build and default tasks
 
 gulp.task('build', ['clean'], function() {
-  // create dist directories
-  fs.mkdirSync('dist')
-  fs.mkdirSync('dist/maps')
+    try {
+        // create dist directories
+        fs.mkdirSync('dist')
+    } catch (err) {
+        // whatever.
+    }
+
+    try {
+        fs.mkdirSync('dist/maps')
+    } catch (err) {
+        // whatever.
+    }
+
 
   // run the tasks
   gulp.start('html', 'sass', 'js', 'images', 'fonts', 'videos', 'favicon')

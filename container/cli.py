@@ -68,18 +68,20 @@ def subcmd_build_parser(parser, subparser):
                            help=u'By default, Ansible Container will remove the '
                                 u'previously built image for your hosts. Disable '
                                 u'that with this flag.')
-    subparser.add_argument('--rebuild', action='store_true',
-                           help=u'Instead of starting from the base image, '
-                                u'perform the Ansible Container build against '
-                                u'the last built image. This may be faster than '
-                                u'starting from scratch.',
+    subparser.add_argument('--from-scratch', action='store_true',
+                           help=u'Instead of running the Ansible playbook against '
+                                u'the existing copies of your containers, run the '
+                                u'playbook against the base image, rebuilding them '
+                                u'from scratch.',
                            dest='rebuild', default=False)
+    subparser.add_argument('ansible_options', action='store',
+                           help=u'Provide additional commandline arguments to '
+                                u'Ansible in executing your playbook. If you '
+                                u'use this argument, you will need to use -- to '
+                                u'prefix your extra options. Use this feature with '
+                                u'caution.', default=u'', nargs='?')
 
 def subcmd_run_parser(parser, subparser):
-    subparser.add_argument('--use-base-images', action='store_true',
-                           help=u'Run the base images from your container.yml '
-                                u'instead of the built images',
-                           dest='use_base_images', default=False)
     subparser.add_argument('service', action='store',
                            help=u'The specific services you want to run',
                            nargs='*')
@@ -149,7 +151,7 @@ def commandline():
                                                  u'Ansible playbooks')
     parser.add_argument('--debug', action='store_true', dest='debug',
                         help=u'Enable debug output', default=False)
-    parser.add_argument('--engine', action='store', dest='engine',
+    parser.add_argument('--engine', action='store', dest='engine_name',
                         help=u'Select your container engine and orchestrator',
                         default='docker')
     subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
