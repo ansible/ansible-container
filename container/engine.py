@@ -22,6 +22,7 @@ class BaseEngine(object):
         self.base_path = base_path
         self.project_name = project_name
         self.config = get_config(base_path)
+        logger.debug('Initialized with params: %s', params)
         self.params = params
 
     def all_hosts_in_orchestration(self):
@@ -233,7 +234,9 @@ def cmdrun_init(base_path, **kwargs):
 
 def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, rebuild=False,
                  ansible_options='', **kwargs):
-    engine_obj = load_engine(**locals())
+    engine_args = kwargs.copy()
+    engine_args.update(locals())
+    engine_obj = load_engine(**engine_args)
     create_build_container(engine_obj, base_path)
     with make_temp_dir() as temp_dir:
         logger.info('Starting %s engine to build your images...'
@@ -259,9 +262,11 @@ def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, rebuild=
         engine_obj.remove_container_by_id(builder_container_id)
 
 
-def cmdrun_run(base_path, engine_name, service=[], **kwargs):
+def cmdrun_run(base_path, engine_name, service=[], production=False, **kwargs):
     assert_initialized(base_path)
-    engine_obj = load_engine(**locals())
+    engine_args = kwargs.copy()
+    engine_args.update(locals())
+    engine_obj = load_engine(**engine_args)
     with make_temp_dir() as temp_dir:
         hosts = service or (engine_obj.all_hosts_in_orchestration())
         engine_obj.orchestrate('run', temp_dir,
@@ -271,7 +276,9 @@ def cmdrun_run(base_path, engine_name, service=[], **kwargs):
 def cmdrun_push(base_path, engine_name, username=None, password=None, email=None,
                 url=None, **kwargs):
     assert_initialized(base_path)
-    engine_obj = load_engine(**locals())
+    engine_args = kwargs.copy()
+    engine_args.update(locals())
+    engine_obj = load_engine(**engine_args)
 
     username = engine_obj.registry_login(username=username, password=password,
                                          email=email, url=url)
@@ -283,7 +290,9 @@ def cmdrun_push(base_path, engine_name, username=None, password=None, email=None
 
 
 def cmdrun_shipit(base_path, engine_name, **kwargs):
-    engine_obj = load_engine(**locals())
+    engine_args = kwargs.copy()
+    engine_args.update(locals())
+    engine_obj = load_engine(**engine_args)
 
     shipit_engine = kwargs.pop('shipit_engine')
     try:

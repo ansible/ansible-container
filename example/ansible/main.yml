@@ -47,23 +47,17 @@
     - name: Collect staticfiles
       command: /venv/bin/python manage.py collectstatic --noinput chdir=/django
       remote_user: django
+    - name: Itemize Django static assets
+      find: paths=/static recurse=yes
+      register: django_assets
+    - name: Fetch Django static assets
+      fetch: src="{{ item.path }}" dest=/tmp
+      with_items: django_assets.files
 - hosts: postgresql
   tasks:
     - name: Stop PostgreSQL
       command: pg_ctl -D /var/lib/pgsql/data stop
       remote_user: postgres
-- hosts: static
-  tasks:
-    - name: Install EPEL
-      yum: name=epel-release state=latest update_cache=yes
-    - name: Install nginx
-      yum: name=nginx state=latest
-    - name: Put nginx config
-      copy: src=nginx.conf dest=/etc/nginx/nginx.conf
-    - name: Make static dir
-      file: name=/static state=directory owner=nginx
-    - name: Make pidfile dir writeable
-      file: name=/run state=directory owner=nginx
 - hosts: gulp
   tasks:
     #- name: Install EPEL
@@ -74,8 +68,6 @@
       file: name=/node state=directory owner=node recurse=true
     - name: Make node_modules directory
       file: name=/node_modules state=directory owner=node
-    #- name: Setup nodejs
-    #  yum: name=nodejs,npm state=latest
     - name: Install nodejs
       yum: name=https://rpm.nodesource.com/pub_5.x/el/7/x86_64/nodejs-5.9.1-1nodesource.el7.centos.x86_64.rpm
     - name: Copy source
@@ -91,6 +83,29 @@
       environment:
         NODE_PATH: /
       remote_user: node
+    - name: Itemize built assets
+      find: paths=/node/dist recurse=yes
+      register: gulp_assets
+    - name: Fetch built assets
+      fetch: src="{{ item.path }}" dest=/tmp
+      with_items: gulp_assets.files
+- hosts: static
+  tasks:
+    - name: Install EPEL
+      yum: name=epel-release state=latest update_cache=yes
+    - name: Install nginx
+      yum: name=nginx state=latest
+    - name: Put nginx config
+      copy: src=nginx.conf dest=/etc/nginx/nginx.conf
+    - name: Make static dir
+      file: name=/static state=directory owner=nginx
+    - name: Make pidfile dir writeable
+      file: name=/run state=directory owner=nginx
+    - name: Put Django assets
+      copy: src=/tmp/django/static/ dest=/static/ owner=nginx
+    - name: Put built assets
+      copy: src=/tmp/gulp/node/dist dest=/static/ owner=nginx
+
 
 
 

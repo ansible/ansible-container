@@ -192,3 +192,5 @@ venv/
 * Vagrant things
 .vagrant/
 Vagrantfile
+
+.v8flags*

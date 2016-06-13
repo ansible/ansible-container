@@ -79,12 +79,15 @@ def subcmd_build_parser(parser, subparser):
                                 u'Ansible in executing your playbook. If you '
                                 u'use this argument, you will need to use -- to '
                                 u'prefix your extra options. Use this feature with '
-                                u'caution.', default=u'', nargs='?')
+                                u'caution.', default=u'', nargs='*')
 
 def subcmd_run_parser(parser, subparser):
     subparser.add_argument('service', action='store',
                            help=u'The specific services you want to run',
                            nargs='*')
+    subparser.add_argument('--production', action='store_true',
+                           help=u'Run the production configuration locally',
+                           default=False, dest='production')
 
 def subcmd_help_parser(parser, subparser):
     return

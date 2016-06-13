@@ -8,7 +8,7 @@ services:
     links:
       - postgresql
     user: 'django'
-    command: ['/usr/bin/dumb-init', '/venv/bin/python', 'manage.py', 'run_gunicorn', '-w', '2', '-p', '0.0.0.0:8080']
+    command: ['/usr/bin/dumb-init', '/venv/bin/gunicorn', '-w', '2', '-b', '0.0.0.0:8080', 'example.wsgi:application']
     dev_overrides:
       command: ['/usr/bin/dumb-init', '/venv/bin/python', 'manage.py', 'runserver', '0.0.0.0:8080']
       volumes:

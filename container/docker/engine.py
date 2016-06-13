@@ -327,7 +327,8 @@ class Engine(BaseEngine):
         return compose_config
 
     def get_config_for_run(self):
-        self.config.set_env('dev')
+        if not self.params['production']:
+            self.config.set_env('dev')
         compose_config = config_to_compose(self.config)
         for service, service_config in compose_config.items():
             service_config.update(
