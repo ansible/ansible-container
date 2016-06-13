@@ -49,6 +49,9 @@ class Engine(BaseEngine):
         with teed_stdout() as stdout, make_temp_dir() as temp_dir:
             self.orchestrate('listhosts', temp_dir,
                              hosts=[self.builder_container_img_name])
+            logger.info('Cleaning up Ansible Container builder...')
+            builder_container_id = self.get_builder_container_id()
+            self.remove_container_by_id(builder_container_id)
             # We need to cleverly extract the host names from the output...
             lines = stdout.getvalue().split('\r\n')
             lines_minus_builder_host = [line.rsplit('|', 1)[1] for line

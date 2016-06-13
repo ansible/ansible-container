@@ -1,11 +1,11 @@
 {
-  "name": "",
+  "name": "example",
   "version": "1.0.0",
   "description": "",
   "author": "",
   "license": "",
-
-  "devDependencies": {
+  "files": [],
+  "dependencies": {
     "autoprefixer":               "*",
     "babel-preset-es2015-rollup": "*",
     "browser-sync":               "*",

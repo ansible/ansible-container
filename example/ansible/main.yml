@@ -8,9 +8,6 @@
       yum: name=postgresql-devel,python-devel,gcc,python-virtualenv state=latest update_cache=yes
     - name: Make Django user
       user: name=django state=present createhome=yes home=/django
-    - name: Remote User
-      command: whoami
-      remote_user: django
     - name: Make virtualenv dir
       file: name=/venv state=directory owner=django
     - name: Make staticfiles dir
@@ -48,7 +45,7 @@
       command: /venv/bin/python manage.py migrate --noinput chdir=/django
       remote_user: django
     - name: Collect staticfiles
-      command: /venv/bin/python manage.py collectstatic --noinput
+      command: /venv/bin/python manage.py collectstatic --noinput chdir=/django
       remote_user: django
 - hosts: postgresql
   tasks:
@@ -67,21 +64,32 @@
       file: name=/static state=directory owner=nginx
     - name: Make pidfile dir writeable
       file: name=/run state=directory owner=nginx
-  hosts: gulp
+- hosts: gulp
   tasks:
     - name: Install EPEL
       yum: name=epel-release state=latest update_cache=yes
     - name: Make node user
       user: name=node state=present createhome=yes home=/node
+    - name: Make sure node owns its working dir
+      file: name=/node state=directory owner=node recurse=true
+    - name: Make node_modules directory
+      file: name=/node_modules state=directory owner=node
     - name: Setup nodejs
       yum: name=nodejs,npm state=latest
     - name: Copy source
       copy: src="{{ lookup('pipe','dirname `pwd`') }}/" dest=/node owner=node
+      remote_user: node
+    - name: Symlink package.json
+      file: name=/package.json src=/node/package.json owner=node state=link
     - name: Install node deps
-      command: npm install chdir=/node
+      command: npm install chdir=/
       remote_user: node
     - name: Build static assets
-      command: gulp build
+      command: /node_modules/.bin/gulp build chdir=/node
+      environment:
+        NODE_PATH: /
+      remote_user: node
+
 
 
 

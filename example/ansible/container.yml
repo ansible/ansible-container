@@ -40,14 +40,14 @@ services:
       - '/var/lib/postgresql/9.4/main'
   gulp:
     image: centos:7
-    ports:
-      - "80:8080"
-    user: 'gulp'
+    user: 'node'
     links:
       - django
     command: /bin/false
     volumes:
       - "/node/dist"
     dev_overrides:
-      command: ['/usr/bin/dumb-init', 'gulp']
+      command: ['/usr/bin/dumb-init', '/node_modules/.bin/gulp']
+      ports:
+        - "80:8080"
 

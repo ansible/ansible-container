@@ -33,11 +33,11 @@ const onError = function(error) {
 
 // clean
 
-gulp.task('clean', () => del('dist'))
+gulp.task('clean', function() {del('dist')})
 
 // html
 
-gulp.task('html', ['images'], () => {
+gulp.task('html', ['images'], function() {
   return gulp.src('src/html/**/*.html')
     .pipe(plumber({ errorHandler: onError }))
     .pipe(include({ prefix: '@', basepath: 'dist/images/' }))
@@ -52,7 +52,7 @@ const processors = [
   cssnano({ safe: true })
 ]
 
-gulp.task('sass', () => {
+gulp.task('sass', function() {
   return gulp.src('src/sass/style.scss')
     .pipe(plumber({ errorHandler: onError }))
     .pipe(maps.init())
@@ -80,10 +80,10 @@ const write = {
   sourceMap: true
 }
 
-gulp.task('js', () => {
+gulp.task('js', function() {
   return rollup
     .rollup(read)
-    .then(bundle => {
+    .then(function(bundle) {
       // generate the bundle
       const files = bundle.generate(write)
 
@@ -95,7 +95,7 @@ gulp.task('js', () => {
 
 // images
 
-gulp.task('images', () => {
+gulp.task('images', function() {
   return gulp.src('src/images/**/*.{gif,jpg,png,svg}')
     .pipe(plumber({ errorHandler: onError }))
     .pipe(changed('dist/images'))
@@ -121,8 +121,8 @@ const others = [
   }
 ]
 
-others.forEach(object => {
-  gulp.task(object.name, () => {
+others.forEach(function(object) {
+  gulp.task(object.name, function() {
     return gulp.src('src' + object.src)
       .pipe(plumber({ errorHandler: onError }))
       .pipe(gulp.dest('dist' + object.dest))
@@ -134,7 +134,7 @@ others.forEach(object => {
 const server = sync.create()
 const reload = sync.reload
 
-const sendMaps = (req, res, next) => {
+const sendMaps = function(req, res, next) {
   const filename = req.url.split('/').pop()
   const extension = filename.split('.').pop()
 
@@ -159,11 +159,11 @@ const options = {
   proxy: 'django:8080'
 }
 
-gulp.task('server', () => sync(options))
+gulp.task('server', function() {sync(options)})
 
 // watch
 
-gulp.task('watch', () => {
+gulp.task('watch', function() {
   gulp.watch('src/html/**/*.html', ['html', reload])
   gulp.watch('src/sass/**/*.scss', ['sass', reload])
   gulp.watch('src/js/**/*.js', ['js', reload])
@@ -172,7 +172,7 @@ gulp.task('watch', () => {
 
 // build and default tasks
 
-gulp.task('build', ['clean'], () => {
+gulp.task('build', ['clean'], function() {
   // create dist directories
   fs.mkdirSync('dist')
   fs.mkdirSync('dist/maps')

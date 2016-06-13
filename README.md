@@ -7,8 +7,8 @@ instead of SSH.
 
 And when you're ready to deploy to the cloud, use Ansible Container's *shipit* 
 command to generate an Ansible Role that deploys your application. The role is 
-generated from your project's docker-compose file, leveraging the time
-and work already invested in Docker compose.
+generated from your project's orchestration file, leveraging the time
+and work already invested.
 
 ## Why not just use standard Docker tools?
 
@@ -34,11 +34,8 @@ line of code.
 
 ## To install Ansible Container
 
-We recommend installing Ansible Container inside of a Python virtualenv.
-
-1. `pip install -r requirements.txt`
-
-2. `python setup.py install` 
+We recommend installing Ansible Container inside of a Python virtualenv. Once you've
+created and activated your virtualenv and cloned the source, simply `python setup.py install` 
 
 ## To Ansible-Container-ize your project
 
@@ -53,15 +50,15 @@ use Ansible to build the images for your other containers. By the end of this
 run, you will have flattened, tagged images in your local Docker engine.
 
 2. `ansible-container run` - This will orchestrate running your images as described
-in your `container.yml` file, using the Ansible-Container-built images instead of
+in your `container.yml` file, using the Ansible Container-built images instead of
 the base images.
 
-3. `ansible-container push` - This will push your Ansible-Container-built images to a
+3. `ansible-container push` - This will push your Ansible Container-built images to a
 registry of your choice.
 
 When you're ready to deploy to the cloud:
 
-4. `ansible-container shipit` - This will read your docker-container.yml file and create an Ansible
+4. `ansible-container shipit` - This will read your container.yml file and create an Ansible
 role for deploying your project to [OpenShift](https://www.openshift.org/). Additional cloud providers 
 are under development, including: Google Container Engine and Amazon EC2 Container Service.
 
