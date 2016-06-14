@@ -18,9 +18,12 @@ class BaseEngine(object):
     orchestrator_name = None
     default_registry_url = ''
 
-    def __init__(self, base_path, project_name):
+    def __init__(self, base_path, project_name, params={}):
         self.base_path = base_path
         self.project_name = project_name
+        self.config = get_config(base_path)
+        logger.debug('Initialized with params: %s', params)
+        self.params = params
 
     def all_hosts_in_orchestration(self):
         """
@@ -149,6 +152,14 @@ class BaseEngine(object):
         """
         raise NotImplementedError()
 
+    def orchestrate_galaxy_extra_args(self):
+        """
+        Provide extra arguments to provide the orchestrator during galaxy calls.
+
+        :return: dictionary
+        """
+        return {}
+
     def orchestrate_listhosts_args(self):
         """
         Provide extra arguments to provide the orchestrator during listhosts.
@@ -221,9 +232,11 @@ def cmdrun_init(base_path, **kwargs):
     logger.info('Ansible Container initialized.')
 
 
-def cmdrun_build(base_path, engine, flatten=True, purge_last=True, rebuild=False,
-                 **kwargs):
-    engine_obj = load_engine(engine, base_path)
+def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, rebuild=False,
+                 ansible_options='', **kwargs):
+    engine_args = kwargs.copy()
+    engine_args.update(locals())
+    engine_obj = load_engine(**engine_args)
     create_build_container(engine_obj, base_path)
     with make_temp_dir() as temp_dir:
         logger.info('Starting %s engine to build your images...'
@@ -249,21 +262,23 @@ def cmdrun_build(base_path, engine, flatten=True, purge_last=True, rebuild=False
         engine_obj.remove_container_by_id(builder_container_id)
 
 
-def cmdrun_run(base_path, engine, service=[], use_base_images=False, **kwargs):
+def cmdrun_run(base_path, engine_name, service=[], production=False, **kwargs):
     assert_initialized(base_path)
-    engine_obj = load_engine(engine, base_path)
+    engine_args = kwargs.copy()
+    engine_args.update(locals())
+    engine_obj = load_engine(**engine_args)
     with make_temp_dir() as temp_dir:
-        hosts = service or ([] if use_base_images
-                            else engine_obj.all_hosts_in_orchestration())
+        hosts = service or (engine_obj.all_hosts_in_orchestration())
         engine_obj.orchestrate('run', temp_dir,
-                               hosts=hosts,
-                               context=dict(use_base_images=use_base_images))
+                               hosts=hosts)
 
 
-def cmdrun_push(base_path, engine, username=None, password=None, email=None,
+def cmdrun_push(base_path, engine_name, username=None, password=None, email=None,
                 url=None, **kwargs):
     assert_initialized(base_path)
-    engine_obj = load_engine(engine, base_path)
+    engine_args = kwargs.copy()
+    engine_args.update(locals())
+    engine_obj = load_engine(**engine_args)
 
     username = engine_obj.registry_login(username=username, password=password,
                                          email=email, url=url)
@@ -274,7 +289,11 @@ def cmdrun_push(base_path, engine, username=None, password=None, email=None,
     logger.info('Done!')
 
 
-def cmdrun_shipit(base_path, engine, **kwargs):
+def cmdrun_shipit(base_path, engine_name, **kwargs):
+    engine_args = kwargs.copy()
+    engine_args.update(locals())
+    engine_obj = load_engine(**engine_args)
+
     shipit_engine = kwargs.pop('shipit_engine')
     try:
         engine_module = importlib.import_module('container.shipit.%s.engine' % shipit_engine)
@@ -285,7 +304,6 @@ def cmdrun_shipit(base_path, engine, **kwargs):
         shipit_engine_obj = engine_cls(base_path)
 
     project_name = os.path.basename(base_path).lower()
-    engine_obj = load_engine(engine, base_path)
 
     # create the roles path
     roles_path = os.path.join(base_path, SHIPIT_PATH, SHIPIT_ROLES_DIR)

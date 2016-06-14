@@ -13,12 +13,13 @@ from jinja2 import Environment, FileSystemLoader
 from yaml import load as yaml_load
 
 from .exceptions import AnsibleContainerNotInitializedException
+from .config import AnsibleContainerConfig
 
 __all__ = ['make_temp_dir',
            'jinja_template_path',
            'jinja_render_to_temp',
-           'parse_compose_file',
-           'compose_format_version',
+           'get_config',
+           'config_format_version',
            'assert_initialized',
            'get_latest_image_for',
            'load_engine']
@@ -53,31 +54,19 @@ def jinja_render_to_temp(template_file, temp_dir, dest_file, **context):
     j2_tmpl_path = jinja_template_path()
     j2_env = Environment(loader=FileSystemLoader(j2_tmpl_path))
     j2_tmpl = j2_env.get_template(template_file)
-    dockerfile = j2_tmpl.render(context)
+    rendered = j2_tmpl.render(context)
+    logger.debug('Rendered Jinja Template:')
+    logger.debug(rendered.encode('utf8'))
     open(os.path.join(temp_dir, dest_file), 'w').write(
-        dockerfile.encode('utf8'))
+        rendered.encode('utf8'))
 
-def parse_compose_file(base_path):
-    compose_file = os.path.normpath(
-        os.path.join(
-            base_path,
-            'ansible',
-            'container.yml'
-        )
-    )
-    try:
-        ifs = open(compose_file)
-    except OSError:
-        raise AnsibleContainerNotInitializedException()
-    compose_data = yaml_load(ifs)
-    ifs.close()
-    return compose_data
+def get_config(base_path):
+    return AnsibleContainerConfig(base_path)
 
-def compose_format_version(base_path, compose_data=None):
-    if not compose_data:
-        compose_data = parse_compose_file(base_path)
-    return int(compose_data.pop('version', 1))
-
+def config_format_version(base_path, config_data=None):
+    if not config_data:
+        config_data = get_config(base_path)
+    return int(config_data.pop('version', 1))
 
 def assert_initialized(base_path):
     ansible_dir = os.path.normpath(
@@ -103,7 +92,7 @@ def get_latest_image_for(project_name, host, client):
         # No previous image built
         return None, None
 
-def load_engine(engine_name, base_path):
+def load_engine(engine_name='', base_path='', **kwargs):
     """
 
     :param engine_name: the string for the module containing the engine.py code
@@ -112,4 +101,5 @@ def load_engine(engine_name, base_path):
     """
     mod = importlib.import_module('container.%s.engine' % engine_name)
     project_name = os.path.basename(base_path).lower()
-    return mod.Engine(base_path, project_name)
+    logger.debug('Project name is %s', project_name)
+    return mod.Engine(base_path, project_name, kwargs)

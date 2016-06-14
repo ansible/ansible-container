@@ -27,6 +27,9 @@ Clone the repo:
 
     $ git clone git@github.com:ansible/ansible-container.git
 
+We recommend that you use a Python Virtualenv to sandbox your installation.
+See `the virtualenv docs <https://virtualenv.pypa.io/en/stable/>`_ for instructions.
+
 If you just want to run ansible-container:
 
 .. code-block:: bash
@@ -46,7 +49,7 @@ Or, if you plan to help develop ansible-container:
 Configuring Docker
 ``````````````````
 If you're using `Docker Machine <https://docs.docker.com/machine/>`_, you can skip this section. Otherwise, to use
-ansible-container, you'll need `Docker Engine <https://docs.docker.com/engine/installation/>`_ installed and configured
+Ansible Container, you'll need `Docker Engine <https://docs.docker.com/engine/installation/>`_ installed and configured
 for TCP access or access to a remote Docker daemon.
 
 .. _docker_engine:
@@ -54,7 +57,7 @@ for TCP access or access to a remote Docker daemon.
 Docker Engine
 -------------
 After `installing Docker engine <https://docs.docker.com/engine/installation/>`_ the daemon is accessible via a Unix
-socket that restricts access to the local root user. Using ansible-container requires changing this so that the Docker
+socket that restricts access to the local root user. Using Ansible Container requires changing this so that the Docker
 daemon is accessible via TCP.
 
 You can simply change the -H option in the startup options of the Docker daemon service, setting it to
@@ -63,14 +66,14 @@ trivial for anyone to gain root access to the host. Instead, we recommend securi
 See :ref:`secure_docker` below.
 
 For ansible-container to work the Docker daemon must be set to listen on an IP address assigned to the host **NOT**
-0.0.0.0 or 127.0.0.1. This is because the daemon must be accessible remotely from the Ansible build container.
+127.0.0.1. This is because the daemon must be accessible remotely from the Ansible build container.
 
 To access the Docker daemon define the DOCKER_HOST environment variable in the user's environment so that it matches the
 -H setting of the Docker daemon:
 
 .. code-block:: bash
 
-    DOCKER_HOST=tcp://<host IP address>:2376
+    export DOCKER_HOST=tcp://<host IP address>:2376
 
 **NOTE** ansible-container requires DOCKER_HOST to be defined in the user's environment. Without it the build container
 will not be able to access the Docker daemon.
@@ -106,12 +109,12 @@ startup options will depend on your environment. Set the following options and r
 
 For client access to the daemon, set the following variables in the user environment:
 
-* DOCKER_TLS_VERIFY=1
-* DOCKER_HOST=tcp://<host IP address>:2376
+* export DOCKER_TLS_VERIFY=1
+* export DOCKER_HOST=tcp://<host IP address>:2376
 
 For ansible-container to access the client certificates, set the following variable in the user's environment:
 
-* DOCKER_CERT_PATH=/path/to/certs
+* export DOCKER_CERT_PATH=/path/to/certs
 
 For convenience the ansible.secure-docker-daemon Galaxy role generates a small shell script called docker_env.sh that
 can be used in a Linux environment to define the above variables.

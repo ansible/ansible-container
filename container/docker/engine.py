@@ -13,6 +13,9 @@ import base64
 
 import docker
 from docker.utils import kwargs_from_env
+from compose.cli.command import project_from_options
+from compose.cli import main
+from yaml import dump as yaml_dump
 
 from ..exceptions import AnsibleContainerNotInitializedException, \
     AnsibleContainerNoAuthenticationProvided
@@ -37,12 +40,7 @@ class Engine(BaseEngine):
 
         :return: list of strings
         """
-        compose_data = parse_compose_file(self.base_path)
-        if compose_format_version(self.base_path, compose_data) == 2:
-            services = compose_data.pop('services', {})
-        else:
-            services = compose_data
-        return [key for key in services.keys() if key != self.builder_container_img_name]
+        return self.config.get('services', {}).keys()
 
     def hosts_touched_by_playbook(self):
         """
@@ -50,25 +48,12 @@ class Engine(BaseEngine):
 
         :return: list of strings
         """
-        compose_data = parse_compose_file(self.base_path)
-        if compose_format_version(self.base_path, compose_data) == 2:
-            services = compose_data.pop('services', {})
-        else:
-            services = compose_data
-        ansible_args = services.get(self.builder_container_img_name,
-                                    {}).get('command', [])
-        if not ansible_args:
-            logger.warning(
-                'No ansible playbook arguments found in container.yml')
-            return []
-        builder_img_id = self.get_image_id_by_tag(self.builder_container_img_tag)
         with teed_stdout() as stdout, make_temp_dir() as temp_dir:
-            launch_docker_compose(self.base_path, self.project_name,
-                                  temp_dir, 'listhosts',
-                                  services=[self.builder_container_img_name],
-                                  no_color=True,
-                                  which_docker=which_docker(),
-                                  builder_img_id=builder_img_id)
+            self.orchestrate('listhosts', temp_dir,
+                             hosts=[self.builder_container_img_name])
+            logger.info('Cleaning up Ansible Container builder...')
+            builder_container_id = self.get_builder_container_id()
+            self.remove_container_by_id(builder_container_id)
             # We need to cleverly extract the host names from the output...
             lines = stdout.getvalue().split('\r\n')
             lines_minus_builder_host = [line.rsplit('|', 1)[1] for line
@@ -103,8 +88,7 @@ class Engine(BaseEngine):
             tarball.add(os.path.join(temp_dir, 'Dockerfile'),
                         arcname='Dockerfile')
             jinja_render_to_temp('hosts.j2', temp_dir, 'hosts',
-                                 hosts=extract_hosts_from_docker_compose(
-                                     self.base_path))
+                                 hosts=self.config.get('services', {}).keys())
             tarball.add(os.path.join(temp_dir, 'hosts'), arcname='hosts')
             tarball.close()
             tarball_file.close()
@@ -212,6 +196,42 @@ class Engine(BaseEngine):
         exit_status = build_container_info['Status']
         return '(0)' in exit_status
 
+    # Docker-compose uses docopt, which outputs things like the below
+    # So I'm starting with the defaults and then updating them.
+    # One structure for the global options and one for the command specific
+
+    DEFAULT_COMPOSE_OPTIONS = {
+        u'--help': False,
+        u'--host': None,
+        u'--project-name': None,
+        u'--skip-hostname-check': False,
+        u'--tls': False,
+        u'--tlscacert': None,
+        u'--tlscert': None,
+        u'--tlskey': None,
+        u'--tlsverify': False,
+        u'--verbose': False,
+        u'--version': False,
+        u'-h': False,
+        u'--file': [],
+        u'COMMAND': None,
+        u'ARGS': []
+    }
+
+    DEFAULT_COMPOSE_UP_OPTIONS = {
+        u'--abort-on-container-exit': False,
+        u'--build': False,
+        u'--force-recreate': False,
+        u'--no-color': False,
+        u'--no-deps': False,
+        u'--no-recreate': False,
+        u'--no-build': False,
+        u'--remove-orphans': False,
+        u'--timeout': None,
+        u'-d': False,
+        u'SERVICE': []
+    }
+
     def orchestrate(self, operation, temp_dir, hosts=[], context={}):
         """
         Execute the compose engine.
@@ -225,13 +245,38 @@ class Engine(BaseEngine):
         builder_img_id = self.get_image_id_by_tag(
             self.builder_container_img_tag)
         extra_options = getattr(self, 'orchestrate_%s_extra_args' % operation)()
-        launch_docker_compose(self.base_path, self.project_name,
-                              temp_dir, operation,
-                              which_docker=which_docker(),
-                              services=hosts,
-                              builder_img_id=builder_img_id,
-                              extra_command_options=extra_options,
-                              **context)
+        config = getattr(self, 'get_config_for_%s' % operation)()
+        logger.debug('%s' % (config,))
+        config_yaml = yaml_dump(config)
+        logger.debug('Config YAML is')
+        logger.debug(config_yaml)
+        jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
+                             temp_dir,
+                             'docker-compose.yml',
+                             hosts=self.config.get('services', {}).keys(),
+                             project_name=self.project_name,
+                             base_path=self.base_path,
+                             params=self.params,
+                             builder_img_id=builder_img_id,
+                             which_docker=which_docker(),
+                             config=config_yaml,
+                             **context)
+        options = self.DEFAULT_COMPOSE_OPTIONS.copy()
+        options.update({
+            u'--file': [
+                os.path.join(temp_dir,
+                             'docker-compose.yml')],
+            u'COMMAND': 'up',
+            u'ARGS': ['--no-build'] + hosts,
+            u'--project-name': 'ansible'
+        })
+        command_options = self.DEFAULT_COMPOSE_UP_OPTIONS.copy()
+        command_options[u'--no-build'] = True
+        command_options[u'SERVICE'] = hosts
+        command_options.update(extra_options)
+        project = project_from_options(self.base_path, options)
+        command = main.TopLevelCommand(project)
+        command.up(command_options)
 
     def orchestrate_build_extra_args(self):
         """
@@ -239,7 +284,8 @@ class Engine(BaseEngine):
 
         :return: dictionary
         """
-        return {'--abort-on-container-exit': True}
+        return {'--abort-on-container-exit': True,
+                '--force-recreate': True}
 
     def orchestrate_run_extra_args(self):
         """
@@ -250,17 +296,57 @@ class Engine(BaseEngine):
         return {}
 
     def orchestrate_galaxy_extra_args(self):
-        return {
-            u'--file': [os.path.join(self.temp_dir, 'docker-compose.yml')]
-        }
+        """
+        Provide extra arguments to provide the orchestrator during galaxy calls.
 
-    def orchestrate_listhosts_args(self):
+        :return: dictionary
+        """
+        return {}
+
+    def orchestrate_listhosts_extra_args(self):
         """
         Provide extra arguments to provide the orchestrator during listhosts.
 
         :return: dictionary
         """
-        return {}
+        return {'--no-color': True}
+
+    def get_config_for_build(self):
+        compose_config = config_to_compose(self.config)
+        for service, service_config in compose_config.items():
+            service_config.update(
+                dict(
+                    user='root',
+                    working_dir='/',
+                    command='sh -c "while true; do sleep 1; done"'
+                )
+            )
+            if not self.params['rebuild']:
+                service_config['image'] = '%s-%s:latest' % (self.project_name,
+                                                            service)
+        return compose_config
+
+    def get_config_for_run(self):
+        if not self.params['production']:
+            self.config.set_env('dev')
+        compose_config = config_to_compose(self.config)
+        for service, service_config in compose_config.items():
+            service_config.update(
+                dict(
+                    image='%s-%s:latest' % (self.project_name, service)
+                )
+            )
+        return compose_config
+
+    def get_config_for_listhosts(self):
+        compose_config = config_to_compose(self.config)
+        for service, service_config in compose_config.items():
+            service_config.update(
+                dict(
+                    command='sh -c "while true; do sleep 1; done"'
+                )
+            )
+        return compose_config
 
     def post_build(self, host, version, flatten=True, purge_last=True):
         client = self.get_client()
@@ -393,26 +479,4 @@ class Engine(BaseEngine):
             self._client = docker.AutoVersionClient(**client_kwargs)
         return self._client
 
-    def get_config(self):
-        '''
-        Return the complete compose config less the ansible build host.
 
-        :return: dict of compose config
-        '''
-        compose_data = parse_compose_file(self.base_path)
-        version = compose_format_version(self.base_path, compose_data)
-        if version == 2:
-            services = compose_data.get('services', {})
-        else:
-            services = compose_data
-        # remove the ansible build host
-        if services.get(self.builder_container_img_name):
-            services.pop(self.builder_container_img_name)
-        # give each service a name attribute
-        for service in services:
-            services[service]['name'] = service
-        if version == 2:
-            config = compose_data.copy()
-        else:
-            config = dict(services=services.copy())
-        return config
