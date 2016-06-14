@@ -25,7 +25,7 @@ Clone the repo:
 
 .. code-block:: bash
 
-    $ git clone git@github.com:ansible/ansible-container.git
+    $ git clone https://github.com/ansible/ansible-container.git
 
 We recommend that you use a Python Virtualenv to sandbox your installation.
 See `the virtualenv docs <https://virtualenv.pypa.io/en/stable/>`_ for instructions.
