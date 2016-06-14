@@ -322,8 +322,16 @@ class Engine(BaseEngine):
                 )
             )
             if not self.params['rebuild']:
-                service_config['image'] = '%s-%s:latest' % (self.project_name,
-                                                            service)
+                tag = '%s-%s:latest' % (self.project_name,
+                                        service)
+                try:
+                    self.get_image_id_by_tag(tag)
+                except NameError:
+                    # have to rebuild this from scratch, as the image doesn't
+                    # exist in the engine
+                    pass
+                else:
+                    service_config['image'] = tag
         return compose_config
 
     def get_config_for_run(self):
