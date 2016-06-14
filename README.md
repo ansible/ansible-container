@@ -75,7 +75,7 @@ When you're ready to deploy to the cloud:
 role for deploying your project to [OpenShift](https://www.openshift.org/). Additional cloud providers 
 are under development, including: Google Container Engine and Amazon EC2 Container Service.
 
-Feel free to see the `test` or `test-v1` projects as an examples.
+The source includes an example project for building a Django application.
 
 ## Getting started
 

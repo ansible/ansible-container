@@ -8,3 +8,6 @@ services:
   #   ports:
   #     - "80:80"
   #   command: ['/usr/sbin/dumb-init', '/usr/bin/apache2ctl', '-D', 'FOREGROUND']
+  #   dev_overrides:
+  #     environment:
+  #       - "DEBUG=1"
