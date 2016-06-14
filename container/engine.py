@@ -254,9 +254,6 @@ def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, rebuild=
         logger.info('Exporting built containers as images...')
         for host in touched_hosts:
             engine_obj.post_build(host, version, flatten=flatten, purge_last=purge_last)
-        for host in set(engine_obj.all_hosts_in_orchestration()) - set(touched_hosts):
-            logger.info('Cleaning up %s build container...', host)
-            engine_obj.remove_container_by_name(host)
         logger.info('Cleaning up Ansible Container builder...')
         builder_container_id = engine_obj.get_builder_container_id()
         engine_obj.remove_container_by_id(builder_container_id)

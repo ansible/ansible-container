@@ -31,7 +31,7 @@ services:
     user: 'postgres'
     command: ['/usr/bin/dumb-init', "postgres", "-h", "0.0.0.0", "-D", "/var/lib/pgsql/data"]
     volumes:
-      - '/var/lib/postgresql/9.4/main'
+      - '/var/lib/pgsql'
   gulp:
     image: centos:7
     user: 'node'

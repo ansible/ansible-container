@@ -12,6 +12,7 @@ import json
 import base64
 
 import docker
+from docker.client import errors as docker_errors
 from docker.utils import kwargs_from_env
 from compose.cli.command import project_from_options
 from compose.cli import main
@@ -311,6 +312,25 @@ class Engine(BaseEngine):
         """
         return {'--no-color': True}
 
+    def _fix_volumes(self, service_name, service_config):
+        # If there are volumes defined for this host, we need to create the
+        # volume if one doesn't already exist.
+        client = self.get_client()
+        for volume in service_config.get('volumes', []):
+            if ':' not in volume:
+                # This is an unnamed volume. We have to handle making this
+                # volume with a predictable name.
+                volume_name = '%s-%s-%s' % (self.project_name,
+                                            service_name,
+                                            volume.replace('/', '_'))
+                try:
+                    client.inspect_volume(name=volume_name)
+                except docker_errors.NotFound, e:
+                    # We need to create this volume
+                    client.create_volume(name=volume_name, driver='local')
+                service_config['volumes'].remove(volume)
+                service_config['volumes'].append('%s:%s' % (volume_name, volume))
+
     def get_config_for_build(self):
         compose_config = config_to_compose(self.config)
         for service, service_config in compose_config.items():
@@ -332,6 +352,7 @@ class Engine(BaseEngine):
                     pass
                 else:
                     service_config['image'] = tag
+            self._fix_volumes(service, service_config)
         return compose_config
 
     def get_config_for_run(self):
@@ -344,6 +365,7 @@ class Engine(BaseEngine):
                     image='%s-%s:latest' % (self.project_name, service)
                 )
             )
+            self._fix_volumes(service, service_config)
         return compose_config
 
     def get_config_for_listhosts(self):
