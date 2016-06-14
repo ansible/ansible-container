@@ -41,7 +41,7 @@ line of code.
 
 Clone the repo:
 
-    $ git clone git@github.com:ansible/ansible-container.git
+    $ git clone https://github.com/ansible/ansible-container.git
 
 We recommend installing Ansible Container inside of a Python virtualenv. Once you've
 created and activated your virtualenv and cloned the source, simply `python setup.py install` 
