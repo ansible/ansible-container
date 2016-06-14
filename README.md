@@ -43,7 +43,7 @@ Prerequisites:
 
 Clone the repo:
 
-    $ git clone https://github.com/dictvm/ansible-container.git
+    $ git clone https://github.com/ansible/ansible-container.git
 
 Install ansible-container:
 
