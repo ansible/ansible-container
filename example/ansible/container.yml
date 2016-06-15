@@ -3,7 +3,7 @@ services:
   django:
     image: centos:7
     ports:
-      - "8080:8080"
+      - "8080"
     working_dir: '/django'
     links:
       - postgresql
