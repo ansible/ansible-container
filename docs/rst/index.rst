@@ -25,6 +25,7 @@ deployment.
 
    installation
    tour
+   example
    reference/index
 
 
