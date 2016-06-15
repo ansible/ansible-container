@@ -19,20 +19,20 @@ sources. That nginx server proxies requests to Django running under gunicorn, an
 Django uses PostgreSQL as the database backend.
 
 However, in development, one would not wish to have to rebuild containers every
-time lines of code change. For the front end developers, ordinarily we would want
+time lines of code change. Front end developers ordinarily would want
 Gulp to be watching source assets and recompiling them upon changes and
 a BrowserSync server to serve them while refreshing the developer's browser
-automatically. For the back end developers, ordinarily we would want Django's
+automatically. Back end developers ordinarily would want Django's
 built-in webserver running instead of gunicorn, reloading the server upon any
 Python source changes.
 
-Because of that, we override the configuration in our development environment.
-Nginx does not expose any ports and exits immediately in our development
+Because of that, the ``container.yml`` overrides the configuration in the development environment.
+Nginx does not expose any ports and exits immediately in the development
 environment, and instead Gulp becomes the outward facing webserver, proxying
 to Django. This way, containers would only have to be rebuilt sporadically, such
 as when new dependencies were added or new database migrations were created.
 
-Our Ansible playbook to build these services does so looking toward production.
+The Ansible playbook to build these services does so looking toward production.
 
 .. literalinclude:: ../../example/ansible/main.yml
 
