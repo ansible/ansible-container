@@ -18,8 +18,11 @@ from compose.cli.command import project_from_options
 from compose.cli import main
 from yaml import dump as yaml_dump
 
-from ..exceptions import AnsibleContainerNotInitializedException, \
-    AnsibleContainerNoAuthenticationProvided
+from ..exceptions import (AnsibleContainerNotInitializedException,
+                          AnsibleContainerNoAuthenticationProvided,
+                          AnsibleContainerDockerConfigFileException,
+                          AnsibleContainerDockerLoginException)
+
 from ..engine import BaseEngine
 from ..utils import *
 from .utils import *
@@ -31,7 +34,6 @@ class Engine(BaseEngine):
     builder_container_img_name = 'ansible-container'
     builder_container_img_tag = 'ansible-container-builder'
     default_registry_url = 'https://index.docker.io/v1/'
-    galaxy_container_name = 'ansible_galaxy_1'
     _client = None
     temp_dir = None
 
@@ -171,18 +173,7 @@ class Engine(BaseEngine):
         """
         return self.get_container_id_by_name(self.builder_container_img_name)
 
-    def galaxy_was_successful(self):
-        return self.build_was_successful(name=self.galaxy_container_name)
-
-    def get_galaxy_container_id(self):
-        """
-        Query the engine to get the galaxy container identifier
-
-        :return: the container identifier
-        """
-        return self.get_container_id_by_name(self.galaxy_container_name)
-
-    def build_was_successful(self, name='ansible_ansible-container_1'):
+    def build_was_successful(self):
         """
         After the build was complete, did the build run successfully?
 
@@ -190,7 +181,7 @@ class Engine(BaseEngine):
         """
         client = self.get_client()
         build_container_info, = client.containers(
-            filters={'name': name},
+            filters={'name': 'ansible_ansible-container_1'},
             limit=1, all=True
         )
         # Not the best way to test for success or failure, but it works.
@@ -259,7 +250,6 @@ class Engine(BaseEngine):
                              base_path=self.base_path,
                              params=self.params,
                              builder_img_id=builder_img_id,
-                             which_docker=which_docker(),
                              config=config_yaml,
                              **context)
         options = self.DEFAULT_COMPOSE_OPTIONS.copy()
@@ -378,6 +368,16 @@ class Engine(BaseEngine):
             )
         return compose_config
 
+    def get_config_for_galaxy(self):
+        compose_config = config_to_compose(self.config)
+        for service, service_config in compose_config.items():
+            service_config.update(
+                dict(
+                    command='echo "Started"'
+                )
+            )
+        return compose_config
+
     def post_build(self, host, version, flatten=True, purge_last=True):
         client = self.get_client()
         container_id, = client.containers(
@@ -415,7 +415,9 @@ class Engine(BaseEngine):
             logger.info('Removing previous image...')
             client.remove_image(previous_image_id, force=True)
 
-    def registry_login(self, username=None, password=None, email=None, url=None):
+    DEFAULT_CONFIG_PATH = '~/.docker/config.json'
+
+    def registry_login(self, username=None, password=None, email=None, url=None, config_path=DEFAULT_CONFIG_PATH):
         """
         Logs into registry for this engine
 
@@ -423,20 +425,31 @@ class Engine(BaseEngine):
         :param password: Password to login with - None to prompt user
         :param email: Email address to login with
         :param url: URL of registry - default defined per backend
+        :param config_path: path to the registry config file
         :return: None
         """
+
+        #TODO Make config_path a command line option?
+
         client = self.get_client()
         if not url:
             url = self.default_registry_url
-        if username and email:
+
+        if username:
             # We assume if no username was given, the docker config file
             # suffices
             while not password:
                 password = getpass.getpass(u'Enter password for %s at %s: ' % (
                     username, url
                 ))
-            client.login(username=username, password=password, email=email,
-                         registry=url)
+            try:
+                client.login(username=username, password=password, email=email,
+                             registry=url)
+            except Exception as exc:
+                raise AnsibleContainerDockerLoginException("Error logging into registry: %s" % str(exc))
+
+            self.update_config_file(username, password, email, url, config_path)
+
         username, email = self.currently_logged_in_registry_user(url)
         if not username:
             raise AnsibleContainerNoAuthenticationProvided(
@@ -458,19 +471,76 @@ class Engine(BaseEngine):
         :param url: URL
         :return: (username, email) tuple
         """
-
+        username = None
+        docker_config = None
         for docker_config_filepath in self.DOCKER_CONFIG_FILEPATH_CASCADE:
             if docker_config_filepath and os.path.exists(
                     docker_config_filepath):
                 docker_config = json.load(open(docker_config_filepath))
                 break
+        if not docker_config:
+            raise AnsibleContainerDockerConfigFileException("Unable to read your docker config file. Try providing "
+                                                            "login credentials for the registry.")
         if 'auths' in docker_config:
             docker_config = docker_config['auths']
         auth_key = docker_config.get(url, {}).get('auth', '')
         email = docker_config.get(url, {}).get('email', '')
         if auth_key:
             username, password = base64.decodestring(auth_key).split(':', 1)
-            return username, email
+        return username, email
+
+    def update_config_file(self, username, password, email, url, config_path):
+        '''
+        Update the config file with the authorization.
+
+        :param username:
+        :param password:
+        :param email:
+        :param url:
+        :param config_path
+        :return: None
+        '''
+
+        path = os.path.expanduser(config_path)
+        if not os.path.exists(path):
+            # Create an empty config, if none exists
+            config_path_dir = os.path.dirname(path)
+            if not os.path.exists(config_path_dir):
+                try:
+                    os.makedirs(config_path_dir)
+                except Exception as exc:
+                    raise AnsibleContainerDockerConfigFileException("Failed to create file %s - %s" %
+                                                                    (config_path_dir, str(exc)))
+            self.write_config(path, dict(auths=dict()))
+
+        try:
+            # read the existing config
+            config = json.load(open(path, "r"))
+        except ValueError:
+            config = dict()
+
+        if not config.get('auths'):
+            config['auths'] = dict()
+
+        if not config['auths'].get(url):
+            config['auths'][url] = dict()
+
+        encoded_credentials = dict(
+            auth=base64.b64encode(username + b':' + password),
+            email=email
+        )
+
+        if config['auths'][url] != encoded_credentials:
+            config['auths'][url] = encoded_credentials
+            self.write_config(path, config)
+
+    @staticmethod
+    def write_config(path, config):
+        try:
+            json.dump(config, open(path, "w"), indent=5, sort_keys=True)
+        except Exception as exc:
+            raise AnsibleContainerDockerConfigFileException("Failed to write docker registry config to %s - %s" %
+                                                            (path, str(exc)))
 
     def push_latest_image(self, host, username):
         """
@@ -483,6 +553,7 @@ class Engine(BaseEngine):
         client = self.get_client()
         image_id, image_buildstamp = get_latest_image_for(self.project_name,
                                                           host, client)
+        logger.info('Tagging %s/%s-%s' % (username, self.project_name, host))
         client.tag(image_id,
                    '%s/%s-%s' % (username, self.project_name, host),
                    tag=image_buildstamp)
