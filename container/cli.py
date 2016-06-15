@@ -111,6 +111,10 @@ def subcmd_push_parser(parser, subparser):
                            help=(u'Base URL for your registry. If not provided, '
                                  u'Docker Hub will be used.'),
                            dest='url', default=None)
+    subparser.add_argument('--repository', action='store',
+                           help=(u'Path of the repository to tag and push the image into. Will be appended to '
+                                 u'registry URL. Defaults to the registry username.'),
+                           dest='repository', default=None)
 
 class LoadSubmoduleAction(argparse.Action):
     def __init__(self, option_strings, dest, nargs=None, **kwargs):

@@ -25,6 +25,12 @@ class BaseEngine(object):
         logger.debug('Initialized with params: %s', params)
         self.params = params
 
+        self.support_init = True
+        self.supports_build = True
+        self.supports_push = True
+        self.supports_run = True
+
+
     def all_hosts_in_orchestration(self):
         """
         List all hosts being orchestrated by the compose engine.
@@ -186,7 +192,7 @@ class BaseEngine(object):
         """
         raise NotImplementedError()
 
-    def push_latest_image(self, host, username):
+    def push_latest_image(self, host, username, **kwargs):
         """
         Push the latest built image for a host to a registry
 
@@ -266,7 +272,7 @@ def cmdrun_push(base_path, engine_name, username=None, password=None, email=None
 
     logger.info('Pushing to repository for user %s', username)
     for host in engine_obj.hosts_touched_by_playbook():
-        engine_obj.push_latest_image(host, username)
+        engine_obj.push_latest_image(host, username, url, **kwargs)
     logger.info('Done!')
 
 

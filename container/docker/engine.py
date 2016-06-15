@@ -542,7 +542,7 @@ class Engine(BaseEngine):
             raise AnsibleContainerDockerConfigFileException("Failed to write docker registry config to %s - %s" %
                                                             (path, str(exc)))
 
-    def push_latest_image(self, host, username):
+    def push_latest_image(self, host, username, url, **kwargs):
         """
         Push the latest built image for a host to a registry
 
@@ -553,12 +553,19 @@ class Engine(BaseEngine):
         client = self.get_client()
         image_id, image_buildstamp = get_latest_image_for(self.project_name,
                                                           host, client)
-        logger.info('Tagging %s/%s-%s' % (username, self.project_name, host))
+        repository = username
+        if kwargs.get('repository'):
+            repository = kwargs.pop('repository')
+
+        if url:
+            repository = "%s/%s" % (url, repository)
+
+        logger.info('Tagging %s/%s-%s' % (repository, self.project_name, host))
         client.tag(image_id,
-                   '%s/%s-%s' % (username, self.project_name, host),
+                   '%s/%s-%s' % (repository, self.project_name, host),
                    tag=image_buildstamp)
         logger.info('Pushing %s-%s:%s...', self.project_name, host, image_buildstamp)
-        status = client.push('%s/%s-%s' % (username, self.project_name, host),
+        status = client.push('%s/%s-%s' % (repository, self.project_name, host),
                              tag=image_buildstamp,
                              stream=True)
         last_status = None
