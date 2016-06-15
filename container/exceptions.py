@@ -18,6 +18,12 @@ class AnsibleContainerNoAuthenticationProvided(Exception):
 class AnsibleContainrRolesPathCreationException(Exception):
     pass
 
+class AnsibleContainerDockerConfigFileException(Exception):
+    pass
+
+class AnsibleContainerDockerLoginException(Exception):
+    pass
+
 class AnsibleContainerShipItException(Exception):
 
     def __init__(self, msg, stdout=None, stderr=None):

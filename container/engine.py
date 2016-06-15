@@ -101,22 +101,6 @@ class BaseEngine(object):
         """
         raise NotImplementedError()
 
-    def get_galaxy_container_id(self):
-        """
-        Query the engine to get the builder container identifier
-
-        :return: the container identifier
-        """
-        raise NotImplementedError()
-
-    def galaxy_was_successful(self):
-        """
-        After galaxy init completed, was the init run successfully?
-
-        :return: bool
-        """
-        raise NotImplementedError()
-
     def build_was_successful(self):
         """
         After the build completed, did the build run successfully?
@@ -321,18 +305,18 @@ def cmdrun_shipit(base_path, engine_name, **kwargs):
     # Use the build container to Initialize the role
     with make_temp_dir() as temp_dir:
         logger.info('Executing ansible-galaxy init %s' % project_name)
-        engine_obj.orchestrate('galaxy', temp_dir, hosts=[u'galaxy'], context=context)
-        if not engine_obj.galaxy_was_successful():
+        engine_obj.orchestrate('galaxy', temp_dir, context=context)
+        if not engine_obj.build_was_successful():
             logger.error('Role initialization failed.')
             logger.info('Cleaning up and removing build container...')
-            galaxy_container_id = engine_obj.get_galaxy_container_id()
-            engine_obj.remove_container_by_id(galaxy_container_id)
+            builder_container_id = engine_obj.get_builder_container_id()
+            engine_obj.remove_container_by_id(builder_container_id)
             return
 
+    logger.info('Role %s created.' % project_name)
     config = engine_obj.get_config()
     create_templates = kwargs.pop('save_config')
     shipit_engine_obj.run(config=config, project_name=project_name, project_dir=base_path)
-
     if create_templates:
         shipit_engine_obj.save_config(config=config, project_name=project_name, project_dir=base_path)
 
