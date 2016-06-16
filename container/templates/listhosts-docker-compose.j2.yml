@@ -3,11 +3,11 @@ ansible-container:
   command: ansible-playbook -i /etc/ansible/inventory/hosts -c docker {{ params.ansible_options }} --list-hosts main.yml
   environment:
     - DOCKER_HOST
-    - DOCKER_TLS_VERIFY
-    - DOCKER_CERT_PATH=/docker-certs/
+    {% if env.DOCKER_TLS_VERIFY %}- DOCKER_TLS_VERIFY{% endif %}
+    {% if env.DOCKER_CERT_PATH %}- DOCKER_CERT_PATH=/docker-certs/{% endif %}
     - COMPOSE_HTTP_TIMEOUT=3000
   volumes:
-    - $DOCKER_CERT_PATH:/docker-certs/
+    {% if env.DOCKER_CERT_PATH %}- $DOCKER_CERT_PATH:/docker-certs/{% endif %}
     - {{ base_path }}:/ansible-container/
   working_dir: /ansible-container/ansible/
   stdin_open: true
