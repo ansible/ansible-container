@@ -6,6 +6,7 @@ ansible-container:
     {% if env.DOCKER_TLS_VERIFY %}- DOCKER_TLS_VERIFY{% endif %}
     {% if env.DOCKER_CERT_PATH %}- DOCKER_CERT_PATH=/docker-certs/{% endif %}
     - COMPOSE_HTTP_TIMEOUT=3000
+    - DOCKER_API_VERSION={{ api_version }}
   volumes:
     {% if env.DOCKER_CERT_PATH %}- $DOCKER_CERT_PATH:/docker-certs/{% endif %}
     - {{ base_path }}:/ansible-container/

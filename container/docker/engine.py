@@ -35,6 +35,7 @@ class Engine(BaseEngine):
     builder_container_img_tag = 'ansible-container-builder'
     default_registry_url = 'https://index.docker.io/v1/'
     _client = None
+    api_version = ''
     temp_dir = None
 
     def all_hosts_in_orchestration(self):
@@ -249,6 +250,7 @@ class Engine(BaseEngine):
                              project_name=self.project_name,
                              base_path=self.base_path,
                              params=self.params,
+                             api_version=self.api_version,
                              builder_img_id=builder_img_id,
                              config=config_yaml,
                              env=os.environ,
@@ -586,6 +588,7 @@ class Engine(BaseEngine):
             # To ensure version compatibility, we have to generate the kwargs ourselves
             client_kwargs = kwargs_from_env(assert_hostname=False)
             self._client = docker.AutoVersionClient(**client_kwargs)
+            self.api_version_version = self._client.version()['ApiVersion']
         return self._client
 
 
