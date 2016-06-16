@@ -251,6 +251,7 @@ class Engine(BaseEngine):
                              params=self.params,
                              builder_img_id=builder_img_id,
                              config=config_yaml,
+                             env=os.environ,
                              **context)
         options = self.DEFAULT_COMPOSE_OPTIONS.copy()
         options.update({
