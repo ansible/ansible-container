@@ -588,7 +588,7 @@ class Engine(BaseEngine):
             # To ensure version compatibility, we have to generate the kwargs ourselves
             client_kwargs = kwargs_from_env(assert_hostname=False)
             self._client = docker.AutoVersionClient(**client_kwargs)
-            self.api_version_version = self._client.version()['ApiVersion']
+            self.api_version = self._client.version()['ApiVersion']
         return self._client
 
 
