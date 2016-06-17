@@ -34,7 +34,7 @@ line of code.
 
 ## To install Ansible Container
 
-For now, Ansible Container can only be installed from source. See INSTALL.md for details.
+For now, Ansible Container can only be installed from source. See [INSTALL.md](./install.md) for details.
 
 ## To Ansible-Container-ize your project
 
