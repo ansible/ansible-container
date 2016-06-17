@@ -2,7 +2,9 @@
 
 At some point soon, there will be a version for PyPi. For now, the Development Version is all there is.
 
-# The Mac laptop version
+# OS X version
+
+This is the happy path for someone running Mavericks. Should be similar for other OSes. Your mileage may vary.
 
 ## Prerequisites
 
@@ -12,7 +14,7 @@ Make sure that the following things are installed and available on your system:
 * Ansible. 
 * Git.
 * The latest Docker toolkit. 
-  * The best way to do this: go to https://docs.docker.com/mac/step_one/ and follow the instructions.)
+  * The best way to do this: go to https://docs.docker.com/mac/step_one/ and follow the instructions.
   * Verify that docker-machine is running: "docker-machine ls" should show a running, active instance called "default".
 
 ## Install instructions
@@ -21,4 +23,4 @@ Make sure that the following things are installed and available on your system:
 * Run the setup.py script. 
   * You can run as root: "sudo python setup.py install" 
   * Or you can run "python setup.py install" in a Python virtualenv.
-* Run "ansible-container --help" to verify that Ansible Container was installed.
+* Run "ansible-container --help" to verify that Ansible Container was properly installed.
