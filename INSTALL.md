@@ -2,7 +2,7 @@
 
 At some point soon, there will be a version for PyPi. For now, the Development Version is all there is.
 
-# OS X version
+## OS X version
 
 This is the happy path for someone running Mavericks. Should be similar for other OSes. Your mileage may vary.
 
