@@ -38,7 +38,7 @@ Ansible Container is undergoing rapid development. For now, Ansible Container ca
 
 ## To use Ansible Container
 
-The source includes an example project for building a Django application. Run these commands against the example.
+The source includes an example project for building a Django application. To see Ansible Container at work, `cd example/` and run the following commands:
 
 1. `ansible-container build` - This will make your Ansible Container builder and
 use Ansible to build the images for your other containers. By the end of this
