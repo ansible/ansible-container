@@ -34,21 +34,7 @@ line of code.
 
 ## To install Ansible Container
 
-* Python 2.7
-* [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
-* [Docker](https://docs.docker.com/engine/installation/) or access to a Docker daemon
-
-
-Clone the repo:
-
-    $ git clone https://github.com/ansible/ansible-container.git
-
-We recommend installing Ansible Container inside of a Python virtualenv. Once you've
-created and activated your virtualenv and cloned the source, simply `python setup.py install` 
-
-If you're using Docker Machine, you should be good to go. Otherwise, check out [detailed instructions on the docs site]
-(http://docs.ansible.com/ansible-container/installation.html) for configuring Docker and accessing a remote Docker 
-daemon.
+For now, Ansible Container can only be installed from source. See INSTALL.md for details.
 
 ## To Ansible-Container-ize your project
 
