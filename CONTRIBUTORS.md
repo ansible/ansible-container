@@ -2,7 +2,8 @@
 
 ## Ask questions and file issues
 
-For now, we want to use the Github issue tracker to keep track of all issues with, and questions about, the project. 
+Please use the Github issue tracker for all issues with, and questions about, the project. 
+
 If you have any questions, please file an issue and we'll answer it as soon as we can. Make your question or issue
 clear in the title, and be sure to look through the issues just in case someone else has asked the same questions.
 
