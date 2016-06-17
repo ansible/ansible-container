@@ -68,15 +68,26 @@ def subcmd_build_parser(parser, subparser):
                            help=u'By default, Ansible Container will remove the '
                                 u'previously built image for your hosts. Disable '
                                 u'that with this flag.')
-    subparser.add_argument('--rebuild', action='store_true',
-                           help=u'Instead of starting from the base image, '
-                                u'perform the Ansible Container build against '
-                                u'the last built image. This may be faster than '
-                                u'starting from scratch.',
+    subparser.add_argument('--from-scratch', action='store_true',
+                           help=u'Instead of running the Ansible playbook against '
+                                u'the existing copies of your containers, run the '
+                                u'playbook against the base image, rebuilding them '
+                                u'from scratch.',
                            dest='rebuild', default=False)
+    subparser.add_argument('ansible_options', action='store',
+                           help=u'Provide additional commandline arguments to '
+                                u'Ansible in executing your playbook. If you '
+                                u'use this argument, you will need to use -- to '
+                                u'prefix your extra options. Use this feature with '
+                                u'caution.', default=u'', nargs='*')
 
 def subcmd_run_parser(parser, subparser):
-    return
+    subparser.add_argument('service', action='store',
+                           help=u'The specific services you want to run',
+                           nargs='*')
+    subparser.add_argument('--production', action='store_true',
+                           help=u'Run the production configuration locally',
+                           default=False, dest='production')
 
 def subcmd_help_parser(parser, subparser):
     return
@@ -100,6 +111,10 @@ def subcmd_push_parser(parser, subparser):
                            help=(u'Base URL for your registry. If not provided, '
                                  u'Docker Hub will be used.'),
                            dest='url', default=None)
+    subparser.add_argument('--repository', action='store',
+                           help=(u'Path of the repository to tag and push the image into. Will be appended to '
+                                 u'registry URL. Defaults to the registry username.'),
+                           dest='repository', default=None)
 
 class LoadSubmoduleAction(argparse.Action):
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
@@ -120,7 +135,7 @@ class LoadSubmoduleAction(argparse.Action):
         try:
             engine_cls = getattr(engine_module, 'ShipItEngine')
         except Exception as exc:
-            raise Exception('Error getting ShipItEngine for %s - %s' % (
+            raise ImportError('Error getting ShipItEngine for %s - %s' % (
             engine_name, str(exc)))
 
         engine_obj = engine_cls(os.getcwd())
@@ -128,11 +143,14 @@ class LoadSubmoduleAction(argparse.Action):
         engine_obj.add_options(parser)
 
 def subcmd_shipit_parser(parser, subparser):
-    subparser.add_argument('--engine', action=LoadSubmoduleAction,
-                           help=(u'The shipit engine for the cloud provider you '
-                                 u'wish to ship to'),
-                           dest='engine', default='openshift')
+    default_engine = 'openshift'
+    subparser.add_argument('--shipit-engine', action=LoadSubmoduleAction,
+                           help=(u'Specify the shipit engine for your cloud provider. Default is %s.' % default_engine),
+                           dest='shipit_engine', default=default_engine)
 
+    subparser.add_argument('--save-config', action='store_true',
+                           help=(u'Save a copy of the cloud provider configuration to the file system.'),
+                           dest='save_config', default=False)
 
 def commandline():
     parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '
@@ -140,7 +158,7 @@ def commandline():
                                                  u'Ansible playbooks')
     parser.add_argument('--debug', action='store_true', dest='debug',
                         help=u'Enable debug output', default=False)
-    parser.add_argument('--engine', action='store', dest='engine',
+    parser.add_argument('--engine', action='store', dest='engine_name',
                         help=u'Select your container engine and orchestrator',
                         default='docker')
     subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
