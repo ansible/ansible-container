@@ -13,7 +13,7 @@ Make sure that the following things are installed and available on your system:
 * Git.
 * The latest Docker toolkit. 
   * The best way to do this: go to https://docs.docker.com/mac/step_one/ and follow the instructions.)
-  * Verify that docker-machine is running: "docker-machine ls" should show a running instance called "default".
+  * Verify that docker-machine is running: "docker-machine ls" should show a running, active instance called "default".
 
 ## Install instructions
 
