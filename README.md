@@ -36,13 +36,9 @@ line of code.
 
 Ansible Container is undergoing rapid development. For now, Ansible Container can only be installed from source. See [INSTALL.md](./INSTALL.md) for details.
 
-## To Ansible-Container-ize your project
-
-Run `ansible-container init` in the root directory of your project. This will create
-a directory `ansible` with files to get you started. Read the comments and
-edit to suit your needs.
-
 ## To use Ansible Container
+
+The source includes an example project for building a Django application. Run these commands against the example.
 
 1. `ansible-container build` - This will make your Ansible Container builder and
 use Ansible to build the images for your other containers. By the end of this
@@ -61,7 +57,11 @@ When you're ready to deploy to the cloud:
 role for deploying your project to [OpenShift](https://www.openshift.org/). Additional cloud providers 
 are under development, including: Google Container Engine and Amazon EC2 Container Service.
 
-The source includes an example project for building a Django application.
+## To Ansible-Container-ize your own project
+
+Run `ansible-container init` in the root directory of your project. This will create
+a directory `ansible` with files to get you started. Read the comments and
+edit to suit your needs.
 
 ## Getting started
 
