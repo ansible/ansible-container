@@ -1,0 +1,28 @@
+language: python
+dist: trusty
+sudo: required
+
+services:
+  - docker
+
+before_install:
+  - sudo apt-add-repository 'deb http://archive.ubuntu.com/ubuntu trusty-backports universe'
+  - sudo apt-get update -qq
+  - sudo apt-get install -y shellcheck
+  - sudo apt-get install -y -o Dpkg::Options::="--force-confold" docker-engine
+
+install:
+  - pip install -r requirements.txt -r test/requirements.txt
+
+script:
+  - python setup.py develop
+  - docker version
+  - docker-compose version
+  - test/utils/run_tests.sh
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash) -F unit        -f test/reports/unit/coverage.xml
+  - bash <(curl -s https://codecov.io/bash) -F integration -f test/reports/integration/coverage.xml
+
+notifications:
+  email: false

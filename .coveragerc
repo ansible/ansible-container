@@ -1,0 +1,15 @@
+[run]
+
+branch=True
+
+# Setting parallel to True causes coverage to generate a uniquely named
+# output file for each execution of coverage. These files need to be
+# combined with 'coverage combine' before they can be used. Without
+# this, later runs of coverage will overwrite output from earlier runs.
+
+parallel=True
+
+# The directory containing the python source to analyze and report.
+# Relative to the current directory, not the location of this file.
+
+source=container/

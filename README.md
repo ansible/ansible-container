@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/ansible/ansible-container.svg)](https://travis-ci.org/ansible/ansible-container)
+[![Code Coverage](https://codecov.io/gh/ansible/ansible-container/coverage.svg)](https://codecov.io/gh/ansible/ansible-container)
+
 # Ansible Container
 
 Ansible Container is a tool to build Docker images and orchestrate containers 
