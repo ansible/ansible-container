@@ -34,29 +34,11 @@ line of code.
 
 ## To install Ansible Container
 
-* Python 2.7
-* [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
-* [Docker](https://docs.docker.com/engine/installation/) or access to a Docker daemon
-
-
-Clone the repo:
-
-    $ git clone https://github.com/ansible/ansible-container.git
-
-We recommend installing Ansible Container inside of a Python virtualenv. Once you've
-created and activated your virtualenv and cloned the source, simply `python setup.py install` 
-
-If you're using Docker Machine, you should be good to go. Otherwise, check out [detailed instructions on the docs site]
-(http://docs.ansible.com/ansible-container/installation.html) for configuring Docker and accessing a remote Docker 
-daemon.
-
-## To Ansible-Container-ize your project
-
-Run `ansible-container init` in the root directory of your project. This will create
-a directory `ansible` with files to get you started. Read the comments and
-edit to suit your needs.
+Ansible Container is undergoing rapid development. For now, Ansible Container can only be installed from source. See [INSTALL.md](./INSTALL.md) for details.
 
 ## To use Ansible Container
+
+The source includes an example project for building a Django application. To see Ansible Container at work, `cd example/` and run the following commands:
 
 1. `ansible-container build` - This will make your Ansible Container builder and
 use Ansible to build the images for your other containers. By the end of this
@@ -75,7 +57,11 @@ When you're ready to deploy to the cloud:
 role for deploying your project to [OpenShift](https://www.openshift.org/). Additional cloud providers 
 are under development, including: Google Container Engine and Amazon EC2 Container Service.
 
-The source includes an example project for building a Django application.
+## To Ansible-Container-ize your own project
+
+Run `ansible-container init` in the root directory of your project. This will create
+a directory `ansible` with files to get you started. Read the comments and
+edit to suit your needs.
 
 ## Getting started
 
