@@ -1,0 +1,15 @@
+#!/bin/bash -eu
+
+source_root=$(python -c "from os import path; print(path.abspath(path.join(path.dirname('$0'), '../../..')))")
+
+# coverage expects .coveragerc in the current directory
+# source paths in .coveragerc are also relative to the current directory
+# this prevents use of coverage with --rcfile without absolute paths for source
+# to work around this we put a modified .coveragerc in the current directory before running coverage
+
+cp -a "${source_root}/.coveragerc" .
+sed -i "s|source=|source=${source_root}/|" .coveragerc
+
+# run the actual ansible-container command from our virtual environment
+
+coverage run "${VIRTUAL_ENV}/bin/ansible-container" "$@"
