@@ -36,10 +36,10 @@ services:
       POSTGRES_DB: 'example'
   gulp:
     image: centos:7
+    user: 'node'
     links:
       - django
     command: /bin/false
-    user: 'node'
     dev_overrides:
       working_dir: '/node'
       command: ['/usr/bin/dumb-init', '/node_modules/.bin/gulp']
@@ -47,4 +47,3 @@ services:
         - "80:8080"
       volumes:
         - "$PWD:/node"
-
