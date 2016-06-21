@@ -97,7 +97,7 @@ class Engine(BaseEngine):
             tarball.close()
             tarball_file.close()
             tarball_file = open(tarball_path, 'rb')
-            logger.info('Starting Docker build of Ansible Container image...')
+            logger.info('Starting Docker build of Ansible Container image (please be patient)...')
             return [streamline for streamline in
                     client.build(fileobj=tarball_file,
                                  custom_context=True,
