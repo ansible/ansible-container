@@ -87,7 +87,8 @@ class BaseShipItEngine(object):
         '''
         Copy cloud ansible modules to role library path.
         '''
-        cls_dir = os.path.dirname(os.path.realpath(__file__))
+        cls_dir = os.path.dirname(os.path.dirname(__file__))
+        logger.debug("Copying modules from %s:" % cls_dir)
         modules_dir = os.path.join(cls_dir, self.name, 'modules')
         library_path = os.path.join(self.roles_path, 'library')
         create_path(library_path)
