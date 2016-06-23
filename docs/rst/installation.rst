@@ -66,14 +66,19 @@ Use the following to upgrade to the latest release, and then run the intall comm
 
 Configuring Docker
 ``````````````````
-If you're using `Docker Machine <https://docs.docker.com/machine/>`_, you can skip this section. Otherwise, to use
-Ansible Container, you'll need `Docker Engine <https://docs.docker.com/engine/installation/>`_ installed and configured
-for TCP access or access to a remote Docker daemon.
+If you're using `Docker Machine <https://docs.docker.com/machine/>`_, you can skip this section. Simply ensure your
+Docker Machine environment is active in your shell session.
+
+If you're not using Docker Machine, you'll still need `Docker Engine <https://docs.docker.com/engine/installation/>`_
+installed. By default, Docker Engine comes set to only listen on a UNIX socket. It is recommended that you configure
+your Docker Engine for TLS-secured TCP, however it is not strictly-speaking necessary.
+
+To use Ansible Container with Docker Engine's UNIX socket, simply ensure the ``DOCKER_HOST`` environment variable is unset.
 
 .. _docker_engine:
 
-Docker Engine
--------------
+Enabling TCP for Docker Engine
+------------------------------
 After `installing Docker engine <https://docs.docker.com/engine/installation/>`_ the daemon is accessible via a Unix
 socket that restricts access to the local root user. Using Ansible Container requires changing this so that the Docker
 daemon is accessible via TCP.
@@ -93,13 +98,12 @@ To access the Docker daemon define the DOCKER_HOST environment variable in the u
 
     export DOCKER_HOST=tcp://<host IP address>:2376
 
-**NOTE** ansible-container requires DOCKER_HOST to be defined in the user's environment. Without it the build container
-will not be able to access the Docker daemon.
+**NOTE** Without this environment variable set, Ansible Container will fall back to using Docker's UNIX socket.
 
 .. _secure_docker:
 
-Securing Docker Daemon
-----------------------
+Securing Docker Daemon with TLS
+-------------------------------
 To secure the Docker daemon you will need the following:
 
 * openssl
