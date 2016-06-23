@@ -52,7 +52,16 @@
       register: django_assets
     - name: Fetch Django static assets
       fetch: src="{{ item.path }}" dest=/tmp
+<<<<<<< 1ff5e71e96e0d23c584c7f47708035ff1e198e75
       with_items: django_assets.files
+=======
+      with_items: "django_assets.files"
+- hosts: postgresql
+  tasks:
+    - name: Stop PostgreSQL
+      command: pg_ctl -D /var/lib/pgsql/data stop
+      remote_user: postgres
+>>>>>>> Fix unquoted var
 - hosts: gulp
   tasks:
     # - name: Install EPEL
