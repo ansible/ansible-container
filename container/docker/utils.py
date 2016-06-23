@@ -6,6 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import sys
+import copy
 
 from StringIO import StringIO
 from functools import wraps
@@ -79,7 +80,8 @@ def which_docker():
 def config_to_compose(config):
     # This could probably be better done - include what keys are in compose vs
     # removing the ones that aren't.
-    compose = config.get('services', {}).copy()
+    compose = copy.deepcopy(config.get('services', {}))
+    assert compose is not config.get('services')
     for service, service_config in compose.items():
         if 'options' in service_config:
             del service_config['options']

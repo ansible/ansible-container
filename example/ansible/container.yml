@@ -2,7 +2,7 @@ version: "1"
 services:
   django:
     image: centos:7
-    ports:
+    expose:
       - "8080"
     working_dir: '/django'
     links:
@@ -25,13 +25,15 @@ services:
       ports: []
       command: /bin/false
   postgresql:
-    image: centos:7
-    ports:
+    image: postgres:9.4
+    expose:
       - "5432"
-    user: 'postgres'
-    command: ['/usr/bin/dumb-init', "postgres", "-h", "0.0.0.0", "-D", "/var/lib/pgsql/data"]
     volumes:
-      - '/var/lib/pgsql'
+      - '/var/lib/postgresql/data'
+    environment:
+      POSTGRES_USER: 'example'
+      POSTGRES_PASSWORD: 'sesame'
+      POSTGRES_DB: 'example'
   gulp:
     image: centos:7
     user: 'node'
