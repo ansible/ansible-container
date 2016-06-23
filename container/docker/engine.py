@@ -105,10 +105,9 @@ class Engine(BaseEngine):
             tarball_file.close()
             tarball_file = open(tarball_path, 'rb')
             logger.info('Starting Docker build of Ansible Container image (please be patient)...')
-            return [streamline for streamline in
-                    client.build(fileobj=tarball_file,
+            return client.build(fileobj=tarball_file,
                                  custom_context=True,
-                                 tag=self.builder_container_img_tag)]
+                                 tag=self.builder_container_img_tag)
 
     def get_image_id_by_tag(self, name):
         """
