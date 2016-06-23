@@ -14,7 +14,7 @@ Make sure that the following things are installed and available on your system:
 * Ansible. 
 * Git.
 * The latest Docker toolkit. 
-  * The best way to do this: go to https://docs.docker.com/docker-for-mac/ and follow the instructions.
+  * The best way to do this: go to https://www.docker.com/products/docker-toolbox and follow the Mac install instructions.
   * Verify that docker-machine is running: "docker-machine ls" should show a running, active instance called "default".
 
 ## Install instructions
