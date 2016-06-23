@@ -9,12 +9,11 @@ the end of a successful run of this command, in your container engine you will h
 images built for each of the containers in your orchestration. This is analogous to
 ``docker build``.
 
-.. option:: --no-flatten
+.. option:: --flatten
 
-By default, Ansible Container flattens the union filesystem of your image to
-a single layer. Specifying this option, Ansible container commits the changes
-your playbook made to the base image, but it retains the original layers from
-that base image.
+By default, Ansible container commits the changes your playbook made to the base image,
+but it retains the original layers from that base image. Specifying this option, Ansible
+Container flattens the union filesystem of your image to a single layer.
 
 .. option:: --from-scratch
 

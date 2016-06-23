@@ -58,12 +58,11 @@ def subcmd_init_parser(parser, subparser):
     return
 
 def subcmd_build_parser(parser, subparser):
-    subparser.add_argument('--no-flatten', action='store_false',
-                           help=u'By default, Ansible Container will flatten your '
-                                u'build image into a single layer. With this '
-                                u'flag, it will preserve the history of your '
-                                u'base image.',
-                           dest='flatten', default=True)
+    subparser.add_argument('--flatten', action='store_true',
+                           help=u'By default, Ansible Container will add a single '
+                                u'layer to your base images. Specify this to squash '
+                                u'the images down to a single layer.',
+                           dest='flatten', default=False)
     subparser.add_argument('--no-purge-last', action='store_false',
                            help=u'By default, Ansible Container will remove the '
                                 u'previously built image for your hosts. Disable '
