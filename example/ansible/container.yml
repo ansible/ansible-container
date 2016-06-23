@@ -75,3 +75,4 @@ services:
       kube_state: absent
 
 registries: {}
+
