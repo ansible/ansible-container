@@ -72,8 +72,10 @@ def assert_initialized(base_path):
     ansible_dir = os.path.normpath(
         os.path.join(base_path, 'ansible'))
     container_file = os.path.join(ansible_dir, 'container.yml')
+    ansible_file = os.path.join(ansible_dir, 'main.yml')
     if not os.path.exists(ansible_dir) or not os.path.isdir(ansible_dir) or \
-            not os.path.exists(container_file) or not os.path.isfile(container_file):
+            not os.path.exists(container_file) or not os.path.isfile(container_file) \
+            or not os.path.exists(ansible_file) or not os.path.isfile(ansible_file):
         raise AnsibleContainerNotInitializedException()
 
 def get_latest_image_for(project_name, host, client):
