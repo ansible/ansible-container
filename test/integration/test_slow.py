@@ -19,7 +19,7 @@ def test_build_minimal_docker_container():
 
 def test_run_minimal_docker_container():
     env = ScriptTestEnvironment()
-    result = env.run('ansible-container', 'run', cwd=project_dir('minimal'))
+    result = env.run('ansible-container', 'run', cwd=project_dir('minimal'), expect_stderr=True)
     assert "ansible_minimal_1 exited with code 0" in result.stdout
 
 

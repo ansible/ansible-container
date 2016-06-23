@@ -27,6 +27,10 @@ from ..engine import BaseEngine
 from ..utils import *
 from .utils import *
 
+if not os.environ.get('DOCKER_HOST'):
+    logger.warning('No DOCKER_HOST environment variable found. Assuming UNIX '
+                   'socket at /var/run/docker.sock')
+
 class Engine(BaseEngine):
 
     engine_name = 'Docker'
@@ -35,6 +39,7 @@ class Engine(BaseEngine):
     builder_container_img_tag = 'ansible-container-builder'
     default_registry_url = 'https://index.docker.io/v1/'
     _client = None
+    _orchestrated_hosts = None
     api_version = ''
     temp_dir = None
 
@@ -52,20 +57,22 @@ class Engine(BaseEngine):
 
         :return: list of strings
         """
-        with teed_stdout() as stdout, make_temp_dir() as temp_dir:
-            self.orchestrate('listhosts', temp_dir,
-                             hosts=[self.builder_container_img_name])
-            logger.info('Cleaning up Ansible Container builder...')
-            builder_container_id = self.get_builder_container_id()
-            self.remove_container_by_id(builder_container_id)
-            # We need to cleverly extract the host names from the output...
-            lines = stdout.getvalue().split('\r\n')
-            lines_minus_builder_host = [line.rsplit('|', 1)[1] for line
-                                        in lines if '|' in line]
-            host_lines = [line for line in lines_minus_builder_host
-                          if line.startswith('       ')]
-            hosts = list(set([line.strip() for line in host_lines]))
-        return hosts
+        if not self._orchestrated_hosts:
+            with teed_stdout() as stdout, make_temp_dir() as temp_dir:
+                self.orchestrate('listhosts', temp_dir,
+                                 hosts=[self.builder_container_img_name])
+                logger.info('Cleaning up Ansible Container builder...')
+                builder_container_id = self.get_builder_container_id()
+                self.remove_container_by_id(builder_container_id)
+                # We need to cleverly extract the host names from the output...
+                logger.debug('--list-hosts\n%s', stdout.getvalue())
+                lines = stdout.getvalue().split('\r\n')
+                lines_minus_builder_host = [line.rsplit('|', 1)[1] for line
+                                            in lines if '|' in line]
+                host_lines = [line for line in lines_minus_builder_host
+                              if line.startswith('       ')]
+                self._orchestrated_hosts = list(set([line.strip() for line in host_lines]))
+        return self._orchestrated_hosts
 
     def build_buildcontainer_image(self):
         """
@@ -98,10 +105,9 @@ class Engine(BaseEngine):
             tarball_file.close()
             tarball_file = open(tarball_path, 'rb')
             logger.info('Starting Docker build of Ansible Container image (please be patient)...')
-            return [streamline for streamline in
-                    client.build(fileobj=tarball_file,
+            return client.build(fileobj=tarball_file,
                                  custom_context=True,
-                                 tag=self.builder_container_img_tag)]
+                                 tag=self.builder_container_img_tag)
 
     def get_image_id_by_tag(self, name):
         """
@@ -323,14 +329,18 @@ class Engine(BaseEngine):
 
     def get_config_for_build(self):
         compose_config = config_to_compose(self.config)
+        orchestrated_hosts = self.hosts_touched_by_playbook()
+        logger.debug('Orchestrated hosts: %s', orchestrated_hosts)
         for service, service_config in compose_config.items():
-            service_config.update(
-                dict(
-                    user='root',
-                    working_dir='/',
-                    command='sh -c "while true; do sleep 1; done"'
+            if service in orchestrated_hosts:
+                logger.debug('Setting %s to sleep', service)
+                service_config.update(
+                    dict(
+                        user='root',
+                        working_dir='/',
+                        command='sh -c "while true; do sleep 1; done"'
+                    )
                 )
-            )
             if not self.params['rebuild']:
                 tag = '%s-%s:latest' % (self.project_name,
                                         service)
@@ -349,12 +359,14 @@ class Engine(BaseEngine):
         if not self.params['production']:
             self.config.set_env('dev')
         compose_config = config_to_compose(self.config)
+        orchestrated_hosts = self.hosts_touched_by_playbook()
         for service, service_config in compose_config.items():
-            service_config.update(
-                dict(
-                    image='%s-%s:latest' % (self.project_name, service)
+            if service in orchestrated_hosts:
+                service_config.update(
+                    dict(
+                        image='%s-%s:latest' % (self.project_name, service)
+                    )
                 )
-            )
             self._fix_volumes(service, service_config)
         return compose_config
 

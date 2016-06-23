@@ -1,4 +1,4 @@
-- hosts: all
+- hosts: django,gulp,static
   tasks:
     - name: Install dumb init
       get_url: dest=/usr/bin/dumb-init url=https://github.com/Yelp/dumb-init/releases/download/v1.0.2/dumb-init_1.0.2_amd64 mode=0775 validate_certs=no
@@ -21,26 +21,6 @@
     - name: Install requirements
       pip: executable=/venv/bin/pip requirements=/django/requirements.txt
       remote_user: django
-- hosts: postgresql
-  tasks:
-    - name: Install PostgreSQL
-      yum: name=postgresql-server,python-psycopg2 state=latest update_cache=yes
-    - name: Init PostgreSQL db
-      command: initdb -D /var/lib/pgsql/data creates=/var/lib/pgsql/data/postgresql.conf
-      remote_user: postgres
-    - name: Setup pg_hba.conf
-      lineinfile: dest=/var/lib/pgsql/data/pg_hba.conf state=present line="host all all 0.0.0.0/0 md5"
-    - name: Start PostgreSQL server
-      command: pg_ctl -D /var/lib/pgsql/data -o "-h 0.0.0.0" start
-      remote_user: postgres
-    - name: Make PostgreSQL user
-      postgresql_user: name=example password=sesame role_attr_flags=CREATEDB,NOSUPERUSER
-      remote_user: postgres
-    - name: Make PostgreSQL db
-      postgresql_db: name=example encoding='UTF-8' template='template0' owner=example
-      remote_user: postgres
-- hosts: django
-  tasks:
     - name: Apply database migrations
       command: /venv/bin/python manage.py migrate --noinput chdir=/django
       remote_user: django
@@ -53,11 +33,6 @@
     - name: Fetch Django static assets
       fetch: src="{{ item.path }}" dest=/tmp
       with_items: django_assets.files
-- hosts: postgresql
-  tasks:
-    - name: Stop PostgreSQL
-      command: pg_ctl -D /var/lib/pgsql/data stop
-      remote_user: postgres
 - hosts: gulp
   tasks:
     #- name: Install EPEL

@@ -15,3 +15,4 @@ ADD ansible /ansible-tmp/
 RUN pip install -q --no-cache-dir -e git+https://github.com/ansible/ansible.git@devel#egg=ansible
 RUN test '(! -f /ansible-tmp/requirements.txt)' || pip install --no-cache-dir -r /ansible-tmp/requirements.txt
 RUN rm -rf /ansible-tmp/
+VOLUME /src
