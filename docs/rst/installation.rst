@@ -17,7 +17,9 @@ Running from Source
 Prerequisites:
 
 * Python 2.7
-* `Git <https://git-scm.com/book/en/v2/Getting-Started-Installing-Git>`_
+* `pip <https://pip.pypa.io/en/stable/installing/>`_ 
+* `setuptools version 20 or better <https://pypi.python.org/pypi/setuptools>`_
+* `git <https://git-scm.com/book/en/v2/Getting-Started-Installing-Git>`_
 * `Docker <https://docs.docker.com/engine/installation/>`_ or access to a Docker daemon. If you're installing Docker
   Engine or accessing a remote Docker daemon, see :ref:`configure_docker`.
 
@@ -43,6 +45,22 @@ Or, if you plan to help develop ansible-container:
 
     $ cd ansible-container
     $ python ./setup.py develop
+
+If you run into the following error, you likely have an older version of setuptools installed:
+
+.. code-block:: bash
+
+    Traceback (most recent call last):
+      File "./setup.py", line 11, in <module>
+        packages=find_packages(include='container.*'),
+      TypeError: find_packages() got an unexpected keyword argument 'include'
+
+Use the following to upgrade to the latest release, and then run the intall command again: 
+
+.. code-block:: bash 
+
+    $ pip install --upgrade setuptools
+
 
 .. _configure_docker:
 
