@@ -27,6 +27,10 @@ from ..engine import BaseEngine
 from ..utils import *
 from .utils import *
 
+if not os.environ.get('DOCKER_HOST'):
+    logger.warning('No DOCKER_HOST environment variable found. Assuming UNIX '
+                   'socket at /var/run/docker.sock')
+
 class Engine(BaseEngine):
 
     engine_name = 'Docker'
