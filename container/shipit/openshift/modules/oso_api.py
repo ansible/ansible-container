@@ -33,7 +33,7 @@ class OriginAPI(object):
         logger.debug(stderr)
 
         if check_rc and rc != 0:
-            raise OriginAPIException(error_msg, stderr=stderr, stdout=stdout)
+            self.module.fail_json(msg=error_msg, stderr=stderr, stdout=stdout)
 
         return rc, stdout, stderr
 
@@ -123,12 +123,3 @@ class OriginAPI(object):
                 raise OriginAPIException("Error getting deployment state %s" % deployment_name, stderr=stderr,
                                          stdout=stdout)
         return stdout
-
-
-class OriginAPIException(Exception):
-
-    def __init__(self, msg, stdout=None, stderr=None):
-        self.stderr = stderr
-        self.stdout = stdout
-
-        Exception.__init__(self, msg)

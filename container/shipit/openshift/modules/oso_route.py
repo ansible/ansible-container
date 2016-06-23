@@ -119,19 +119,11 @@ class RouteManager(object):
         routes = dict()
         results = dict()
 
-        project_switch = None
-        try:
-            project_switch = self.api.set_project(self.project_name)
-        except OriginAPIException as exc:
-            self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
-
+        project_switch = self.api.set_project(self.project_name)
         if not project_switch:
             actions.append("Create project %s" % self.project_name)
             if not self.check_mode:
-                try:
-                    self.api.create_project(self.project_name)
-                except OriginAPIException as exc:
-                    self.fail_json(msg=exc.message, stderr=exc.stderr, stdout=exc.stdout)
+                self.api.create_project(self.project_name)
 
         if self.state == 'present':
             route = self.api.get_resource('route', self.route_name)
