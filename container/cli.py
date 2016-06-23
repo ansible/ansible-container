@@ -160,6 +160,9 @@ def commandline():
     parser.add_argument('--engine', action='store', dest='engine_name',
                         help=u'Select your container engine and orchestrator',
                         default='docker')
+    parser.add_argument('--project', '-p', action='store', dest='base_path',
+                        help=u'Specify a path to your project. Defaults to '
+                             u'current working directory.', default=os.getcwd())
     subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
     for subcommand in AVAILABLE_COMMANDS:
         logger.debug('Registering subcommand %s', subcommand)
@@ -177,8 +180,7 @@ def commandline():
     config.dictConfig(LOGGING)
 
     try:
-        getattr(engine, u'cmdrun_{}'.format(args.subcommand))(os.getcwd(),
-                                                              **vars(args))
+        getattr(engine, u'cmdrun_{}'.format(args.subcommand))(**vars(args))
     except exceptions.AnsibleContainerAlreadyInitializedException, e:
         logger.error('Ansible Container is already initialized')
         sys.exit(1)
