@@ -378,7 +378,7 @@ def get_registry_url_and_namespace(engine_obj, registry_name=None, username=None
         # expect to find push-to defined in container.yml with url and namespace attributes
         if not config.get('registries', {}).get(registry_name):
             raise AnsibleContainerRegistryNotFoundException("Registry %s not found in container.yml. Did you add it to "
-                                                            "the registry key?")
+                                                            "the registry key?" % registry_name)
         url = config['registries'][registry_name].get('url')
         if not url:
             raise AnsibleContainerRegistryAttributeException("Registry %s missing required attribute 'url'."
