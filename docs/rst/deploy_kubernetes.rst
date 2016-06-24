@@ -26,7 +26,7 @@ See the `Google Cloud SDK - Getting Started <https://cloud.google.com/sdk/docs/>
 SDK and *kubectl*. There is also an Ansible role, `ansible.install-gcloud <https://galaxy.ansible.com/ansible/install-gcloud/>`_
 to help automate the installation.
 
-To complete the deployment you will need a Kubernetes cluster hosted at `Google Compute Engine <https://cloud.google.com/compute/>`_.
+To complete the deployment you will need a Kubernetes cluster hosted at `Google Cloud Platform <https://cloud.google.com/compute/>`_.
 If you don't have an account, create a free account. You will receive a $300 credit, which is way more than you will need for this example.
 Once you sign in, follow the `Quickstart Guide <https://cloud.google.com/container-engine/docs/quickstart>`_ to create a project and a
 Google Container Engine cluster.
@@ -35,20 +35,24 @@ Assumptions
 '''''''''''
 
 For the purposes of this example, Kubernetes will refer to `Google Container Engine <https://cloud.google.com/container-engine/>`_.
-The private registry used in the examples is `Google Container Registry <https://cloud.google.com/container-engine/>`_. A project
-is a project created on `Google Compute Engine <https://cloud.google.com/compute/>`_, and a cluster is a cluster created in the project
+The private registry used in the examples is `Google Container Registry <https://cloud.google.com/container-registry/>`_. A project
+is a project created on `Google Cloud Platform <https://cloud.google.com>`_, and a cluster is a cluster created in the project
 using Google Container Engine.
 
 
 Client Authentication
 '''''''''''''''''''''
 
-To authenticate with Kubernetes (Google Contaner Engine), you can manually run ``gcloud init``. A better way, and a way that
-can be easily automated is to create a `service account <https://cloud.google.com/compute/docs/access/create-enable-service-accounts-for-instances>`_
-and use the associated JSON key file.
+To authenticate with Kubernetes (Google Contaner Engine), we'll use a service account and a JSON key file. The service
+account provides a long lived credential that can be used in automation, and its access can be scoped to specific projects
+and resources.
 
-Once you have your service account, download the JSON key file. This is a private key for accessing the cluster. Secure it just as you would
-an SSH private key file.
+You should have already logged into `your Cloud Platform console <https://console.cloud.google.com>`_ Go to *IAM and Admin*
+and choose Service Accounts. Click *Create Service Account* to create a new service account. Provide a name for the account
+and check *Furnish a new private key*. When prompted select a key type of JSON.
+
+The JSON key file will automatically download to your computer. This is a private key file, similar to an SSH private key.
+Store it securely, just as you would any private key file so that only you have access.
 
 Use the following command, changing the path and name of the key file, to authenticate with the cluster:
 
@@ -120,27 +124,28 @@ Use `docker images` to view the available images:
 Pushing Images to the Cloud
 ---------------------------
 
-For the deployment to work, the cluster will need access to the new images. This requires pushing them into a registry
+For the deployment to work, the cluster needs access to the new images. This requires pushing them into a registry
 that the cluster can pull from. The push can be done using the ``ansible-contianer push`` command.
 
-If you're using a secure registry, you will first need to authenticate with the registry. You can authenticate using ``docker login``,
-or pass your credentials to ``ansible-cotainer push``. If you used a service account with a JSON key file, you can use
-the JSON key file to authenticate with Google Container Registry. For example:
+The first step is to authenticate with the registry so that the Docker daemon can access the registry and push images.
+You can pass your JSON key file to ``ansible-container push``. To do this you will pass a username value of *_json_key*,
+and pass the ID of your project as namespace, and of course make sure the path to your key file is correct. Here is an
+example:
 
 .. code-block:: bash
 
     $ ansible-container push --username _json_key --password "$(cat ~/path/to/Keyfile_XXXXXXXX.json)" --url https://gcr.io --namespace my-project-id-XXXX
 
-Using a key file requires setting the username to *_json_key*. For container engine images must be namespaced by the project ID.
-The --namespace option in the above statement sets the namespace for each images to the project ID. If a namespace is not provided, the username is
-used as the namespace, which will not work. Make sure to use the correct ID for your project.
 
-After authenticating for the first time, Docker will update your ~/.docker/config.json file with the registry url and your credentials. This is true whether
-you used ``docker login`` or ``ansible-container push`` to authenticate. Going forward you will no longer need to provide your credentials to push images
-to https://gcr.io.
+The --namespace option in the above sets the namespace for each image to the project ID. If a namespace is
+not provided, the username is used as the namespace, which will not work. Make sure to use the correct ID for your project.
 
-For convenience, you can add an entry to the *registries* key in your container.yml file to enable --push-to and --pull-from command line
-options. You can use those options in place of --url and --namespace. For example, adding the following to container.yml:
+After authenticating for the first time, Docker will update your ~/.docker/config.json file with the registry url and your credentials.
+This is true whether you used ``docker login`` or ``ansible-container push`` to authenticate. Going forward you will no longer need to provide
+your credentials to push images to https://gcr.io.
+
+**NOTE:** For convenience, you can add an entry to the *registries* key in your container.yml file to enable --push-to and --pull-from command line
+options. For example:
 
 .. code-block:: bash
 
@@ -149,7 +154,8 @@ options. You can use those options in place of --url and --namespace. For exampl
             url: https://gcr.io
             namespace: fab-project-xxxxx
 
-enables use of the *--push-to* option:
+The above entry makes it possible to pass the registry name to the push command. The name assigned to the registry within
+container.yml is completely arbitrary and up to you. Using the push command with a registry entry is as easy as:
 
 .. code-block:: bash
 
@@ -166,13 +172,22 @@ can use the *--pull-from* command line option.
 
    $ ansible-container shipit --pull-from google
 
+If you did not add a registry entry to container.yml, no problem. You can pass the full url using the *pull-from option. The full url
+is the registry url (https://gcr.io) plus your project ID. For example:
+
+.. code-block:: bash
+
+   $ ansible-container shipit --pull-from https://gcr.io/fab-project-xxxxx
+
+
 The *--pull-from* option tells the shipit command how to reference the images needed to build containers on the cluster. Without *--pull-from*
-the cluseter will attempt to pull images from Docker Hub namespaced with your username.
+the cluster may attempt to pull images from Docker Hub namespaced with your username, which mostly lik ly will not work.
 
 Run the Role
 ------------
 
-The playbook and role are added to the ansible directory. Run the playbook from inside the ansible directory:
+The *shipit* commands adds a playbook and role to the ansible directory. Run the playbook from inside the ansible directory to deploy the
+application:
 
 .. code-block:: bash
 
