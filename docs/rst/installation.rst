@@ -18,7 +18,7 @@ Prerequisites:
 
 * Python 2.7
 * `pip <https://pip.pypa.io/en/stable/installing/>`_ 
-* `setuptools version 20 or better <https://pypi.python.org/pypi/setuptools>`_
+* `setuptools 20.0.0+ <https://pypi.python.org/pypi/setuptools>`_
 * `git <https://git-scm.com/book/en/v2/Getting-Started-Installing-Git>`_
 * `Docker <https://docs.docker.com/engine/installation/>`_ or access to a Docker daemon. If you're installing Docker
   Engine or accessing a remote Docker daemon, see :ref:`configure_docker`.
@@ -55,7 +55,7 @@ If you run into the following error, you likely have an older version of setupto
         packages=find_packages(include='container.*'),
       TypeError: find_packages() got an unexpected keyword argument 'include'
 
-Use the following to upgrade to the latest release, and then run the intall command again: 
+Use the following to upgrade to the latest release, and then run the install command again:
 
 .. code-block:: bash 
 
