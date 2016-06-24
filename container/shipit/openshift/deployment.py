@@ -27,90 +27,74 @@ class Deployment(object):
     def _get_template_or_task(self, request_type="task", service_names=None):
         templates = []
         for name, service in self.config.get('services', {}).items():
-            if request_type == 'task':
-                new_template = self._create_task(name, service)
-            elif request_type == 'config':
-                new_template = self._create_template(name, service)
-            templates.append(new_template)
+            new_template = self._create(request_type, name, service)
+            if new_template:
+                templates.append(new_template)
         return templates
 
-    def _create_template(self, name, service):
+    def _create(self, type, name, service):
         '''
-        Creates a deployment template from a service.
+        Creates an Openshsift deployment template or playbook task.
         '''
-
-        container, volumes, pod = self._service_to_container(name, service, type="config")
-
-        if pod.get('state'):
-            if pod['state'] == 'absent':
-                return
-            else:
-                pod.pop('state')
-
+        template = {}
+        container, volumes, pod = self._service_to_container(name, service, type=type)
         labels = dict(
             app=self.project_name,
             service=name
         )
 
-        template = dict(
-            apiVersion="v1",
-            kind="DeploymentConfig",
-            metadata=dict(
-                name=name,
-                labels=labels.copy()
-            ),
-            spec=dict(
-                template=dict(
+        if type == 'config':
+            state = 'present'
+            if pod.get('state'):
+                state = pod.pop('state')
+
+            if state != 'absent':
+                template = dict(
+                    apiVersion="v1",
+                    kind="DeploymentConfig",
                     metadata=dict(
+                        name=name,
                         labels=labels.copy()
                     ),
                     spec=dict(
-                        containers=[container]
+                        template=dict(
+                            metadata=dict(
+                                labels=labels.copy()
+                            ),
+                            spec=dict(
+                                containers=[container]
+                            )
+                        ),
+                        replicas=1,
+                        selector=dict(),
+                        strategy=dict(
+                            type='Rolling'
+                        )
                     )
-                ),
-                replicas=1,
-                selector=dict(),
-                strategy=dict(
-                    type='Rolling'
+                )
+                if volumes:
+                    template['spec']['template']['spec']['volumes'] = volumes
+
+                if pod:
+                    for key, value in pod.items():
+                        if key == 'replicas':
+                            template['spec'][key] = value
+        else:
+            template = dict(
+                oso_deployment=OrderedDict(
+                    project_name=self.project_name,
+                    deployment_name=name,
+                    labels=labels.copy(),
+                    containers=[container],
+                    replace=True
                 )
             )
-        )
-        if volumes:
-            template['spec']['template']['spec']['volumes'] = volumes
 
-        if pod:
-            for key, value in pod.items():
-                if key == 'replicas':
-                    template['spec'][key] = value
+            if volumes:
+                template['oso_deployment']['volumes'] = volumes
 
-        return template
-
-    def _create_task(self, name, service):
-        '''
-        Generates an Ansible playbook task.
-
-        :param service:
-        :return:
-        '''
-        container, volumes, pod = self._service_to_container(name, service, type="task")
-        labels = dict(
-            app=self.project_name,
-            service=name
-        )
-        template = dict(
-            oso_deployment=OrderedDict(
-                project_name=self.project_name,
-                deployment_name=name,
-                labels=labels.copy(),
-                containers=[container],
-            )
-        )
-
-        if volumes:
-            template['oso_deployment']['volumes'] = volumes
-
-        if pod:
-            template['oso_deployment'].update(pod)
+            if pod:
+                template['oso_deployment'].update(pod)
 
         return template
 
@@ -121,7 +105,7 @@ class Deployment(object):
 
         :param name:str: Name of the service
         :param service:dict: Configuration
-        :param type: task or config
+        :param type: 'task' or 'config'
         :return: (container, volumes, pod)
         '''
 
@@ -135,7 +119,6 @@ class Deployment(object):
         IGNORE_DIRECTIVES = [
             'aliases',
             'build',
-            'expose',
             'labels',
             'links',
             'cgroup_parent',
@@ -253,8 +236,10 @@ class Deployment(object):
                     container['env'] = expanded_vars
                 else:
                     container['env'] = self._env_vars_to_task(expanded_vars)
-            elif key == 'ports':
-                container['ports'] = self._get_ports(value, type)
+            elif key in ('ports', 'expose'):
+                if not container.get('ports'):
+                    container['ports'] = []
+                self._get_ports(value, type, container['ports'])
             elif key == 'privileged':
                 container['securityContext']['privileged'] = value
             elif key == 'read_only':
@@ -273,17 +258,17 @@ class Deployment(object):
                 container[key] = value
 
         # Translate options:
-        if service.get('options'):
-            for key, value in service['options'].items():
-                if key == 'kube_seLinuxOptions':
+        if service.get('options', {}).get('openshift'):
+            for key, value in service['options']['openshift'].items():
+                if key == 'seLinuxOptions':
                     container['securityContext']['seLinuxOptions'] = value
-                elif key == 'kube_runAsNonRoot':
+                elif key == 'runAsNonRoot':
                     container['securityContext']['runAsNonRoot'] = value
-                elif key == 'kube_runAsUser':
+                elif key == 'runAsUser':
                     container['securityContext']['runAsUser'] = value
-                elif key == 'kube_replicas':
+                elif key == 'replicas':
                     pod['replicas'] = value
-                elif key == 'kube_state':
+                elif key == 'state':
                     pod['state'] = value
 
         return container, volumes, pod
@@ -351,28 +336,38 @@ class Deployment(object):
 
         return volumes, volume_mounts
 
-    @staticmethod
-    def _get_ports(ports, type):
+    def _get_ports(self, ports, type, existing_ports):
         '''
-        Determine the list of ports to expose from the container.
+        Determine the list of ports to expose from the container, and add to existing ports.
 
-        :param: list of port mappings
-        :return: list
+        :param: ports: list of port mappings
+        :param: type: 'config' or 'task'
+        :param: existing_ports: list of existing or already discovered ports
+        :return: None
         '''
-        results = []
         for port in ports:
             if ':' in port:
                 parts = port.split(':')
-                if type == 'config':
-                    results.append(dict(containerPort=int(parts[1])))
-                else:
-                    results.append(int(parts[1]))
+                if not self._port_exists(parts[1], existing_ports):
+                    if type == 'config':
+                        existing_ports.append(dict(containerPort=int(parts[1])))
+                    else:
+                        existing_ports.append(int(parts[1]))
             else:
-                if type == 'config':
-                    results.append(dict(containerPort=int(port)))
-                else:
-                    results.append(int(port))
-        return results
+                if not self._port_exists(port, existing_ports):
+                    if type == 'config':
+                        existing_ports.append(dict(containerPort=int(port)))
+                    else:
+                        existing_ports.append(int(port))
+
+    @staticmethod
+    def _port_exists(port, ports):
+        found = False
+        for p in ports:
+            if p['containerPort'] == int(port):
+                found = True
+                break
+        return found
 
     @staticmethod
     def _env_vars_to_task(env_vars):

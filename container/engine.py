@@ -295,43 +295,41 @@ def cmdrun_push(base_path, engine_name, username=None, password=None, email=None
     logger.info('Done!')
 
 
-def cmdrun_shipit(base_path, engine_name, username=None, password=None, email=None,
-                  url=None, namespace=None, pull_from=None, **kwargs):
+def cmdrun_shipit(base_path, engine_name, pull_from=None, **kwargs):
     assert_initialized(base_path)
-
     engine_args = kwargs.copy()
     engine_args.update(locals())
     engine_obj = load_engine(**engine_args)
     shipit_engine_name = kwargs.pop('shipit_engine')
     project_name = os.path.basename(base_path).lower()
-    pull_from = kwargs.get('pull_from')
 
-    url, namespace = get_registry_url_and_namespace(engine_obj, registry_name=pull_from, username=username,
-                                                    password=password, email=email, url=url, namespace=namespace)
-    config = engine_obj.get_config_for_shipit(url=url, namespace=namespace)
+    # determine the registry url and namespace the cluster will use to pull images
+    config = engine_obj.config
+    url = None
+    namespace = None
+    if pull_from:
+        if config.get('registries', {}).get(pull_from):
+            url = config['registries'].get('url')
+            namespace = config['registries'].get('namespace')
+            if not url:
+                raise AnsibleContainerRegistryAttributeException("Registry %s missing required attribute 'url'."
+                                                                 % pull_from)
+            if not namespace:
+                # try to get the username for the url from the container engine
+                try:
+                    namespace = engine_obj.registry_login(url=url)
+                except:
+                    raise AnsibleContainerRegistryAttributeException("Unable to determine a namespace for the registry."
+                                                                     " Either provide a namespace for the registry in "
+                                                                     "container.yml, or try authenticating with the "
+                                                                     "registry using `docker login`.")
+
+    config = engine_obj.get_config_for_shipit(pull_from=pull_from, url=url, namespace=namespace)
+
     shipit_engine_obj = load_shipit_engine(AVAILABLE_SHIPIT_ENGINES[shipit_engine_name]['cls'],
                                            config=config,
                                            base_path=base_path,
                                            project_name=project_name)
-
-    # create the roles path
-    roles_path = os.path.join(base_path, SHIPIT_PATH, SHIPIT_ROLES_DIR)
-    create_path(roles_path)
-
-    # Use the build container to Initialize the role
-    context = dict(
-        roles_path=roles_path,
-        role_name="%s_%s" % (project_name, shipit_engine_obj.name)
-    )
-    with make_temp_dir() as temp_dir:
-        logger.info('Executing ansible-galaxy init %s' % project_name)
-        engine_obj.orchestrate('galaxy', temp_dir, context=context)
-        if not engine_obj.build_was_successful():
-            logger.error('Role initialization failed.')
-            logger.info('Cleaning up and removing build container...')
-            builder_container_id = engine_obj.get_builder_container_id()
-            engine_obj.remove_container_by_id(builder_container_id)
-            return
 
     # create the role and sample playbook
     shipit_engine_obj.run()
@@ -359,8 +357,9 @@ def get_registry_url_and_namespace(engine_obj, registry_name=None, username=None
     '''
     Given the login options, returns the url and namespace to use for image push and pull.
 
-    Verifies user can authenticate when username is present (in which case login will prompt for missing password).
-    If already authenticated and the auth data exists in the container's local config, then determines the username.
+    If login set to True, verifies user can authenticate when username is present (in which case login will prompt
+    for missing password). If already authenticated and the auth data exists in the container's local config,
+    then determines the username.
 
     Using what is provided + what is returned by login + container engine defaults, determine the correct url and
     namespace.
@@ -382,7 +381,8 @@ def get_registry_url_and_namespace(engine_obj, registry_name=None, username=None
                                                             "the registry key?")
         url = config['registries'][registry_name].get('url')
         if not url:
-            raise AnsibleContainerRegistryAttributeException("Registry %s missing required attribute 'url'.")
+            raise AnsibleContainerRegistryAttributeException("Registry %s missing required attribute 'url'."
+                                                             % registry_name)
 
         namespace = config['registries'][registry_name].get('namespace')
 

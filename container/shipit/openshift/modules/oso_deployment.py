@@ -77,12 +77,13 @@ class DeploymentManager(object):
             project_name=dict(type='str', aliases=['namespace'], required=True),
             state=dict(type='str', choices=['present', 'absent'], default='present'),
             labels=dict(type='dict'),
-            deployment_name=dict(type='str'),
+            deployment_name=dict(type='str', aliases=['name']),
             recreate=dict(type='bool', default=False),
             replace=dict(type='bool', default=True),
             replicas=dict(type='int', default=1),
             containers=dict(type='list'),
             strategy=dict(type='str', default='Rolling', choices=['Recreate', 'Rolling']),
+            volumes=dict(type='list'),
         )
 
         self.module = AnsibleModule(self.arg_spec,
@@ -91,13 +92,13 @@ class DeploymentManager(object):
         self.project_name = None
         self.state = None
         self.labels = None
-        self.ports = None
         self.deployment_name = None
         self.replace = None
         self.replicas = None
         self.containers = None
         self.strategy = None
         self.recreate = None
+        self.volumes = None
         self.api = None
         self.check_mode = self.module.check_mode
         self.debug = self.module._debug
@@ -109,7 +110,7 @@ class DeploymentManager(object):
 
         if self.debug:
             LOGGING['loggers']['container']['level'] = 'DEBUG'
-            LOGGING['loggers']['k8s_deployment']['level'] = 'DEBUG'
+            LOGGING['loggers']['oso_deployment']['level'] = 'DEBUG'
         logging.config.dictConfig(LOGGING)
 
         self.api = OriginAPI(self.module)
@@ -147,20 +148,22 @@ class DeploymentManager(object):
                 actions.append("Update deployment %s" % self.deployment_name)
                 if not self.check_mode:
                     self.api.replace_from_template(template=template)
+
             deployments[self.deployment_name.replace('-', '_') + '_deployment'] = self.api.get_resource('dc', self.deployment_name)
+
         elif self.state == 'absent':
-            if self.api.get_resource('deployment', self.deployment_name):
+            if self.api.get_resource('dc', self.deployment_name):
                 changed = True
                 actions.append("Delete deployment %s" % self.deployment_name)
                 if not self.check_mode:
-                    self.api.delete_resource('deployment', self.deployment_name)
+                    self.api.delete_resource('dc', self.deployment_name)
 
         results['changed'] = changed
         if self.check_mode:
             results['actions'] = actions
 
         if deployments:
-            results['ansible_facts']['deployments'] = deployments
+            results['ansible_facts'] = deployments
 
         self.module.exit_json(**results)
 
@@ -201,7 +204,8 @@ class DeploymentManager(object):
 
         return template
 
-    def _env_to_list(self, env_variables):
+    @staticmethod
+    def _env_to_list(env_variables):
         result = []
         for name, value in env_variables.items():
             result.append(dict(

@@ -3,13 +3,13 @@ Deploy to Kubernetes
 ====================
 
 The ``ansible-container shipit`` command brings the power of Ansible to container deployment, making it easy to
-automate the deployment of your application on Kubenetes, OpenShift and more. In this example we'll see how to deploy
-to `Google Container Engine <https://cloud.google.com/container-engine/>`_ using *shipit*.
+automate the deployment of your application to Kubernetes, OpenShift and other cloud container services. In this
+example we'll walk through a deployment to `Google Container Engine <https://cloud.google.com/container-engine/>`_.
 
 Requirements
 ''''''''''''
-Follow the `installation guide <http://docs.ansible.com/ansible-container/installation.html>`_ to install ansible-container
-from source.
+If you have not already done so, follow the `installation guide <http://docs.ansible.com/ansible-container/installation.html>`_
+to install ansible-container.
 
 In addition to Ansible Container, the following are also required to run the complete deployment workflow:
 

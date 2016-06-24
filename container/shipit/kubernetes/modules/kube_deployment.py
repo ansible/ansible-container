@@ -137,11 +137,6 @@ class DeploymentManager(object):
                     self.api.create_from_template(template=template)
             elif deployment and self.replace:
                 template = self._create_template()
-                # try:
-                #     template['status'] = dict(latestVersion=deployment['status']['latestVersion'] + 1)
-                # except Exception as exc:
-                #     self.module.fail_json(msg="Failed to increment latestVersion for %s - %s" % (self.deployment_name,
-                #                                                                           str(exc)))
                 changed = True
                 actions.append("Update deployment %s" % self.deployment_name)
                 if not self.check_mode:
@@ -149,6 +144,7 @@ class DeploymentManager(object):
 
             deployments[self.deployment_name.replace('-', '_') + '_deployment'] = \
                 self.api.get_resource('deployment', self.deployment_name)
+
         elif self.state == 'absent':
             if self.api.get_resource('deployment', self.deployment_name):
                 changed = True

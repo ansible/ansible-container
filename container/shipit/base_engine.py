@@ -9,9 +9,12 @@ import yaml
 import re
 import glob
 
+from datetime import datetime
+
 from .constants import SHIPIT_PATH, SHIPIT_PLAYBOOK_PREFIX, SHIPIT_ROLES_DIR
 from collections import OrderedDict
 from .utils import create_path, represent_odict
+from ..utils import jinja_render_to_temp
 
 
 class BaseShipItEngine(object):
@@ -21,7 +24,7 @@ class BaseShipItEngine(object):
         self.base_path = base_path
         self.project_name = project_name
         self.config = config
-        self.role_name = "%s_%s" % (self.project_name, self.name)
+        self.role_name = "%s-%s" % (self.project_name, self.name)
         self.roles_path = os.path.join(self.base_path, SHIPIT_PATH, SHIPIT_ROLES_DIR, self.role_name)
 
     def add_options(self, subparser):
@@ -40,32 +43,10 @@ class BaseShipItEngine(object):
                                dest='save_config', default=False)
 
         subparser.add_argument('--pull-from', action='store',
-                               help=u'Name of a registry defined in container.yml from which %s should '
-                                    u'pull images. Use in place of --namespace and --url.' % self.name,
+                               help=u'Name of a registry defined in container.yml or the actual URL the cluster will '
+                                    u'use to pull images. If passing a URL, an example would be: '
+                                    u'"registry.example.com:5000/myproject"',
                                dest='pull_from', default=None)
-
-        subparser.add_argument('--username', action='store',
-                               help=u'If authentication with the registry is required, provide a valid username.',
-                               dest='username', default=None)
-
-        subparser.add_argument('--email', action='store',
-                               help=(u'If authentication with the registry requires an email address, provide a '
-                                     u'valid email address'),
-                               dest='email', default=None)
-
-        subparser.add_argument('--password', action='store',
-                               help=u'If authentication with the registry is required, provide a valid password.',
-                               dest='password', default=None)
-
-        subparser.add_argument('--url', action='store',
-                               help=(u'Provide the URL of the registry from which the cluster should pull images. '
-                                     u'Defaults to Docker Hub'),
-                               dest='url', default=None)
-
-        subparser.add_argument('--namespace', action='store',
-                               help=(u'An optional organization or project name to prepend to the image name. '
-                                     u'Defaults to the username.'),
-                               dest='namespace', default=None)
 
     def run(self):
         """
@@ -87,7 +68,7 @@ class BaseShipItEngine(object):
         '''
         Copy cloud ansible modules to role library path.
         '''
-        cls_dir = os.path.dirname(os.path.dirname(__file__))
+        cls_dir = os.path.dirname(os.path.realpath(__file__))
         logger.debug("Copying modules from %s:" % cls_dir)
         modules_dir = os.path.join(cls_dir, self.name, 'modules')
         library_path = os.path.join(self.roles_path, 'library')
@@ -117,11 +98,63 @@ class BaseShipItEngine(object):
                             else:
                                 new_file.write(line)
 
+    def init_role(self):
+        '''
+        If it does not exist, create the role directory and template in the initial files.
+        If it does, backup anything that we plan to overwrite.
+
+        :return:
+        '''
+        # Init the role directory without overwriting any existing files.
+        logger.debug("Creating role path %s" % self.roles_path)
+        create_path(self.roles_path)
+
+        shipit_role_paths = {
+            u'base': [u'README.j2', u'travis.j2.yml'],
+            u'defaults': [u'defaults.j2.yml'],
+            u'meta': [u'meta.j2.yml'],
+            u'test': [u'test.j2.yml', u'travis.j2.yml'],
+            u'tasks': [],
+        }
+
+        context = {
+            u'role_name': self.role_name,
+            u'project_name': self.project_name,
+            u'shipit_engine_name': self.name
+        }
+
+        for path, templates in shipit_role_paths.items():
+            role_dir = os.path.join(self.roles_path, path if path != 'base' else '')
+            if path != 'base':
+                create_path(role_dir)
+            for template in templates:
+                target_name = template.replace('.j2', '')
+                if target_name.startswith('travis'):
+                    target_name = '.' + target_name
+                if not os.path.exists(os.path.join(role_dir, target_name)):
+                    logger.debug("Rendering template for %s/%s" % (path, template))
+                    jinja_render_to_temp('shipit_role/%s' % template,
+                                         role_dir,
+                                         target_name,
+                                         **context)
+
+        # if tasks/main.yml exists, back it up
+        now = datetime.today().strftime('%y%m%d%H%M%S')
+        tasks_file = os.path.join(self.roles_path, 'tasks', 'main.yml')
+        new_tasks_file = os.path.join(self.roles_path, 'tasks', 'main_%s.yml' % now)
+
+        if os.path.exists(tasks_file):
+            logger.debug("Backing up tasks/main.yml to main_%s.yml" % now)
+            os.rename(tasks_file, new_tasks_file)
+
+        #TODO: limit the number of backups kept?
+
+
     def create_role(self, tasks):
         '''
-        Calls ansible-galaxy init to create the role directory structure and defaults.
-        Creates tasks/mainy.yml with all the tasks needed to launch the app on the cluster.
+        Creates tasks/mainy.yml with all the deployment tasks, and copy modules into the library dir.
 
+        :param tasks: dict of playbook tasks to be rendered in yaml
         :return: None
         '''
 
@@ -141,27 +174,31 @@ class BaseShipItEngine(object):
         with open(os.path.join(self.roles_path, 'tasks', 'main.yml'), 'w') as f:
             f.write(re.sub(r'^-', u'\n-', stream, flags=re.M))
 
+        # Copy ansible modules to library path
         self._copy_modules()
 
     def create_playbook(self):
         '''
-        Create a simple playbook to execute the role.
+        Create a simple playbook to execute the role. Will only create the playbook if one
+        does not exist.
 
         :return: None
         '''
-        play = OrderedDict()
-        play['name'] = "Deploy %s to  %s" % (self.project_name, self.name)
-        play['hosts'] = 'localhost'
-        play['gather_facts'] = False
-        play['connection'] = 'local'
-        play['vars'] = dict(
-            playbook_debug=False
-        )
-        play['roles'] = [dict(
-            role=self.role_name
-        )]
-        playbook_name = "%s_%s.yml" % (SHIPIT_PLAYBOOK_PREFIX, self.name)
+        playbook_name = "%s-%s.yml" % (SHIPIT_PLAYBOOK_PREFIX, self.name)
         playbook_path = os.path.join(self.base_path, SHIPIT_PATH, playbook_name)
-        with open(playbook_path, 'w') as f:
-            f.write(yaml.safe_dump([play], default_flow_style=False))
+        if not os.path.exists(playbook_path):
+            logger.debug('Creating the sample plabyook')
+            play = OrderedDict()
+            play['name'] = "Deploy %s to  %s" % (self.project_name, self.name)
+            play['hosts'] = 'localhost'
+            play['gather_facts'] = False
+            play['connection'] = 'local'
+            play['vars'] = dict(
+                playbook_debug=False
+            )
+            play['roles'] = [dict(
+                role=self.role_name
+            )]
+            with open(playbook_path, 'w') as f:
+                f.write(yaml.safe_dump([play], default_flow_style=False))
 

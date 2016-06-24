@@ -196,21 +196,27 @@ class Engine(BaseEngine):
         exit_status = build_container_info['Status']
         return '(0)' in exit_status
 
-    def get_config_for_shipit(self, url=None, namespace=None):
+    def get_config_for_shipit(self, pull_from=None, url=None, namespace=None):
         '''
         Retrieve the configuration needed to run the shipit command
 
-        :param url: registry url
-        :param namespace: image namespace within the registry
+        :param pull_from: the exact registry URL to use
+        :param url: registry url. required, if pull_from not provided.
+        :param namespace: path to append to the url. required if pull_from not provided.
         :return: config dict
         '''
         config = get_config(self.base_path)
         client = self.get_client()
 
-        image_path = namespace
-        if url != self.default_registry_url:
-            url = REMOVE_HTTP.sub('', url)
-            image_path = "%s/%s" % (re.sub(r'/$', '', url), image_path)
+        if pull_from:
+            image_path = re.sub(r'/$', '', REMOVE_HTTP.sub('', pull_from))
+        else:
+            image_path = namespace
+            if url != self.default_registry_url:
+                url = REMOVE_HTTP.sub('', url)
+                image_path = "%s/%s" % (re.sub(r'/$', '', url), image_path)
+
+        logger.info("Images will be pulled from %s" % image_path)
 
         for host, service_config in config.get('services', {}).items():
             image_id, image_buildstamp = get_latest_image_for(self.project_name, host, client)
@@ -515,8 +521,7 @@ class Engine(BaseEngine):
         username = None
         docker_config = None
         for docker_config_filepath in self.DOCKER_CONFIG_FILEPATH_CASCADE:
-            if docker_config_filepath and os.path.exists(
-                    docker_config_filepath):
+            if docker_config_filepath and os.path.exists(docker_config_filepath):
                 docker_config = json.load(open(docker_config_filepath))
                 break
         if not docker_config:
@@ -586,7 +591,8 @@ class Engine(BaseEngine):
     def push_latest_image(self, host, url=None, namespace=None):
         '''
         :param host: The host in the container.yml to push
-        :param registry: registry dict from registry.yml
+        :parm url: URL of the registry to which images will be pushed
+        :param namespace: namespace to append to the URL
         :return: None
         '''
         client = self.get_client()

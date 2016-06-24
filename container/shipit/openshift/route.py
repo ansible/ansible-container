@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
-from collections import OrderedDict
-
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+import re
+
+from collections import OrderedDict
 
 
 class Route(object):
@@ -23,96 +26,92 @@ class Route(object):
     def _get_task_or_config(self, request_type="task"):
         templates = []
         for name, service in self.config.get('services', {}).items():
-            if service.get('ports') and self._route_hostname(service):
-                # If the service has a port and options.openshift.route_hostname,
-                # then it gets a route, exposting it to the outside world.
-                if request_type == "task":
-                    templates.append(self._create_task(name, service))
-                elif request_type == "config":
-                    templates.append(self._create_template(name, service))
+            new_routes = self._create(request_type, name, service)
+            if new_routes:
+                templates += new_routes
         return templates
 
-    def _create_template(self, name, service):
+    def _create(self, type, name, service):
         '''
-        Generate an OpenShift route configuration
+        Generate Openshift route templates or playbook tasks. Each port on a service definition
+        represents an externally exposed port.
         '''
 
-        service_port = self._get_exposed_port(service)
-        hostname = self._route_hostname(service)
-        name = "%s-route" % name
-        labels = dict(
-            app=self.project_name,
-            service=name
-        )
+        templates = []
+        hostname = None
 
-        template = dict(
-            apiVersion="v1",
-            kind="Route",
-            metadata=dict(
-                name=name,
-                labels=labels.copy()
-            ),
-            spec=dict(
-                host=hostname,
-                to=dict(
-                    kind='Service',
-                    name="%s-%s" % (self.project_name, name),
-                ),
-                port=dict(
-                    targetPort="port_%s" % service_port
+        options = service.get('options', {}).get('openshift', {})
+        state = options.get('state', 'present')
+
+        if options.get('hostname'):
+            hostname = options['hostname']
+
+        service_ports = self._get_service_ports(service)
+
+        if service_ports:
+            for port in service_ports:
+                route_name = "%s-%s" % (name, port)
+                labels = dict(
+                    app=self.project_name,
+                    service=name
                 )
-            )
-        )
-        return template
 
-    def _create_task(self, name, service):
-        '''
-        Generates an Ansible playbook task.
+                if type == 'config' and state != 'absent':
+                    template = dict(
+                        apiVersion="v1",
+                        kind="Route",
+                        metadata=dict(
+                            name=route_name,
+                            labels=labels.copy()
+                        ),
+                        spec=dict(
+                            to=dict(
+                                kind='Service',
+                                name=name,
+                            ),
+                            port=dict(
+                                targetPort="port-%s" % port
+                            )
+                        )
+                    )
+                    if hostname:
+                        template['spec']['host'] = hostname
+                else:
+                    template = dict(
+                        oso_route=OrderedDict(
+                            project_name=self.project_name,
+                            route_name=route_name,
+                            labels=labels.copy(),
+                            service_name=name,
+                            service_port="port-%s" % port,
+                            replace=True,
+                        )
+                    )
+                    if hostname:
+                        template['oso_route']['host'] = hostname
 
-        :param service:
-        :return:
-        '''
-        service_port = self._get_exposed_port(service)
-        hostname = self._route_hostname(service)
-        name = "%s-route" % name
-        labels = dict(
-            app=self.project_name,
-            service=name
-        )
-        template = dict(
-            oso_route=OrderedDict(
-                project_name=self.project_name,
-                route_name=name,
-                labels=labels.copy(),
-                host=hostname,
-                to="%s-%s" % (self.project_name, name),
-                target_port="port_%s" % service_port
-            )
-        )
-        return template
+                    if state != 'present':
+                        template['oso_route'] = state
 
-    def _get_exposed_port(self, service):
+                templates.append(template)
+
+        return templates
+
+    def _get_service_ports(self, service):
         '''
-        Returns first port in the list of ports. If the port is a mapping,
-        returns the first port of the mapping.
+        Get the external port and the target container port.
 
         :param service: dict of service attributes
-        :return: port
+        :return: (external port, target port)
         '''
-        port = service['ports'][0]
-        if isinstance(port, basestring):
-            if ':' in port:
+
+        #TODO: port ranges?
+
+        result = []
+        for port in service.get('ports', []):
+            if isinstance(port, basestring) and ':' in port:
                 parts = port.split(':')
-                return parts[0]
-        return port
-
-    @staticmethod
-    def _route_hostname(service):
-        if 'options' in service:
-            options = service['options']
-            if 'openshift' in options:
-                options = options['openshift']
-                if 'route_hostname' in options:
-                    return options['route_hostname']
-        return False
-
+                result.append(parts[0])
+            else:
+                result.append(port)
+        return result

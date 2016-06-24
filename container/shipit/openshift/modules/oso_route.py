@@ -78,9 +78,9 @@ class RouteManager(object):
             state=dict(type='str', choices=['present', 'absent'], default='present'),
             labels=dict(type='dict'),
             route_name=dict(type='str'),
-            host=dict(type='str', required=True),
-            to_service=dict(type='str', required=True, aliases=['to']),
-            target_port=dict(type='str', required=True, aliases=['port']),
+            host=dict(type='str'),
+            service_name=dict(type='str', required=True, aliases=['to']),
+            service_port=dict(type='str', required=True, aliases=['port']),
             replace=dict(type='bool', default=False),
             cli=dict(type='str', choices=['kubectl', 'oc'], default='oc'),
             debug=dict(type='bool', default=False)
@@ -94,8 +94,8 @@ class RouteManager(object):
         self.labels = None
         self.route_name = None
         self.host = None
-        self.to_service = None
-        self.target_port = None
+        self.service_name = None
+        self.service_port = None
         self.replace = None
         self.cli = None
         self.api = None
@@ -139,7 +139,9 @@ class RouteManager(object):
                 actions.append("Replace route %s" % self.route_name)
                 if not self.check_mode:
                     self.api.replace_from_template(template=template)
+
             routes[self.route_name.replace('-', '_') + '_route'] = self.api.get_resource('route', self.route_name)
+
         elif self.state == 'absent':
             if self.api.get_resource('route', self.route_name):
                 changed = True
@@ -181,16 +183,18 @@ class RouteManager(object):
                 name=self.route_name,
             ),
             spec=dict(
-                host=self.host,
                 to=dict(
                     kind="Service",
-                    name=self.to_service
+                    name=self.service_name
                 ),
                 port=dict(
-                    targetPort=self.target_port
+                    targetPort=self.service_port
                 )
             )
         )
+
+        if self.host:
+            template['spec']['host'] = self.host
 
         if self.labels:
             template['metadata']['labels'] = self.labels

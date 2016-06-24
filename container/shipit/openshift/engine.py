@@ -11,6 +11,7 @@ from .deployment import Deployment
 from .route import Route
 from .service import Service
 from ..utils import create_path
+from ..constants import SHIPIT_PATH, SHIPIT_CONFIG_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class ShipItEngine(BaseShipItEngine):
         tasks += Service(config=self.config, project_name=self.project_name).get_task()
         tasks += Route(config=self.config, project_name=self.project_name).get_task()
         tasks += Deployment(config=self.config, project_name=self.project_name).get_task()
+        self.init_role()
         self.create_role(tasks)
         self.create_playbook()
 

@@ -130,8 +130,10 @@ class KubeServiceManager(object):
                 actions.append("Replace service %s" % self.service_name)
                 if not self.check_mode:
                     self.api.replace_from_template(template=template)
+
             services[self.service_name.replace('-', '_') + '_service'] = \
                 self.api.get_resource('service', self.service_name)
+
         elif self.state == 'absent':
             if self.api.get_resource('service', self.service_name):
                 changed = True

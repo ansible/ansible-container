@@ -18,79 +18,82 @@ class Service(object):
     def get_template(self):
         return self._get_task_or_config(request_type="config")
 
-    def get_task(self, service_names=None):
+    def get_task(self):
         return self._get_task_or_config(request_type="task")
 
     def _get_task_or_config(self, request_type="task"):
         templates = []
         for name, service in self.config.get('services', {}).items():
-            if service.get('ports'):
-                if request_type == "task":
-                    templates.append(self._create_task(name, service))
-                elif request_type=="config":
-                    templates.append(self._create_template(name, service))
+            new_service = self._create(request_type, name, service)
+            if new_service:
+                templates.append(new_service)
         return templates
 
-    def _create_template(self, name, service):
+    def _create(self, type, name, service):
         '''
-        Generate an OpenShift service configuration.
+        Generate an Openshift service configuration or playbook task.
         '''
-
+        template = {}
         ports = self._get_ports(service)
-        name = "%s-%s" % (self.project_name, name)
-        labels = dict(
-            app=self.project_name,
-            service=name
-        )
+        options = service.get('options', {}).get('openshift', {})
+        state = options.get('state', 'present')
 
-        template = dict(
-            apiVersion="v1",
-            kind="Service",
-            metadata=dict(
-                name=name,
-                labels=labels.copy()
-            ),
-            spec=dict(
-                selector=labels.copy(),
-                ports=ports,
+        if ports:
+            labels = dict(
+                app=self.project_name,
+                service=name
             )
-        )
+            if type == 'config' and state != 'absent':
+                template = dict(
+                    apiVersion="v1",
+                    kind="Service",
+                    metadata=dict(
+                        name=name,
+                        labels=labels.copy()
+                    ),
+                    spec=dict(
+                        selector=labels.copy(),
+                        ports=ports,
+                    )
+                )
+            else:
+                template = dict(
+                    oso_service=OrderedDict(
+                        project_name=self.project_name,
+                        service_name=name,
+                        labels=labels.copy(),
+                        ports=ports,
+                        selector=labels.copy()
+                    )
+                )
+                if state != 'present':
+                    template['oso_service']['state'] = state
 
         return template
 
-    def _create_task(self, name, service):
-        '''
-        Generates an Ansible playbook task.
-
-        :param service:
-        :return:
-        '''
-
-        ports = self._get_ports(service)
-        name = "%s-%s" % (self.project_name, name)
-        labels = dict(
-            app=self.project_name,
-            service=name
-        )
-        template = dict(
-            oso_service=OrderedDict(
-                project_name=self.project_name,
-                service_name=name,
-                labels=labels.copy(),
-                ports=ports,
-                selector=labels.copy()
-            )
-        )
-        return template
-
-    @staticmethod
-    def _get_ports(service):
+    def _get_ports(self, service):
         # TODO - handle port ranges
         ports = []
-        for port in service['ports']:
+        for port in service.get('ports', []):
             if isinstance(port, str) and ':' in port:
                 parts = port.split(':')
-                ports.append(dict(port=int(parts[0]), targetPort=int(parts[1]), name='port_%s' % parts[0]))
+                if not self._port_in_list(parts[0], ports):
+                    ports.append(dict(port=int(parts[0]), targetPort=int(parts[1]), name='port-%s' % parts[0]))
             else:
-                ports.append(dict(port=int(port), targetPort=int(port), name='port_%s' % port))
+                if not self._port_in_list(port, ports):
+                    ports.append(dict(port=int(port), targetPort=int(port), name='port-%s' % port))
+
+        for port in service.get('expose', []):
+            if not self._port_in_list(port, ports):
+                ports.append(dict(port=int(port), targetPort=int(port), name='port-%s' % port))
         return ports
+
+    @staticmethod
+    def _port_in_list(port, ports):
+        found = False
+        for p in ports:
+            if p['port'] == int(port):
+                found = True
+                break
+        return found
+

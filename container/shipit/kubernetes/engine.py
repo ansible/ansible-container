@@ -25,6 +25,7 @@ class ShipItEngine(BaseShipItEngine):
         tasks = []
         tasks += Service(config=self.config, project_name=self.project_name).get_task()
         tasks += Deployment(config=self.config, project_name=self.project_name).get_task()
+        self.init_role()
         self.create_role(tasks)
         self.create_playbook()
 
