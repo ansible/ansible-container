@@ -217,14 +217,15 @@ class Engine(BaseEngine):
                 image_path = "%s/%s" % (re.sub(r'/$', '', url), image_path)
 
         logger.info("Images will be pulled from %s" % image_path)
-
+        orchestrated_hosts = self.hosts_touched_by_playbook()
         for host, service_config in config.get('services', {}).items():
-            image_id, image_buildstamp = get_latest_image_for(self.project_name, host, client)
-            service_config.update(
-                dict(
-                    image='%s/%s-%s:%s' % (image_path, self.project_name, host, image_buildstamp)
+            if host in orchestrated_hosts:
+                image_id, image_buildstamp = get_latest_image_for(self.project_name, host, client)
+                service_config.update(
+                    dict(
+                        image='%s/%s-%s:%s' % (image_path, self.project_name, host, image_buildstamp)
+                    )
                 )
-            )
         return config
 
     # Docker-compose uses docopt, which outputs things like the below
