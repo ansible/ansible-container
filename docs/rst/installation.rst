@@ -18,7 +18,7 @@ Prerequisites:
 
 * Python 2.7
 * `pip <https://pip.pypa.io/en/stable/installing/>`_ 
-* `setuptools v. 20+ <https://pypi.python.org/pypi/setuptools>`_
+* `setuptools 20.0.0+ <https://pypi.python.org/pypi/setuptools>`_
 * `git <https://git-scm.com/book/en/v2/Getting-Started-Installing-Git>`_
 * `Docker <https://docs.docker.com/engine/installation/>`_ or access to a Docker daemon. If you're installing Docker
   Engine or accessing a remote Docker daemon, see :ref:`configure_docker`.
