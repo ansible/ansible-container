@@ -150,7 +150,7 @@ Run the following command from inside the example directory:
 .. note::
 
     For this example the authentication method being used is an access token. Access tokens are short lived. If the token
-    expires, delete the entry for https://gcr.io from you ~/.docker/config.json file and authenticate again. Each time the
+    expires, delete the entry for the URL from ~/.docker/config.json and authenticate again. Each time the
     ``gcloud auth print-access-token`` command is executed it generates a new token. A long lived authentication solution is
     available by `using a service account and a JSON key file <https://support.google.com/cloud/answer/6158849#serviceaccounts>`_.
 
@@ -160,7 +160,7 @@ Shipit - Build the Deployment Role
 Next, run the *shipit* command to generate the role and playbook needed to deploy the application to Kubernetes.
 
 The cluster needs to know from where to pull the application's images. In the previous step the images were pushed to Google
-Container registry. The combination of the registry URL (https://gcr.io) plus the namespace (your <Project ID>) provides the
+Container Registry. The combination of the registry URL (https://gcr.io) plus the namespace (your <Project ID>) provides the
 path from which images are pulled. Use the --pull-from option to pass this path to the *shipit* command.
 
 Additionally, the *shipit* command needs to know which cloud provider to use. In this case Kubernetes is being used, so the
@@ -171,7 +171,7 @@ Run the following command to execute *shipit*:
 .. code-block:: bash
 
     $ ansible-container shipit kube --pull-from https://gcr.io/<Project ID>
-    Images will be pulled from gcr.io/<Project ID>
+    Images will be pulled from gcr.io/stoked-archway-645
     Attaching to ansible_ansible-container_1
     Cleaning up Ansible Container builder...
     Role example created.
