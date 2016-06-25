@@ -14,7 +14,7 @@ to install ansible-container.
 In addition to Ansible Container, the following are also required:
 
 + `Ansible 2.0+ <http://docs.ansible.com/ansible/intro_installation.html>`_
-+ `Docker <http://wwww.docker.com/products/docker-engine>`_
++ `Docker <http://www.docker.com/products/docker-engine>`_
 + kubectl installed locally (see below)
 + Kubernetes cluster hosted on Google Container Engine (see below)
 
@@ -51,12 +51,20 @@ And finally, after the cluster is ready, configure kubectl to access the new clu
 Troubleshooting kubectl setup
 '''''''''''''''''''''''''''''
 
-If you see *ERROR: (gcloud.container.clusters.get-credentials) There was a problem refreshing your current auth tokens: invalid_grant*,
-run `gcloud auth login`. It should bring up a browser window, ask you to select your Google account, and the ask you to
-grant the SDK access to the account.
+If you see: *ERROR: (gcloud.container.clusters.get-credentials) There was a problem refreshing your current auth tokens: invalid_grant*,
+run the following to authrorize access to your Google account. It will open a browser window, ask you to select your Google account,
+and ask you to grant access.
 
-You may also run into *ERROR: (gcloud.container.clusters.get-credentials) The required property [zone] is not currently set.*. If you
-do, run `gcloud config set compute/zone VALUE`, replacing VALUE with the Zone assigned to your *example-cluster*.
+.. code-block:: bash
+
+    $ gcloud auth login
+
+You may also run into *ERROR: (gcloud.container.clusters.get-credentials) The required property [zone] is not currently set.*. If you do,
+run the following, replacing VALUE with the Zone assigned to your *example-cluster*.
+
+.. code-block:: bash
+
+    $ gcloud config set compute/zone VALUE
 
 Deployment
 ''''''''''
@@ -113,7 +121,7 @@ Run the following command from inside the example directory:
 
     $ ansible-container push --username oauth2accesstoken --password "$(gcloud auth print-access-token)" --url https://gcr.io --namespace <Project ID>
 
-    Pushing to "https://gcr.io/stoked-archway-645
+    Pushing to "https://gcr.io/stoked-archway-645"
     Attaching to ansible_ansible-container_1
     Cleaning up Ansible Container builder...
     Tagging gcr.io/stoked-archway-645/example-gulp
@@ -139,10 +147,12 @@ Run the following command from inside the example directory:
     ...
     Done!
 
-**NOTE** For this example the authentication method being used is an access token. Access tokens are short lived. If the token
+.. note::
+
+For this example the authentication method being used is an access token. Access tokens are short lived. If the token
 expires, delete the entry for https://gcr.io from you ~/.docker/config.json file and authenticate again. Each time the
- `gcloud auth print-access-token` command is executed it generates a new token. A long lived authentication solution is available
- by `using a service account and a JSON key file <https://support.google.com/cloud/answer/6158849#serviceaccounts>`_.
+``gcloud auth print-access-token`` command is executed it generates a new token. A long lived authentication solution is
+available by `using a service account and a JSON key file <https://support.google.com/cloud/answer/6158849#serviceaccounts>`_.
 
 Shipit - Build the Deployment Role
 ----------------------------------
