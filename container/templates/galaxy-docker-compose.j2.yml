@@ -1,7 +1,0 @@
-# Execute ansible-galaxy init to create the shipit role
-ansible-container:
-  image: "{{ builder_img_id }}"
-  command: /usr/local/bin/ansible-galaxy init -p /roles --force {{ role_name }}
-  volumes:
-      - {{ roles_path }}:/roles
-{{ config }}

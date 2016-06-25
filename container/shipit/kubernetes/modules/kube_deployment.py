@@ -7,12 +7,12 @@
 
 DOCUMENTATION = '''
 
-module: oso_deployment
+module: kube_deployment
 
-short_description: Start, cancel or retry a deployment on a Kubernetes or OpenShift cluster.
+short_description: Start, cancel or retry a deployment on a Kubernetes cluster.
 
 description:
-  - Start, cancel or retry a deployment on a Kubernetes or OpenShift cluster by setting the C(state) to I(present) or
+  - Start, cancel or retry a deployment on a Kubernetes cluster by setting the C(state) to I(present) or
     I(absent).
   - Supports check mode. Use check mode to view a list of actions the module will take.
 
@@ -30,7 +30,7 @@ import logging.config
 
 from ansible.module_utils.basic import *
 
-logger = logging.getLogger('oso_deployment')
+logger = logging.getLogger('kube_deployment')
 
 LOGGING = (
     {
@@ -48,7 +48,7 @@ LOGGING = (
             }
         },
         'loggers': {
-            'oso_deployment': {
+            'kube_deployment': {
                 'handlers': ['file'],
                 'level': 'INFO',
             },
@@ -74,24 +74,23 @@ class DeploymentManager(object):
     def __init__(self):
 
         self.arg_spec = dict(
-            project_name=dict(type='str', aliases=['namespace'], required=True),
             state=dict(type='str', choices=['present', 'absent'], default='present'),
             labels=dict(type='dict'),
-            deployment_name=dict(type='str', aliases=['name']),
+            deployment_name=dict(type='str'),
             recreate=dict(type='bool', default=False),
             replace=dict(type='bool', default=True),
             replicas=dict(type='int', default=1),
             containers=dict(type='list'),
-            strategy=dict(type='str', default='Rolling', choices=['Recreate', 'Rolling']),
+            strategy=dict(type='str', default='RollingUpdate', choices=['Recreate', 'RollingUpdate']),
             volumes=dict(type='list'),
         )
 
         self.module = AnsibleModule(self.arg_spec,
                                     supports_check_mode=True)
 
-        self.project_name = None
         self.state = None
         self.labels = None
+        self.ports = None
         self.deployment_name = None
         self.replace = None
         self.replicas = None
@@ -100,8 +99,8 @@ class DeploymentManager(object):
         self.recreate = None
         self.volumes = None
         self.api = None
-        self.check_mode = self.module.check_mode
         self.debug = self.module._debug
+        self.check_mode = self.module.check_mode
 
     def exec_module(self):
 
@@ -110,24 +109,19 @@ class DeploymentManager(object):
 
         if self.debug:
             LOGGING['loggers']['container']['level'] = 'DEBUG'
-            LOGGING['loggers']['oso_deployment']['level'] = 'DEBUG'
+            LOGGING['loggers']['kube_deployment']['level'] = 'DEBUG'
         logging.config.dictConfig(LOGGING)
 
-        self.api = OriginAPI(self.module)
+        self.api = KubeAPI(self.module)
 
         actions = []
         changed = False
         deployments = dict()
         results = dict()
+        project_switch = None
 
-        project_switch = self.api.set_project(self.project_name)
-        if not project_switch:
-            actions.append("Create project %s" % self.project_name)
-            if not self.check_mode:
-                self.api.create_project(self.project_name)
-
-        if self.state == 'present':
-            deployment = self.api.get_resource('dc', self.deployment_name)
+        if self.state in 'present':
+            deployment = self.api.get_resource('deployment', self.deployment_name)
             if not deployment:
                 template = self._create_template()
                 changed = True
@@ -139,26 +133,27 @@ class DeploymentManager(object):
                 changed = True
                 template = self._create_template()
                 if not self.check_mode:
-                    self.api.delete_resource('dc', self.deployment_name)
+                    self.api.delete_resource('deployment', self.deployment_name)
                     self.api.create_from_template(template=template)
             elif deployment and self.replace:
                 template = self._create_template()
-                template['status'] = dict(latestVersion=deployment['status']['latestVersion'] + 1)
                 changed = True
                 actions.append("Update deployment %s" % self.deployment_name)
                 if not self.check_mode:
                     self.api.replace_from_template(template=template)
 
-            deployments[self.deployment_name.replace('-', '_') + '_deployment'] = self.api.get_resource('dc', self.deployment_name)
+            deployments[self.deployment_name.replace('-', '_') + '_deployment'] = \
+                self.api.get_resource('deployment', self.deployment_name)
 
         elif self.state == 'absent':
-            if self.api.get_resource('dc', self.deployment_name):
+            if self.api.get_resource('deployment', self.deployment_name):
                 changed = True
                 actions.append("Delete deployment %s" % self.deployment_name)
                 if not self.check_mode:
-                    self.api.delete_resource('dc', self.deployment_name)
+                    self.api.delete_resource('deployment', self.deployment_name)
 
         results['changed'] = changed
+
         if self.check_mode:
             results['actions'] = actions
 
@@ -176,8 +171,8 @@ class DeploymentManager(object):
                 container['ports'] = self._port_to_container_ports(container['ports'])
 
         template = dict(
-            apiVersion="v1",
-            kind="DeploymentConfig",
+            apiVersion="extensions/v1beta1",
+            kind="Deployment",
             metadata=dict(
                 name=self.deployment_name,
             ),
@@ -185,7 +180,7 @@ class DeploymentManager(object):
                 template=dict(
                     metadata=dict(),
                     spec=dict(
-                        containers=self.containers
+                        containers=self.containers,
                     )
                 ),
                 replicas=self.replicas,
@@ -204,8 +199,7 @@ class DeploymentManager(object):
 
         return template
 
-    @staticmethod
-    def _env_to_list(env_variables):
+    def _env_to_list(self, env_variables):
         result = []
         for name, value in env_variables.items():
             result.append(dict(
@@ -221,8 +215,9 @@ class DeploymentManager(object):
             result.append(dict(containerPort=port))
         return result
 
+
 #The following will be included by `ansble-container shipit` when cloud modules are copied into the role library path.
-#include--> oso_api.py
+#include--> kube_api.py
 
 
 def main():

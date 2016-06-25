@@ -31,11 +31,12 @@ class Service(object):
 
     def _create(self, type, name, service):
         '''
-        Generate an Openshift service configuration or playbook task.
+        Create a Kubernetes service template or playbook task
         '''
+
         template = {}
         ports = self._get_ports(service)
-        options = service.get('options', {}).get('openshift', {})
+        options = service.get('options', {}).get('kube', {})
         state = options.get('state', 'present')
 
         if ports:
@@ -56,18 +57,29 @@ class Service(object):
                         ports=ports,
                     )
                 )
+
+                for port in ports:
+                    if port['port'] != port['targetPort']:
+                        template['spec']['type'] = 'LoadBalancer'
             elif type == 'task':
                 template = dict(
-                    oso_service=OrderedDict(
-                        project_name=self.project_name,
+                    kube_service=OrderedDict(
                         service_name=name,
-                        labels=labels.copy(),
                         ports=ports,
                         selector=labels.copy()
                     )
                 )
-                if state != 'present':
-                    template['oso_service']['state'] = state
+
+                if service.get('labels'):
+                    template['kube_service']['labels'] = service.get('labels')
+
+                load_balancer = False
+                for port in ports:
+                    if port['port'] != port['targetPort']:
+                        load_balancer = True
+
+                if load_balancer:
+                    template['kube_service']['type'] = 'LoadBalancer'
 
         return template
 
@@ -96,4 +108,3 @@ class Service(object):
                 found = True
                 break
         return found
-

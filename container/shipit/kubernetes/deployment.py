@@ -7,9 +7,12 @@ from __future__ import absolute_import
 import logging
 import re
 import shlex
+
 from collections import OrderedDict
 
 logger = logging.getLogger(__name__)
+
+DOCKER_VOL_PERMISSIONS = ['rw', 'ro', 'z', 'Z']
 
 
 class Deployment(object):
@@ -34,9 +37,9 @@ class Deployment(object):
 
     def _create(self, type, name, service):
         '''
-        Creates an Openshsift deployment template or playbook task.
+        Creates a deployment template or playbook task
         '''
-        template = {}
+
         container, volumes, pod = self._service_to_container(name, service, type=type)
         labels = dict(
             app=self.project_name,
@@ -50,11 +53,11 @@ class Deployment(object):
 
             if state != 'absent':
                 template = dict(
-                    apiVersion="v1",
-                    kind="DeploymentConfig",
+                    apiVersion="extensions/v1beta1",
+                    kind="Deployment",
                     metadata=dict(
                         name=name,
-                        labels=labels.copy()
+                        labels=labels
                     ),
                     spec=dict(
                         template=dict(
@@ -62,39 +65,34 @@ class Deployment(object):
                                 labels=labels.copy()
                             ),
                             spec=dict(
-                                containers=[container]
+                                containers=[container],
                             )
                         ),
                         replicas=1,
-                        selector=dict(),
                         strategy=dict(
-                            type='Rolling'
+                            type='RollingUpdate'
                         )
                     )
                 )
                 if volumes:
                     template['spec']['template']['spec']['volumes'] = volumes
-
                 if pod:
                     for key, value in pod.items():
                         if key == 'replicas':
                             template['spec'][key] = value
         else:
             template = dict(
-                oso_deployment=OrderedDict(
-                    project_name=self.project_name,
+                kube_deployment=OrderedDict(
                     deployment_name=name,
                     labels=labels.copy(),
+                    replace=True,
                     containers=[container],
-                    replace=True
                 )
             )
-
             if volumes:
-                template['oso_deployment']['volumes'] = volumes
-
+                template['kube_deployment']['volumes'] = volumes
             if pod:
-                template['oso_deployment'].update(pod)
+                template['kube_deployment'].update(pod)
 
         return template
 
@@ -105,7 +103,7 @@ class Deployment(object):
 
         :param name:str: Name of the service
         :param service:dict: Configuration
-        :param type: 'task' or 'config'
+        :param type: task or config
         :return: (container, volumes, pod)
         '''
 
@@ -119,6 +117,7 @@ class Deployment(object):
         IGNORE_DIRECTIVES = [
             'aliases',
             'build',
+            'expose',
             'labels',
             'links',
             'cgroup_parent',
@@ -258,8 +257,8 @@ class Deployment(object):
                 container[key] = value
 
         # Translate options:
-        if service.get('options', {}).get('openshift'):
-            for key, value in service['options']['openshift'].items():
+        if service.get('options', {}).get('kube'):
+            for key, value in service['options']['kube'].items():
                 if key == 'seLinuxOptions':
                     container['securityContext']['seLinuxOptions'] = value
                 elif key == 'runAsNonRoot':
@@ -383,7 +382,7 @@ class Deployment(object):
 
     def _expand_env_vars(self, env_variables):
         '''
-        Turn container environment attribute into dictionary of name/value pairs.
+        Turn containier environment attribute into dictionary of name/value pairs.
 
         :param env_variables: container env attribute value
         :type env_variables: dict or list
@@ -406,3 +405,13 @@ class Deployment(object):
                 elif len(parts) == 2:
                     results.append(r(parts[0], parts[1]))
         return results
+
+    def _resolve_resource(self, path):
+        result = path
+        if '/' in path:
+            # TODO - support other resource types?
+            res_type, res_name = path.split('/')
+            if res_type == 'service':
+                parts = res_name.split(':')
+                result = unicode("{{ %s_service.spec.clusterIP }}:%s" % (parts[0].replace('-', '_'), parts[1]))
+        return result

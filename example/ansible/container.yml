@@ -13,6 +13,11 @@ services:
       command: ['/usr/bin/dumb-init', '/venv/bin/python', 'manage.py', 'runserver', '0.0.0.0:8080']
       volumes:
         - "$PWD:/django"
+    options:
+      kube:
+        runAsUser: 1000
+      openshift:
+        runAsUser: 1000
   static:
     image: centos:7
     ports:
@@ -23,7 +28,12 @@ services:
     command: ['/usr/bin/dumb-init', 'nginx', '-c', '/etc/nginx/nginx.conf']
     dev_overrides:
       ports: []
-      command: /bin/false
+      command: 'bin/false'
+    options:
+      kube:
+        runAsUser: 997
+      openshift:
+        runAsUser: 997
   postgresql:
     image: postgres:9.4
     expose:
@@ -47,4 +57,11 @@ services:
         - "80:8080"
       volumes:
         - "$PWD:/node"
+    options:
+      kube:
+        state: absent
+      openshift:
+        state: absent
+
+registries: {}
 
