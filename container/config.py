@@ -10,7 +10,6 @@ import yaml
 
 from collections import Mapping
 from .exceptions import AnsibleContainerConfigException
-from .utils import *
 
 # TODO: Actually do some schema validation
 
@@ -39,7 +38,7 @@ class AnsibleContainerConfig(Mapping):
             raise AnsibleContainerConfigException("Failed to open %s. Are you in the correct directory?" %
                                                   self.config_path)
         try:
-            config = yaml.load(ifs)
+            config = yaml.safe_load(ifs)
         except Exception as exc:
             raise AnsibleContainerConfigException("Failed to parse container.yml - %s" % str(exc))
         ifs.close()
