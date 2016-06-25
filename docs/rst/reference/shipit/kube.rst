@@ -5,7 +5,7 @@ kube
 
 The ``ansible-container shipit kube`` command creates an Ansible playbook and role to deploy your
 application on Kubernetes. The playbook and role are created in the ansible directory. The name of the playbook
-is *shipit_kubernetes.yml*, and the name of the role is *<project_name>-kubernetes* and can be found in the
+is *shipit-kubernetes.yml*, and the name of the role is *<project_name>-kubernetes* and can be found in the
 roles directory.
 
 .. option:: --help

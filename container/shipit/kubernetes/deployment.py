@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 DOCKER_VOL_PERMISSIONS = ['rw', 'ro', 'z', 'Z']
 
+
 class Deployment(object):
 
     def __init__(self, config=None, project_name=None):
@@ -29,87 +30,69 @@ class Deployment(object):
     def _get_template_or_task(self, request_type="task", service_names=None):
         templates = []
         for name, service in self.config.get('services', {}).items():
-            if request_type == 'task':
-                new_template = self._create_task(name, service)
-            elif request_type == 'config':
-                new_template = self._create_template(name, service)
+            new_template = self._create(request_type, name, service)
             if new_template:
                 templates.append(new_template)
         return templates
 
-    def _create_template(self, name, service):
+    def _create(self, type, name, service):
         '''
-        Creates a deployment template from a set of services. Each service becomes a container
-        defined within the replication controller.
+        Creates a deployment template or playbook task
         '''
 
-        container, volumes, pod = self._service_to_container(name, service, type="config")
-
-        if pod.get('state'):
-            if pod['state'] == 'absent':
-                return
-            else:
-                pod.pop('state')
-
+        container, volumes, pod = self._service_to_container(name, service, type=type)
         labels = dict(
             app=self.project_name,
             service=name
         )
-        template = dict(
-            apiVersion="extensions/v1beta1",
-            kind="Deployment",
-            metadata=dict(
-                name=name,
-                labels=labels
-            ),
-            spec=dict(
-                template=dict(
+
+        if type == 'config':
+            state = 'present'
+            if pod.get('state'):
+                state = pod.pop('state')
+
+            if state != 'absent':
+                template = dict(
+                    apiVersion="extensions/v1beta1",
+                    kind="Deployment",
                     metadata=dict(
-                        labels=labels.copy()
+                        name=name,
+                        labels=labels
                     ),
                     spec=dict(
-                        containers=[container],
+                        template=dict(
+                            metadata=dict(
+                                labels=labels.copy()
+                            ),
+                            spec=dict(
+                                containers=[container],
+                            )
+                        ),
+                        replicas=1,
+                        strategy=dict(
+                            type='RollingUpdate'
+                        )
                     )
-                ),
-                replicas=1,
-                strategy=dict(
-                    type='RollingUpdate'
+                )
+                if volumes:
+                    template['spec']['template']['spec']['volumes'] = volumes
+                if pod:
+                    for key, value in pod.items():
+                        if key == 'replicas':
+                            template['spec'][key] = value
+        else:
+            template = dict(
+                kube_deployment=OrderedDict(
+                    deployment_name=name,
+                    labels=labels.copy(),
+                    replace=True,
+                    containers=[container],
                 )
             )
-        )
-        if volumes:
-            template['spec']['template']['spec']['volumes'] = volumes
-        if pod:
-            for key, value in pod.items():
-                if key == 'replicas':
-                    template['spec'][key] = value
-        return template
-
-    def _create_task(self, name, service):
-        '''
-        Generates an Ansible playbook task.
-
-        :param service:
-        :return:
-        '''
-
-        container, volumes, pod = self._service_to_container(name, service, type="task")
-        labels = dict(
-            app=self.project_name,
-            service=name
-        )
-        template = dict(
-            kube_deployment=OrderedDict(
-                deployment_name=name,
-                labels=labels.copy(),
-                replace=True,
-                containers=[container],
-            )
-        )
-        if volumes:
-            template['kube_deployment']['volumes'] = volumes
-        if pod:
-            template['kube_deployment'].update(pod)
+            if volumes:
+                template['kube_deployment']['volumes'] = volumes
+            if pod:
+                template['kube_deployment'].update(pod)
 
         return template
 
@@ -252,8 +235,10 @@ class Deployment(object):
                     container['env'] = expanded_vars
                 else:
                     container['env'] = self._env_vars_to_task(expanded_vars)
-            elif key == 'ports':
-                container['ports'] = self._get_ports(value, type)
+            elif key in ('ports', 'expose'):
+                if not container.get('ports'):
+                    container['ports'] = []
+                self._get_ports(value, type, container['ports'])
             elif key == 'privileged':
                 container['securityContext']['privileged'] = value
             elif key == 'read_only':
@@ -272,43 +257,20 @@ class Deployment(object):
                 container[key] = value
 
         # Translate options:
-        if service.get('options'):
-            for key, value in service['options'].items():
-                if key == 'kube_seLinuxOptions':
+        if service.get('options', {}).get('kube'):
+            for key, value in service['options']['kube'].items():
+                if key == 'seLinuxOptions':
                     container['securityContext']['seLinuxOptions'] = value
-                elif key == 'kube_runAsNonRoot':
+                elif key == 'runAsNonRoot':
                     container['securityContext']['runAsNonRoot'] = value
-                elif key == 'kube_runAsUser':
+                elif key == 'runAsUser':
                     container['securityContext']['runAsUser'] = value
-                elif key == 'kube_replicas':
+                elif key == 'replicas':
                     pod['replicas'] = value
-                elif key == 'kube_state':
+                elif key == 'state':
                     pod['state'] = value
 
         return container, volumes, pod
-
-    @staticmethod
-    def _get_ports(ports, type):
-        '''
-        Convert docker ports to list of kube containerPort
-        :param ports:
-        :type ports: list
-        :return: list
-        '''
-        results = []
-        for port in ports:
-            if ':' in port:
-                parts = port.split(':')
-                if type == 'config':
-                    results.append(dict(containerPort=int(parts[1])))
-                else:
-                    results.append(int(parts[1]))
-            else:
-                if type == 'config':
-                    results.append(dict(containerPort=int(port)))
-                else:
-                    results.append(int(port))
-        return results
 
     def _kube_volumes(self, docker_volumes):
         '''
@@ -372,6 +334,39 @@ class Deployment(object):
                 ))
 
         return volumes, volume_mounts
+
+    def _get_ports(self, ports, type, existing_ports):
+        '''
+        Determine the list of ports to expose from the container, and add to existing ports.
+
+        :param: ports: list of port mappings
+        :param: type: 'config' or 'task'
+        :param: existing_ports: list of existing or already discovered ports
+        :return: None
+        '''
+        for port in ports:
+            if ':' in port:
+                parts = port.split(':')
+                if not self._port_exists(parts[1], existing_ports):
+                    if type == 'config':
+                        existing_ports.append(dict(containerPort=int(parts[1])))
+                    else:
+                        existing_ports.append(int(parts[1]))
+            else:
+                if not self._port_exists(port, existing_ports):
+                    if type == 'config':
+                        existing_ports.append(dict(containerPort=int(port)))
+                    else:
+                        existing_ports.append(int(port))
+
+    @staticmethod
+    def _port_exists(port, ports):
+        found = False
+        for p in ports:
+            if p['containerPort'] == int(port):
+                found = True
+                break
+        return found
 
     @staticmethod
     def _env_vars_to_task(env_vars):

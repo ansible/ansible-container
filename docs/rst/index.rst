@@ -27,6 +27,7 @@ deployment.
    tour
    deploy_kubernetes
    example
+   registry_auth
    reference/index
 
 

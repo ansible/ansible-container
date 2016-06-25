@@ -16,7 +16,7 @@ engines. For example, to execute *shipit* with the Kubernetes engine:
 
 When *shipit* executes it adds a *roles* directory and playbook to the ansible directory, and within
 the *roles* directory it creates an Ansible role. The role name will be in the format *<project_name>-<shipit_engine>*.
-The playbook name will be in the format *shipit_<shipit_engine>.yml*.
+The playbook name will be in the format *shipit-<shipit_engine>.yml*.
 
 Subsequent playbook runs will leave the playbook and all of the role files untouched with the exception of
 *tasks/main.yml*. Each run will create a new tasks playbook. However, each run will also save the previous main.yml

@@ -195,8 +195,9 @@ Vagrantfile
 
 .v8flags*
 
-# shipit output
+# shipit output and testing
 roles/
 shipit_*/
 shipit*.yml
 tmp.yml
+ansible.cfg

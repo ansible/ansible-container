@@ -307,22 +307,24 @@ def cmdrun_shipit(base_path, engine_name, pull_from=None, **kwargs):
     config = engine_obj.config
     url = None
     namespace = None
-    if pull_from:
-        if config.get('registries', {}).get(pull_from):
-            url = config['registries'].get('url')
-            namespace = config['registries'].get('namespace')
-            if not url:
-                raise AnsibleContainerRegistryAttributeException("Registry %s missing required attribute 'url'."
-                                                                 % pull_from)
-            if not namespace:
-                # try to get the username for the url from the container engine
-                try:
-                    namespace = engine_obj.registry_login(url=url)
-                except:
-                    raise AnsibleContainerRegistryAttributeException("Unable to determine a namespace for the registry."
-                                                                     " Either provide a namespace for the registry in "
-                                                                     "container.yml, or try authenticating with the "
-                                                                     "registry using `docker login`.")
+    if not pull_from:
+        url = engine_obj.default_registry_url
+    elif config.get('registries', {}).get(pull_from):
+        url = config['registries'][pull_from].get('url')
+        namespace = config['registries'][pull_from].get('namespace')
+        if not url:
+            raise AnsibleContainerRegistryAttributeException("Registry %s missing required attribute 'url'."
+                                                             % pull_from)
+        pull_from = None  # pull_from is now resolved to a url/namespace
+    if url and not namespace:
+        # try to get the username for the url from the container engine
+        try:
+            namespace = engine_obj.registry_login(url=url)
+        except:
+            raise AnsibleContainerRegistryAttributeException("Unable to determine a namespace for the registry."
+                                                             " Either provide a namespace for the registry in "
+                                                             "container.yml, or try authenticating with the "
+                                                             "registry using `docker login`.")
 
     config = engine_obj.get_config_for_shipit(pull_from=pull_from, url=url, namespace=namespace)
 

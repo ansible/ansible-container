@@ -56,7 +56,7 @@ class Service(object):
                         ports=ports,
                     )
                 )
-            else:
+            elif type == 'task':
                 template = dict(
                     oso_service=OrderedDict(
                         project_name=self.project_name,
