@@ -149,10 +149,10 @@ Run the following command from inside the example directory:
 
 .. note::
 
-For this example the authentication method being used is an access token. Access tokens are short lived. If the token
-expires, delete the entry for https://gcr.io from you ~/.docker/config.json file and authenticate again. Each time the
-``gcloud auth print-access-token`` command is executed it generates a new token. A long lived authentication solution is
-available by `using a service account and a JSON key file <https://support.google.com/cloud/answer/6158849#serviceaccounts>`_.
+    For this example the authentication method being used is an access token. Access tokens are short lived. If the token
+    expires, delete the entry for https://gcr.io from you ~/.docker/config.json file and authenticate again. Each time the
+    ``gcloud auth print-access-token`` command is executed it generates a new token. A long lived authentication solution is
+    available by `using a service account and a JSON key file <https://support.google.com/cloud/answer/6158849#serviceaccounts>`_.
 
 Shipit - Build the Deployment Role
 ----------------------------------

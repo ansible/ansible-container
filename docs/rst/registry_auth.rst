@@ -38,8 +38,8 @@ When a registry is defined in *container.yml*, the *--push-to* option can be use
 
 .. note::
 
-No credentials are stored in *container.yml*. You still need to authenticate with the registry each time you push
-images or allow your credentials to be stored in ~/.docker/config.json.
+    No credentials are stored in *container.yml*. You still need to authenticate with the registry each time you push
+    images or allow your credentials to be stored in ~/.docker/config.json.
 
 Pulling Images
 ''''''''''''''
