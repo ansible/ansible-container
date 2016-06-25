@@ -49,7 +49,7 @@ And finally, after the cluster is ready, configure kubectl to access the new clu
     $ gcloud container clusters get-credentials example-cluster
 
 Troubleshooting kubectl Setup
-'''''''''''''''''''''''''''''
+-----------------------------
 
 If you see: *ERROR: (gcloud.container.clusters.get-credentials) There was a problem refreshing your current auth tokens: invalid_grant*,
 run the following to authrorize access to your Google account. It will open a browser window, ask you to select your Google account,
