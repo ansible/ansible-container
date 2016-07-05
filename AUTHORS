@@ -1,7 +1,15 @@
-Ansible Container contains code copyrighted by the following authors:
+Ansible Container has been contribued to by the following authors:
+(This list is automatically generated - please file an issue for corrections)
 
-Joshua "jag" Ginsberg <jag@ansible.com>
-Chris Houseknecht <chouseknecht@anisble.com>
+Chris Houseknecht <chouseknecht@ansible.com>
+Joshua "jag" Ginsberg <jag@flowtheory.net>
+Matt Clay <matt@mystile.com>
 Sandra Wills <swills@ansible.com>
-Matt Clay <mclay@ansible.com>
-
+Greg DeKoenigsberg <greg.dekoenigsberg@gmail.com>
+Charlie Drage <charlie@charliedrage.com>
+Todd Barr <tbarr@ansible.com>
+Daniel Heitmann <dictvm@horrendum.de>
+Sidharth Surana <ssurana@vmware.com>
+Andrea De Pirro <andrea.depirro@yameveo.com>
+Jeff Geerling <geerlingguy@mac.com>
+Shea Stewart <shea.stewart@arctiq.ca>
