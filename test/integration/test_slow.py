@@ -12,7 +12,7 @@ def project_dir(name):
 @pytest.mark.timeout(240)
 def test_build_minimal_docker_container():
     env = ScriptTestEnvironment()
-    result = env.run('ansible-container', 'build', cwd=project_dir('minimal'), expect_stderr=True)
+    result = env.run('ansible-container', 'build', '--flatten', cwd=project_dir('minimal'), expect_stderr=True)
     assert "Aborting on container exit" in result.stdout
     assert "Exported minimal-minimal with image ID " in result.stderr
 

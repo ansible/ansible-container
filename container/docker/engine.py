@@ -459,7 +459,13 @@ class Engine(BaseEngine):
                    force=True)
         logger.info('Cleaning up %s build container...', host)
         client.remove_container(container_id)
-        if purge_last and previous_image_id:
+
+        image_data = client.inspect_image(image_id)
+        parent_sha = ' '
+        if image_data:
+            parent_sha = image_data.get('Parent', ' ')
+
+        if purge_last and previous_image_id and previous_image_id not in parent_sha:
             logger.info('Removing previous image...')
             client.remove_image(previous_image_id, force=True)
 
