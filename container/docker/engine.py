@@ -24,7 +24,7 @@ from ..exceptions import (AnsibleContainerNotInitializedException,
                           AnsibleContainerDockerConfigFileException,
                           AnsibleContainerDockerLoginException)
 
-from ..engine import BaseEngine
+from ..engine import BaseEngine, REMOVE_HTTP
 from ..utils import *
 from .utils import *
 
@@ -32,7 +32,6 @@ if not os.environ.get('DOCKER_HOST'):
     logger.warning('No DOCKER_HOST environment variable found. Assuming UNIX '
                    'socket at /var/run/docker.sock')
 
-REMOVE_HTTP = re.compile('^https?://')
 
 class Engine(BaseEngine):
 

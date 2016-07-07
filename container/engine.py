@@ -9,13 +9,11 @@ import os
 import datetime
 import re
 
-from .exceptions import (AnsibleContainerAlreadyInitializedException,
-                         AnsibleContainerRegistryNotFoundException,
-                         AnsibleContainerRegistryAttributeException)
+from .exceptions import AnsibleContainerAlreadyInitializedException, \
+                        AnsibleContainerRegistryAttributeException
 from .utils import *
-from .shipit.utils import create_path
 
-from .shipit.constants import SHIPIT_PATH, SHIPIT_ROLES_DIR
+REMOVE_HTTP = re.compile('^https?://')
 
 class BaseEngine(object):
     engine_name = None
@@ -278,15 +276,31 @@ def cmdrun_run(base_path, engine_name, service=[], production=False, **kwargs):
                                hosts=hosts)
 
 
-def cmdrun_push(base_path, engine_name, username=None, password=None, email=None,
-                url=None, namespace=None, push_to=None, **kwargs):
+def cmdrun_push(base_path, engine_name, username=None, password=None, email=None, push_to=None, **kwargs):
     assert_initialized(base_path)
     engine_args = kwargs.copy()
     engine_args.update(locals())
     engine_obj = load_engine(**engine_args)
 
-    url, namespace = get_registry_url_and_namespace(engine_obj, registry_name=push_to, username=username, password=password,
-                                                    email=email, url=url, namespace=namespace)
+    # resolve url and namespace
+    config = engine_obj.config
+    url = engine_obj.default_registry_url
+    namespace = None
+    if push_to:
+        if config.get('registries', {}).get(push_to):
+            url = config['registries'][push_to].get('url')
+            namespace = config['registries'][push_to].get('namespace')
+            if not url:
+                raise AnsibleContainerRegistryAttributeException("Registry %s missing required attribute 'url'."
+                                                                 % push_to)
+        else:
+            url, namespace = resolve_push_to(push_to, engine_obj.default_registry_url)
+
+    # Check that we can authenticate to the registry and get the username
+    username = engine_obj.registry_login(username=username, password=password,
+                                         email=email, url=url)
+    if not namespace:
+        namespace = username
 
     logger.info('Pushing to "%s/%s' % (re.sub(r'/$', '', url), namespace))
 
@@ -354,48 +368,26 @@ def create_build_container(container_engine_obj, base_path):
     return builder_img_id
 
 
-def get_registry_url_and_namespace(engine_obj, registry_name=None, username=None, password=None, email=None,
-                                   url=None, namespace=None):
+def resolve_push_to(push_to, default_url):
     '''
-    Given the login options, returns the url and namespace to use for image push and pull.
+    Given a push-to value, return the registry and namespace.
 
-    If login set to True, verifies user can authenticate when username is present (in which case login will prompt
-    for missing password). If already authenticated and the auth data exists in the container's local config,
-    then determines the username.
-
-    Using what is provided + what is returned by login + container engine defaults, determine the correct url and
-    namespace.
-
-    :param engine_obj: container engine
-    :param registry_name: optional registry key found in container.yml
-    :param username: optional username for authentication
-    :param password: optional password for authentication
-    :param email: optional email for authentication
-    :param url: optional url to the registry. if not provided, defaults to engine_obj.default_registry_url
-    :param namespace: optional namespace. if not provided, defaults to username.
-    :return: (url, namespace)
+    :param push_to: string: User supplied --push-to value.
+    :param default_index: string: Container engine's default_index value (e.g. docker.io).
+    :return: tuple: index_name, namespace
     '''
-    config = engine_obj.config
-    if registry_name:
-        # expect to find push-to defined in container.yml with url and namespace attributes
-        if not config.get('registries', {}).get(registry_name):
-            raise AnsibleContainerRegistryNotFoundException("Registry %s not found in container.yml. Did you add it to "
-                                                            "the registry key?" % registry_name)
-        url = config['registries'][registry_name].get('url')
-        if not url:
-            raise AnsibleContainerRegistryAttributeException("Registry %s missing required attribute 'url'."
-                                                             % registry_name)
+    protocol = 'http://' if push_to.startswith('http://') else 'https://'
+    url = push_to = REMOVE_HTTP.sub('', push_to)
+    parts = url.split('/', 1)
+    special_set = {'.', ':'}
+    char_set = set([c for c in parts[0]])
 
-        namespace = config['registries'][registry_name].get('namespace')
+    if len(parts) == 1 or (not special_set.intersection(char_set) and parts[0] != 'localhost'):
+        registry_url = default_url
+        namespace = push_to
+    else:
+        registry_url = protocol + parts[0]
+        namespace = parts[1]
 
-    if not url:
-        url = engine_obj.default_registry_url
-
-    # Check that we can authenticate to the registry and get the username
-    username = engine_obj.registry_login(username=username, password=password,
-                                         email=email, url=url)
-    if not namespace:
-        namespace = username
-
-    return url, namespace
+    return registry_url, namespace
 
