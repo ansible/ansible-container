@@ -119,7 +119,7 @@ Run the following command from inside the example directory:
 
 .. code-block:: bash
 
-    $ ansible-container push --username oauth2accesstoken --password "$(gcloud auth print-access-token)" --url https://gcr.io --namespace <Project ID>
+    $ ansible-container push --username oauth2accesstoken --password "$(gcloud auth print-access-token)" --push-to https://gcr.io/<Project ID>
 
     Pushing to "https://gcr.io/stoked-archway-645"
     Attaching to ansible_ansible-container_1
