@@ -378,13 +378,17 @@ def resolve_push_to(push_to, default_url):
     '''
     protocol = 'http://' if push_to.startswith('http://') else 'https://'
     url = push_to = REMOVE_HTTP.sub('', push_to)
+    namespace = None
     parts = url.split('/', 1)
     special_set = {'.', ':'}
     char_set = set([c for c in parts[0]])
 
-    if len(parts) == 1 or (not special_set.intersection(char_set) and parts[0] != 'localhost'):
-        registry_url = default_url
-        namespace = push_to
+    if len(parts) == 1:
+        if not special_set.intersection(char_set) and parts[0] != 'localhost':
+            registry_url = default_url
+            namespace = push_to
+        else:
+            registry_url = protocol + parts[0]
     else:
         registry_url = protocol + parts[0]
         namespace = parts[1]
