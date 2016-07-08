@@ -460,9 +460,9 @@ class Engine(BaseEngine):
         client.remove_container(container_id)
 
         image_data = client.inspect_image(image_id)
-        parent_sha = ' '
+        parent_sha = ''
         if image_data:
-            parent_sha = image_data.get('Parent', ' ')
+            parent_sha = image_data.get('Parent', '')
 
         if purge_last and previous_image_id and previous_image_id not in parent_sha:
             logger.info('Removing previous image...')
@@ -506,8 +506,7 @@ class Engine(BaseEngine):
         username, email = self.currently_logged_in_registry_user(url)
         if not username:
             raise AnsibleContainerNoAuthenticationProvidedException(
-                u'Please provide login '
-                u'credentials for this registry.')
+                u'Please provide login credentials for registry %s.' % url)
         return username
 
     DOCKER_CONFIG_FILEPATH_CASCADE = [
