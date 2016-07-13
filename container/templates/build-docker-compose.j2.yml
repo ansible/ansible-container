@@ -1,6 +1,6 @@
 ansible-container:
   image: "{{ builder_img_id }}"
-  command: "/usr/local/bin/ansible-playbook {% if params.debug %}-vvv{% endif %} -i /etc/ansible/inventory/hosts -c docker {{ params.ansible_options }} main.yml"
+  command: "/usr/local/bin/ansible-playbook {% if params.debug %}-vvv{% endif %} -i /etc/ansible/inventory/hosts -c docker {{ params.ansible_options | join(' ') }} main.yml"
   environment:
     {% if env.DOCKER_HOST %}- DOCKER_HOST{% else %}- DOCKER_HOST=unix:///tmp/docker.sock{% endif %}
     {% if env.DOCKER_TLS_VERIFY %}- DOCKER_TLS_VERIFY{% endif %}
