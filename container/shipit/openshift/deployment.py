@@ -346,7 +346,7 @@ class Deployment(object):
         :return: None
         '''
         for port in ports:
-            if ':' in port:
+            if isinstance(port, basestring) and ':' in port:
                 parts = port.split(':')
                 if not self._port_exists(parts[1], existing_ports):
                     if type == 'config':

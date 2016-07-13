@@ -9,15 +9,14 @@ When pushing images with Ansible Container you can authenticate with the registr
 ~/.docker/config.json, exactly as if you had authenticated using `docker login`.
 
 Each time images are pushed to the registry Ansible Container needs to know the URL of the registry and the namespace of the
-repository. This information can be passed using the *--username* and *--namespace* options. For example:
+repository. This information can be passed using the *--push-to* option. For example:
 
 
 .. code-block:: bash
 
-    $ ansible-container push --url https://gcr.io --namespace example-project
+    $ ansible-container push --push-to https://gcr.io/example-project
 
-For convenience, the *push* command offers a *--push-to* option. Using *--push-to* requires a registry be defined
-in *container.yml*. For example:
+For convenience, the *--push-to* option can also be a registry name defined in *container.yml*. For example:
 
 .. code-block:: bash
 
@@ -29,7 +28,7 @@ in *container.yml*. For example:
 The above defines a registry called *google*. The *url* property is required. The namespace is optional. If a namespace
 is not provided, Ansible Container will attempt to default it to your registry username.
 
-When a registry is defined in *container.yml*, the *--push-to* option can be used as a shortcut. For example, to push to the
+When a registry is defined in *container.yml*, the name can be passed using the *--push-to* option. For example, to push to the
 *google* registry defined in *container-yml* use the following:
 
 .. code-block:: bash

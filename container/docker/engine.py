@@ -24,7 +24,7 @@ from ..exceptions import (AnsibleContainerNotInitializedException,
                           AnsibleContainerDockerConfigFileException,
                           AnsibleContainerDockerLoginException)
 
-from ..engine import BaseEngine
+from ..engine import BaseEngine, REMOVE_HTTP
 from ..utils import *
 from .utils import *
 
@@ -32,7 +32,6 @@ if not os.environ.get('DOCKER_HOST'):
     logger.warning('No DOCKER_HOST environment variable found. Assuming UNIX '
                    'socket at /var/run/docker.sock')
 
-REMOVE_HTTP = re.compile('^https?://')
 
 class Engine(BaseEngine):
 
@@ -461,9 +460,9 @@ class Engine(BaseEngine):
         client.remove_container(container_id)
 
         image_data = client.inspect_image(image_id)
-        parent_sha = ' '
+        parent_sha = ''
         if image_data:
-            parent_sha = image_data.get('Parent', ' ')
+            parent_sha = image_data.get('Parent', '')
 
         if purge_last and previous_image_id and previous_image_id not in parent_sha:
             logger.info('Removing previous image...')
@@ -507,8 +506,7 @@ class Engine(BaseEngine):
         username, email = self.currently_logged_in_registry_user(url)
         if not username:
             raise AnsibleContainerNoAuthenticationProvidedException(
-                u'Please provide login '
-                u'credentials for this registry.')
+                u'Please provide login credentials for registry %s.' % url)
         return username
 
     DOCKER_CONFIG_FILEPATH_CASCADE = [

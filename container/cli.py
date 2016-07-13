@@ -102,17 +102,12 @@ def subcmd_push_parser(parser, subparser):
     subparser.add_argument('--password', action='store',
                            help=u'If authentication with the registry is required, provide a valid password.',
                            dest='password', default=None)
-    subparser.add_argument('--url', action='store',
-                           help=(u'When authenticating with a registry, provide the registry URL. Otherwise, the '
-                                 u'default URL for the selected container engine will be used.'),
-                           dest='url', default=None)
-    subparser.add_argument('--namespace', action='store',
-                           help=(u'An optional organization or project name to append to the registry URL. Defaults '
-                                 u'to the username.'),
-                           dest='namespace', default=None)
     subparser.add_argument('--push-to', action='store',
-                           help=u'Name of a registry defined in container.yml to which images should be pushed.',
+                           help=(u'Name of a registry defined in container.yml or the actual URL of the registry, '
+                                 u'including the namespace. If passing a URL, an example would be: '
+                                 u'"https://registry.example.com:5000/myproject"'),
                            dest='push_to', default=None)
+
 
 def subcmd_shipit_parser(parser, subparser):
     se_subparser = subparser.add_subparsers(title='shipit-engine', dest='shipit_engine')
