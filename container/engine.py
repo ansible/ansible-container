@@ -240,12 +240,17 @@ def cmdrun_init(base_path, **kwargs):
     logger.info('Ansible Container initialized.')
 
 
-def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, rebuild=False,
-                 ansible_options='', **kwargs):
+def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, local_builder=False,
+                 rebuild=False, ansible_options='', **kwargs):
     engine_args = kwargs.copy()
     engine_args.update(locals())
     engine_obj = load_engine(**engine_args)
-    create_build_container(engine_obj, base_path)
+    try:
+        builder_img_id = engine_obj.get_image_id_by_tag(
+            engine_obj.builder_container_img_tag)
+    except NameError:
+        if local_builder:
+            create_build_container(engine_obj, base_path)
     with make_temp_dir() as temp_dir:
         logger.info('Starting %s engine to build your images...'
                     % engine_obj.orchestrator_name)
