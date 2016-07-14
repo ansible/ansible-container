@@ -5,7 +5,7 @@ docker-py==1.8.0
 dockerpty==0.4.1
 docopt==0.6.2
 enum34==1.1.4
-functools32==3.2.3.post2
+functools32==3.2.3-2
 idna==2.1
 ipaddress==1.0.16
 Jinja2==2.8
