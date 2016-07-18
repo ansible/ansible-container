@@ -1,1 +1,1 @@
-recursive-include container/templates *.j2 *.j2.*
+recursive-include container/templates *.j2 *.j2.* *.sh
