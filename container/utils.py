@@ -43,7 +43,7 @@ class MakeTempDir(object):
     def __enter__(self):
         self.temp_dir = tempfile.mkdtemp()
         logger.debug('Using temporary directory %s...', self.temp_dir)
-        return self.temp_dir
+        return os.path.realpath(self.temp_dir)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         try:

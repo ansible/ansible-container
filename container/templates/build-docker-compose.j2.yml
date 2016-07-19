@@ -1,7 +1,6 @@
 ansible-container:
   image: "{{ builder_img_id }}"
-  # command: "/usr/local/bin/builder.sh /usr/local/bin/ansible-playbook {% if params.debug %}-vvv{% endif %} -i /tmp/working/hosts -c docker {{ params.ansible_options }} main.yml"
-  command: /bin/bash
+  command: "/usr/local/bin/builder.sh /usr/local/bin/ansible-playbook {% if params.debug %}-vvv{% endif %} -i /etc/ansible/ansible-container-inventory.py -c docker {{ params.ansible_options }} main.yml"
   environment:
     {% if env.DOCKER_HOST %}- DOCKER_HOST{% else %}- DOCKER_HOST=unix:///tmp/docker.sock{% endif %}
     {% if env.DOCKER_TLS_VERIFY %}- DOCKER_TLS_VERIFY{% endif %}
@@ -12,6 +11,5 @@ ansible-container:
     {% if env.DOCKER_CERT_PATH %}- $DOCKER_CERT_PATH:/docker-certs/{% endif %}
     - {{ base_path }}:/ansible-container/
     {% if not env.DOCKER_HOST %}- /var/run/docker.sock:/tmp/docker.sock{% endif %}
-    - {{ temp_dir }}:/tmp/working/
   working_dir: /ansible-container/ansible/
 {{ config }}

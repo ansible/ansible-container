@@ -1,6 +1,6 @@
 ansible-container:
   image: "{{ builder_img_id }}"
-  command: /usr/local/bin/builder.sh /usr/local/bin/ansible-playbook -i /tmp/working/hosts -c docker {{ params.ansible_options }} --list-hosts main.yml
+  command: /usr/local/bin/builder.sh /usr/local/bin/ansible-playbook -i /etc/ansible/ansible-container-inventory.py -c docker {{ params.ansible_options }} --list-hosts main.yml
   environment:
     - DOCKER_HOST
     {% if env.DOCKER_TLS_VERIFY %}- DOCKER_TLS_VERIFY{% endif %}
@@ -10,7 +10,6 @@ ansible-container:
   volumes:
     {% if env.DOCKER_CERT_PATH %}- $DOCKER_CERT_PATH:/docker-certs/{% endif %}
     - {{ base_path }}:/ansible-container/
-    - {{ temp_dir }}:/tmp/working/
   working_dir: /ansible-container/ansible/
   stdin_open: true
   tty: true

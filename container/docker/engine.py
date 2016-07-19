@@ -106,6 +106,8 @@ class Engine(BaseEngine):
 
             tarball.add(os.path.join(jinja_template_path(), 'builder.sh'),
                         arcname='builder.sh')
+            tarball.add(os.path.join(jinja_template_path(), 'ansible-container-inventory.py'),
+                        arcname='ansible-container-inventory.py')
             tarball.close()
             tarball_file.close()
             tarball_file = open(tarball_path, 'rb')
@@ -301,8 +303,6 @@ class Engine(BaseEngine):
                              config=config_yaml,
                              env=os.environ,
                              **context)
-        jinja_render_to_temp('hosts.j2', temp_dir, 'hosts',
-                             hosts=self.all_hosts_in_orchestration())
         options = self.DEFAULT_COMPOSE_OPTIONS.copy()
         options.update({
             u'--verbose': self.params['debug'],
@@ -393,10 +393,14 @@ class Engine(BaseEngine):
                 try:
                     self.get_image_id_by_tag(tag)
                 except NameError:
+                    logger.info('No image found for tag %s, so building from scratch',
+                                '%s-%s:latest' % (self.project_name, service))
                     # have to rebuild this from scratch, as the image doesn't
                     # exist in the engine
                     pass
                 else:
+                    logger.debug('No NameError raised when searching for tag %s',
+                                 '%s-%s:latest' % (self.project_name, service))
                     service_config['image'] = tag
             self._fix_volumes(service, service_config)
         return compose_config
