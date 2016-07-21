@@ -25,6 +25,9 @@ class AnsibleContainerConfig(Mapping):
     def set_env(self, env):
         assert env in ['dev', 'prod']
         config = self._read_config()
+        if not config.get('services'):
+            raise AnsibleContainerConfigException("No services found in ansible/container.yml. "
+                                                  "Have you defined any services?")
         for service, service_config in config['services'].items():
             dev_overrides = service_config.pop('dev_overrides', {})
             if env == 'dev':

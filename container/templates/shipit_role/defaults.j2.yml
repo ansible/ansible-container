@@ -1,0 +1,4 @@
+---
+# defaults for {{ role_name }}
+
+playbook_debug: no

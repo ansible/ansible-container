@@ -334,11 +334,13 @@ def cmdrun_shipit(base_path, engine_name, pull_from=None, **kwargs):
         # try to get the username for the url from the container engine
         try:
             namespace = engine_obj.registry_login(url=url)
-        except:
-            raise AnsibleContainerRegistryAttributeException("Unable to determine a namespace for the registry."
-                                                             " Either provide a namespace for the registry in "
-                                                             "container.yml, or try authenticating with the "
-                                                             "registry using `docker login`.")
+        except Exception as exc:
+            if "Error while fetching server API version" in str(exc):
+                msg = "Cannot connect to the Docker daemon. Is the daemon running?"
+            else:
+                msg = "Unable to determine namespace for registry %s. Error: %s. Either authenticate with the " \
+                      "registry or provide a namespace for the registry in container.yml" % (url, str(exc))
+            raise AnsibleContainerRegistryAttributeException(msg)
 
     config = engine_obj.get_config_for_shipit(pull_from=pull_from, url=url, namespace=namespace)
 

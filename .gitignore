@@ -197,7 +197,7 @@ Vagrantfile
 
 # shipit output and testing
 roles/
-shipit_*/
+shipit_config/
 shipit*.yml
 tmp.yml
 ansible.cfg
