@@ -14,11 +14,6 @@ password, it is used as part of your credentials; otherwise, the user is prompte
 Ansible Container performs a login for you. The credentials are stored in
 your container engine's configuration for future use.
 
-.. option:: --url <url>
-
-The URL of the container image registry to which you wish to push. By default, this is
-the public Docker registry.
-
 .. option:: --username <username>
 
 The username to use when logging into the registry.
@@ -31,15 +26,8 @@ The email address associated with your username in the registry.
 
 The password used to authenticate your user with the registry.
 
-.. opton:: --namespace <namespace>
-
-A namespace within the registry. The namespace is prepended to the name of image. Defaults to username.
-
 .. option:: --push-to <registry name>
 
-A name defined in the *registries* key within container.yml. Use in place of --namespace and --url.
-
-
-
-
+Pass either a name defined in the *registries* key within container.yml or the actual URL the cluster will use to
+push images. If passing a URL, an example would be 'https://registry.example.com:5000/myproject'.
 

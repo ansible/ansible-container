@@ -1,6 +1,6 @@
 ansible-container:
   image: "{{ builder_img_id }}"
-  command: "/usr/local/bin/builder.sh /usr/local/bin/ansible-playbook {% if params.debug %}-vvv{% endif %} -i /etc/ansible/ansible-container-inventory.py -c docker {{ params.ansible_options }} main.yml"
+  command: "/usr/local/bin/builder.sh /usr/local/bin/ansible-playbook {% if params.debug %}-vvv{% endif %} -i /etc/ansible/ansible-container-inventory.py -c docker {{ params.ansible_options | join(' ')  }} main.yml"
   environment:
     {% if env.DOCKER_HOST %}- DOCKER_HOST{% else %}- DOCKER_HOST=unix:///tmp/docker.sock{% endif %}
     {% if env.DOCKER_TLS_VERIFY %}- DOCKER_TLS_VERIFY{% endif %}
@@ -8,8 +8,8 @@ ansible-container:
     - COMPOSE_HTTP_TIMEOUT=3000
     - DOCKER_API_VERSION={{ api_version }}
   volumes:
-    {% if env.DOCKER_CERT_PATH %}- $DOCKER_CERT_PATH:/docker-certs/{% endif %}
-    - {{ base_path }}:/ansible-container/
-    {% if not env.DOCKER_HOST %}- /var/run/docker.sock:/tmp/docker.sock{% endif %}
+    {% if env.DOCKER_CERT_PATH %}- $DOCKER_CERT_PATH:/docker-certs/:Z{% endif %}
+    - {{ base_path }}:/ansible-container/:Z
+    {% if not env.DOCKER_HOST %}- /var/run/docker.sock:/tmp/docker.sock:Z{% endif %}
   working_dir: /ansible-container/ansible/
 {{ config }}
