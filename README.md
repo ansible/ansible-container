@@ -4,14 +4,19 @@
 # Ansible Container
 
 Ansible Container is a tool to build Docker images and orchestrate containers 
-using only Ansible playbooks. It does this by building a container from which
-to execute Ansible and connects to your other containers via the Docker engine
-instead of SSH.
+using only Ansible playbooks. 
 
-And when you're ready to deploy to the cloud, use Ansible Container's *shipit* 
-command to generate an Ansible Role that deploys your application. The role is 
-generated from your project's orchestration file, leveraging the time
-and work already invested.
+# How it works
+
+The "init" command creates your project.
+
+The "build" command creates images from the Ansible playbooks included in the project.
+
+The "run" command launches all of the containers from the images built.
+
+The "push" command pushes those images to a container registry of your choice.
+
+The "shipit" command will export the necessary playbooks and roles to deploy your containers to a supported cloud provider.
 
 ## To install Ansible Container
 
