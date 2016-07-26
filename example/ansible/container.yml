@@ -16,8 +16,6 @@ services:
     options:
       kube:
         runAsUser: 1000
-      openshift:
-        runAsUser: 1000
   static:
     image: centos:7
     ports:
@@ -31,8 +29,6 @@ services:
       command: 'bin/false'
     options:
       kube:
-        runAsUser: 997
-      openshift:
         runAsUser: 997
   postgresql:
     image: postgres:9.4
@@ -59,8 +55,6 @@ services:
         - "$PWD:/node"
     options:
       kube:
-        state: absent
-      openshift:
         state: absent
 
 registries: {}
