@@ -160,8 +160,8 @@ Shipit - Build the Deployment Role
 Next, run the *shipit* command to generate the role and playbook needed to deploy the application to Kubernetes.
 
 The cluster needs to know from where to pull the application's images. In the previous step the images were pushed to Google
-Container Registry. The combination of the registry URL *https://us.gcr.io* plus your <Project ID> provides the
-path from which images are pulled. Use the --pull-from option to pass this path to the *shipit* command.
+Container Registry. The combination of the registry URL, *https://us.gcr.io*, plus your <Project ID> provides the
+path from which images are pulled. Use the *--pull-from* option to pass this path to the *shipit* command.
 
 Additionally, the *shipit* command needs to know which cloud provider to use. In this case Kubernetes is being used, so the
 cloud option is *kube*.
