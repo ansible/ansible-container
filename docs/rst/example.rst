@@ -10,7 +10,8 @@ The ``container.yml`` file in this example project outlines four services:
 
 .. literalinclude:: ../../example/ansible/container.yml
 
-Each of these containers uses CentOS 7 as its base image.
+All of these containers uses CentOS 7 as their base image, except PostgreSQL, which uses a stock
+image from Docker Hub.
 
 The production configuration has NGINX as the outward facing web server, serving
 the static assets, both collected from the Django project and built by gulp from
@@ -48,8 +49,7 @@ Note that to copy the project's source into the Django container, it runs ``pwd`
 pipe, so that the project's directory inside of the Ansible builder container can be
 properly resolved.
 
-After setting up PostgreSQL and instructing it to accept authenticated connections
-from remote hosts, the playbook runs the Django database migrations. The ``container.yml``
+After PostgreSQL has initialized, the playbook runs the Django database migrations. The ``container.yml``
 file instructs PostgreSQL to store its data in a local volume, and Ansible Container
 uses that volume for both the ``build`` and ``run`` operations.
 

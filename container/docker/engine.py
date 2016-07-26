@@ -26,6 +26,7 @@ from ..exceptions import (AnsibleContainerNotInitializedException,
 
 from ..engine import BaseEngine, REMOVE_HTTP
 from ..utils import *
+from .. import __version__ as release_version
 from .utils import *
 
 if not os.environ.get('DOCKER_HOST'):
@@ -101,16 +102,20 @@ class Engine(BaseEngine):
                                  'Dockerfile')
             tarball.add(os.path.join(temp_dir, 'Dockerfile'),
                         arcname='Dockerfile')
-            jinja_render_to_temp('hosts.j2', temp_dir, 'hosts',
-                                 hosts=self.config.get('services', {}).keys())
-            tarball.add(os.path.join(temp_dir, 'hosts'), arcname='hosts')
+
+            tarball.add(os.path.join(jinja_template_path(), 'builder.sh'),
+                        arcname='builder.sh')
+            tarball.add(os.path.join(jinja_template_path(), 'ansible-container-inventory.py'),
+                        arcname='ansible-container-inventory.py')
             tarball.close()
             tarball_file.close()
             tarball_file = open(tarball_path, 'rb')
             logger.info('Starting Docker build of Ansible Container image (please be patient)...')
             return client.build(fileobj=tarball_file,
-                                 custom_context=True,
-                                 tag=self.builder_container_img_tag)
+                                custom_context=True,
+                                tag=self.builder_container_img_tag,
+                                nocache=True,
+                                rm=True)
 
     def get_image_id_by_tag(self, name):
         """
@@ -273,8 +278,12 @@ class Engine(BaseEngine):
         :return: The exit status of the builder container (None if it wasn't run)
         """
         self.temp_dir = temp_dir
-        builder_img_id = self.get_image_id_by_tag(
-            self.builder_container_img_tag)
+        try:
+            builder_img_id = self.get_image_id_by_tag(
+                self.builder_container_img_tag)
+        except NameError:
+            builder_img_id = 'ansible/%s:%s' % (self.builder_container_img_tag,
+                                                release_version)
         extra_options = getattr(self, 'orchestrate_%s_extra_args' % operation)()
         config = getattr(self, 'get_config_for_%s' % operation)()
         logger.debug('%s' % (config,))
@@ -284,7 +293,7 @@ class Engine(BaseEngine):
         jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
                              temp_dir,
                              'docker-compose.yml',
-                             hosts=self.config.get('services', {}).keys(),
+                             hosts=self.all_hosts_in_orchestration(),
                              project_name=self.project_name,
                              base_path=self.base_path,
                              params=self.params,
@@ -295,6 +304,7 @@ class Engine(BaseEngine):
                              **context)
         options = self.DEFAULT_COMPOSE_OPTIONS.copy()
         options.update({
+            u'--verbose': self.params['debug'],
             u'--file': [
                 os.path.join(temp_dir,
                              'docker-compose.yml')],
@@ -382,10 +392,14 @@ class Engine(BaseEngine):
                 try:
                     self.get_image_id_by_tag(tag)
                 except NameError:
+                    logger.info('No image found for tag %s, so building from scratch',
+                                '%s-%s:latest' % (self.project_name, service))
                     # have to rebuild this from scratch, as the image doesn't
                     # exist in the engine
                     pass
                 else:
+                    logger.debug('No NameError raised when searching for tag %s',
+                                 '%s-%s:latest' % (self.project_name, service))
                     service_config['image'] = tag
             self._fix_volumes(service, service_config)
         return compose_config
@@ -410,6 +424,8 @@ class Engine(BaseEngine):
         for service, service_config in compose_config.items():
             service_config.update(
                 dict(
+                    user='root',
+                    working_dir='/',
                     command='sh -c "while true; do sleep 1; done"'
                 )
             )

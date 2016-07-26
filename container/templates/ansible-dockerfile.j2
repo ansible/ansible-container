@@ -9,10 +9,7 @@ RUN apt-get update -y && \
     apt-get install -y python-setuptools git python-pip docker-engine && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-ADD hosts  /etc/ansible/inventory/hosts
-ADD ansible /ansible-tmp/
-# RUN pip install -q --no-cache-dir 'ansible=={{ ansible_version }}'
-RUN pip install -q --no-cache-dir -e git+https://github.com/ansible/ansible.git@devel#egg=ansible
-RUN test '(! -f /ansible-tmp/requirements.txt)' || pip install --no-cache-dir -r /ansible-tmp/requirements.txt
-RUN rm -rf /ansible-tmp/
-VOLUME /src
+ADD builder.sh /usr/local/bin/builder.sh
+ADD ansible-container-inventory.py /etc/ansible/ansible-container-inventory.py
+RUN pip install -q --no-cache-dir ansible==2.1.0.0 PyYAML==3.11
+

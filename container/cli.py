@@ -73,6 +73,9 @@ def subcmd_build_parser(parser, subparser):
                                 u'playbook against the base image, rebuilding them '
                                 u'from scratch.',
                            dest='rebuild', default=False)
+    subparser.add_argument('--local-builder', action='store_true',
+                           help=u'Instead of using the Ansible Builder Container '
+                                u'image from Docker Hub, generate one locally.')
     subparser.add_argument('ansible_options', action='store',
                            help=u'Provide additional commandline arguments to '
                                 u'Ansible in executing your playbook. If you '

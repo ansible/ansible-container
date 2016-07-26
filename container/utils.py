@@ -43,7 +43,7 @@ class MakeTempDir(object):
     def __enter__(self):
         self.temp_dir = tempfile.mkdtemp()
         logger.debug('Using temporary directory %s...', self.temp_dir)
-        return self.temp_dir
+        return os.path.realpath(self.temp_dir)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         try:
@@ -66,7 +66,7 @@ def jinja_render_to_temp(template_file, temp_dir, dest_file, **context):
     j2_tmpl_path = jinja_template_path()
     j2_env = Environment(loader=FileSystemLoader(j2_tmpl_path))
     j2_tmpl = j2_env.get_template(template_file)
-    rendered = j2_tmpl.render(context)
+    rendered = j2_tmpl.render(dict(temp_dir=temp_dir, **context))
     logger.debug('Rendered Jinja Template:')
     logger.debug(rendered.encode('utf8'))
     open(os.path.join(temp_dir, dest_file), 'w').write(
