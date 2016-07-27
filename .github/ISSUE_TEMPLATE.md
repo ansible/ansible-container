@@ -19,8 +19,10 @@
 ```
 
 ##### OS / ENVIRONMENT
-<!--- Mention the OS you are running Ansible Container on. -->
+<!--- Paste output from `ansible-container --debug version` between the quotes below -->
+```
 
+```
 ##### SUMMARY
 <!--- Explain the problem briefly -->
 
