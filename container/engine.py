@@ -268,7 +268,7 @@ def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, local_bu
             logger.info('Cleaning up Ansible Container builder...')
             builder_container_id = engine_obj.get_builder_container_id()
             engine_obj.remove_container_by_id(builder_container_id)
-            return
+            raise RuntimeError(u'Ansible build failed')
         # Cool - now export those containers as images
         version = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
         logger.info('Exporting built containers as images...')
