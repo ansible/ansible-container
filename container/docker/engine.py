@@ -11,6 +11,7 @@ import tarfile
 import getpass
 import json
 import base64
+import pprint
 
 import docker
 from docker.client import errors as docker_errors
@@ -652,4 +653,7 @@ class Engine(BaseEngine):
             self.api_version = self._client.version()['ApiVersion']
         return self._client
 
-
+    def print_version_info(self):
+        client = self.get_client()
+        pprint.pprint(client.info())
+        pprint.pprint(client.version())
