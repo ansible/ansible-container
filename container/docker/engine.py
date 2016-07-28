@@ -283,8 +283,9 @@ class Engine(BaseEngine):
             builder_img_id = self.get_image_id_by_tag(
                 self.builder_container_img_tag)
         except NameError:
+            image_version = '.'.join(release_version.split('.')[:2])
             builder_img_id = 'ansible/%s:%s' % (self.builder_container_img_tag,
-                                                release_version)
+                                                image_version)
         extra_options = getattr(self, 'orchestrate_%s_extra_args' % operation)()
         config = getattr(self, 'get_config_for_%s' % operation)()
         logger.debug('%s' % (config,))
