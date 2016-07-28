@@ -8,10 +8,12 @@ logger = logging.getLogger(__name__)
 import os
 import datetime
 import re
+import sys
 
 from .exceptions import AnsibleContainerAlreadyInitializedException, \
                         AnsibleContainerRegistryAttributeException
 from .utils import *
+from . import __version__
 
 REMOVE_HTTP = re.compile('^https?://')
 
@@ -221,6 +223,13 @@ class BaseEngine(object):
         '''
         raise NotImplementedError()
 
+    def print_version_info(self):
+        '''
+        Output to stdout version information about this engine and orchestrator.
+
+        :return: None
+        '''
+
 
 def cmdrun_init(base_path, **kwargs):
     container_dir = os.path.normpath(
@@ -259,7 +268,7 @@ def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, local_bu
             logger.info('Cleaning up Ansible Container builder...')
             builder_container_id = engine_obj.get_builder_container_id()
             engine_obj.remove_container_by_id(builder_container_id)
-            return
+            raise RuntimeError(u'Ansible build failed')
         # Cool - now export those containers as images
         version = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
         logger.info('Exporting built containers as images...')
@@ -363,6 +372,16 @@ def cmdrun_shipit(base_path, engine_name, pull_from=None, **kwargs):
         config_path = shipit_engine_obj.save_config()
         logger.info('Saved configuration to %s' % config_path)
 
+def cmdrun_version(base_path, engine_name, debug=False, **kwargs):
+    print 'Ansible Container, version', __version__
+    if debug:
+        print u', '.join(os.uname())
+        print sys.version, sys.executable
+        assert_initialized(base_path)
+        engine_args = kwargs.copy()
+        engine_args.update(locals())
+        engine_obj = load_engine(**engine_args)
+        engine_obj.print_version_info()
 
 def create_build_container(container_engine_obj, base_path):
     assert_initialized(base_path)

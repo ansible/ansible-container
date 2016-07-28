@@ -8,20 +8,45 @@ Installation
 Getting Ansible Container
 `````````````````````````
 
-Since this project is in pre-release, the best option for obtaining Ansible Container is to run from source.
+Prerequisites:
+
+* Python 2.7
+* `pip <https://pip.pypa.io/en/stable/installing/>`_
+* `setuptools 20.0.0+ <https://pypi.python.org/pypi/setuptools>`_
+* `Docker 1.11 <https://docs.docker.com/engine/installation/>`_ or access to a Docker daemon. If you're installing Docker Engine or accessing a remote Docker daemon, see :ref:`configure_docker`.
+
+Then simply:
+
+.. code-block:: bash
+
+    $ sudo pip install ansible-container
+
+If you do not have root privileges, you'll need to use a `virtualenv` to create a Python sandbox:
+
+.. code-block:: bash
+
+    $ virtualenv ansible-container
+    $ source ansible-container/bin/activate
+    $ pip install ansible-container
+
+You'll need to run the `activate` script in each shell session prior to invoking `ansible-container`.
+See `the virtualenv docs <https://virtualenv.pypa.io/en/stable/>`_ for details.
+
+
+Then you can move on to :ref:`configure_docker` to work with Ansible Container.
 
 .. _running_from_source:
 
 Running from Source
 ```````````````````
+
+If you'd like to run the bleeding edge version of Ansible Container, you can obtain it
+from our Github repository.
+
 Prerequisites:
 
-* Python 2.7
-* `pip <https://pip.pypa.io/en/stable/installing/>`_ 
-* `setuptools 20.0.0+ <https://pypi.python.org/pypi/setuptools>`_
+* All of the prerequisites listed in :ref:`getting_ansible_container`
 * `git <https://git-scm.com/book/en/v2/Getting-Started-Installing-Git>`_
-* `Docker 1.11 <https://docs.docker.com/engine/installation/>`_ or access to a Docker daemon. If you're installing Docker
-  Engine or accessing a remote Docker daemon, see :ref:`configure_docker`.
 
 Clone the repo:
 
@@ -61,6 +86,7 @@ Use the following to upgrade to the latest release, and then run the install com
 
     $ pip install --upgrade setuptools
 
+You may need to run the above command with `sudo` if you're not using a `virtualenv`.
 
 .. _configure_docker:
 

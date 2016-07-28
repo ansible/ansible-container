@@ -48,6 +48,7 @@ LOGGING = {
 
 
 AVAILABLE_COMMANDS = {'help': 'Display this help message',
+                      'version': 'Display Ansible Container version information',
                       'init': 'Initialize a new Ansible Container project',
                       'build': 'Build new images based on ansible/container.yml',
                       'run': 'Run and orchestrate built images based on container.yml',
@@ -111,6 +112,8 @@ def subcmd_push_parser(parser, subparser):
                                  u'"https://registry.example.com:5000/myproject"'),
                            dest='push_to', default=None)
 
+def subcmd_version_parser(parser, subparser):
+    return
 
 def subcmd_shipit_parser(parser, subparser):
     se_subparser = subparser.add_subparsers(title='shipit-engine', dest='shipit_engine')
@@ -118,7 +121,6 @@ def subcmd_shipit_parser(parser, subparser):
         engine_parser = se_subparser.add_parser(engine_name, help=engine['help'])
         engine_obj = load_shipit_engine(engine['cls'], base_path=os.getcwd())
         engine_obj.add_options(engine_parser)
-
 
 def commandline():
     parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '
@@ -144,7 +146,7 @@ def commandline():
         parser.print_help()
         sys.exit(0)
 
-    if args.debug:
+    if args.debug and args.subcommand != 'version':
         LOGGING['loggers']['container']['level'] = 'DEBUG'
     config.dictConfig(LOGGING)
 

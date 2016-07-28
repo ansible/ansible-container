@@ -71,7 +71,18 @@ the playbook needs to ``fetch`` the compiled for delivery to the NGINX container
 Finally, the NGINX container is configured and given a ``copy`` of the Django
 and gulp-compiled assets in their proper paths.
 
+Run it for yourself
+-------------------
 
+To see it in action, the workflow is simple.
+
+1. `ansible-container build` - Running this will fetch the `ansible-container-builder` image
+   from the Docker Hub registry and use it to apply your playbook to your base images. You'll
+   end up with committed, built images in your local Docker engine at the end of a successful
+   build.
+2. `ansible-container run` - Running this will orchestrate your built and downloaded containers
+   using your runtime configuration with development overrides. You can access the example Django
+   server at `http://ip-address-of-your-docker-engine/admin/`
 
 
 
