@@ -5,7 +5,7 @@ Pushing Images
 ''''''''''''''
 
 When pushing images with Ansible Container you can authenticate with the registry by passing your credentials using the
-*--useername* and *--password* options. On successful authentication your credentials are encrypted and stored in
+*--username* and *--password* options. On successful authentication your credentials are encrypted and stored in
 ~/.docker/config.json, exactly as if you had authenticated using `docker login`.
 
 Each time images are pushed to the registry Ansible Container needs to know the URL of the registry and the namespace of the
