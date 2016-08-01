@@ -52,7 +52,7 @@ Troubleshooting kubectl Setup
 -----------------------------
 
 If you see: *ERROR: (gcloud.container.clusters.get-credentials) There was a problem refreshing your current auth tokens: invalid_grant*,
-run the following to authrorize access to your Google account. It will open a browser window, ask you to select your Google account,
+run the following to authorize access to your Google account. It will open a browser window, ask you to select your Google account,
 and ask you to grant access.
 
 .. code-block:: bash
