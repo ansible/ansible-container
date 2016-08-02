@@ -91,7 +91,7 @@ def subcmd_run_parser(parser, subparser):
     subparser.add_argument('--production', action='store_true',
                            help=u'Run the production configuration locally',
                            default=False, dest='production')
-    subparser.add_argument('-d', action='store_true',
+    subparser.add_argument('-d', '--detached', action='store_true',
                            help=u'Deploy application in detached mode',
                            dest='detached')
 
