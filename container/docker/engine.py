@@ -511,6 +511,11 @@ class Engine(BaseEngine):
         previous_image_id, previous_image_buildstamp = get_latest_image_for(
             self.project_name, host, client
         )
+        image_config = dict(
+            USER=self.config['services'][host].get('user', 'root'),
+            WORKDIR=self.config['services'][host].get('working_dir', '/'),
+            CMD=self.config['services'][host].get('command', '')
+        )
         if flatten:
             logger.info('Flattening image...')
             exported = client.export(container_id)
@@ -523,8 +528,11 @@ class Engine(BaseEngine):
             client.commit(container_id,
                           repository='%s-%s' % (self.project_name, host),
                           tag=version,
-                          message='Built using Ansible Container'
-                          )
+                          message='Built using Ansible Container',
+                          changes=u'\n'.join(
+                              [u'%s %s' % (k, unicode(v))
+                               for k, v in image_config.items()]
+                          ))
         image_id, = client.images(
             '%s-%s:%s' % (self.project_name, host, version),
             quiet=True
