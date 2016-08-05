@@ -22,14 +22,14 @@ playbook against it. That way, if a build fails, you're not starting from zero w
 With this option, Ansible Container starts with fresh copies of your base images and
 rebuilds from zero.
 
-.. option:: --no-purge-latest
+.. option:: --no-purge-last
 
 By default, upon successful completion of a build, the previously latest builds for
 your hosts are deleted and purged from the engine. Specifying this option, the prior builds
 are retained.
 
 .. option:: <ansible_options>
-
+l
 You may also provide additional commandline arguments to give Ansible in executing your
 playbook. Use this option with care, as there is no real sanitation or validation of
 your input. It is recommended you only use this option to limit the hosts you build
