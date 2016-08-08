@@ -283,9 +283,8 @@ class Engine(BaseEngine):
         :param hosts: (optional) A list of hosts to limit orchestration to
         :return: The exit status of the builder container (None if it wasn't run)
         """
-        if 'detached' in self.params:
-            if self.params['detached']:
-                detached = True
+        if self.params.get('detached'):
+            is_detached = True
             del self.params['detached']
 
         self.temp_dir = temp_dir
@@ -327,7 +326,7 @@ class Engine(BaseEngine):
         command_options = self.DEFAULT_COMPOSE_UP_OPTIONS.copy()
         command_options[u'--no-build'] = True
         command_options[u'SERVICE'] = hosts
-        if 'detached' in locals():
+        if locals().get('is_detached'):
             logger.info('Deploying application in detached mode')
             command_options[u'-d'] = True
         command_options.update(extra_options)
