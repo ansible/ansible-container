@@ -97,7 +97,7 @@ Docker Machine environment is active in your shell session.
 
 If you're not using Docker Machine, you'll still need `Docker Engine <https://docs.docker.com/engine/installation/>`_
 installed. By default, Docker Engine comes set to only listen on a UNIX socket. It is recommended that you configure
-your Docker Engine for TLS-secured TCP, however it is not strictly-speaking necessary.
+your Docker Engine for TLS-secured TCP, however it is not strictly necessary.
 
 To use Ansible Container with Docker Engine's UNIX socket, simply ensure the ``DOCKER_HOST`` environment variable is unset.
 
@@ -106,16 +106,17 @@ To use Ansible Container with Docker Engine's UNIX socket, simply ensure the ``D
 Enabling TCP for Docker Engine
 ------------------------------
 After `installing Docker engine <https://docs.docker.com/engine/installation/>`_ the daemon is accessible via a Unix
-socket that restricts access to the local root user. Using Ansible Container requires changing this so that the Docker
-daemon is accessible via TCP.
+socket that restricts access to the local root user. Ansible Container can communicate with the Docker daemon using the 
+Unix socket, however allowing access over a TCP connection may be desirable. 
 
 You can simply change the -H option in the startup options of the Docker daemon service, setting it to
 *tcp://<host IP address>:2376* and giving access to everyone. This is **NOT recommended** because it will be
 trivial for anyone to gain root access to the host. Instead, we recommend securing the Docker daemon.
 See :ref:`secure_docker` below.
 
-For ansible-container to work the Docker daemon must be set to listen on an IP address assigned to the host **NOT**
-127.0.0.1. This is because the daemon must be accessible remotely from the Ansible build container.
+For ansible-container to access the daemon via a TCP connection, the daemon must be set to listen on an IP address 
+assigned to the host **NOT** 127.0.0.1. This is because the daemon must be accessible remotely by the Ansible build
+container.
 
 To access the Docker daemon define the DOCKER_HOST environment variable in the user's environment so that it matches the
 -H setting of the Docker daemon:
