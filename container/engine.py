@@ -163,6 +163,23 @@ class BaseEngine(object):
         """
         raise NotImplementedError()
 
+    def terminate(self, operation, temp_dir, hosts=[]):
+        """
+        Stop, remove containers deployed by `orchestrate`.
+
+        :return: dictionary
+        """
+        raise NotImplementedError()
+
+    def terminate_stop_extra_args(self):
+        """
+        Provide extra arguments to provide the orchestrator during stop.
+
+        :return: dictionary
+        """
+        return NotImplementedError
+
+
     def post_build(self, host, version, flatten=True, purge_last=True):
         """
         After orchestrated build, prepare an image from the built container.
@@ -288,6 +305,16 @@ def cmdrun_run(base_path, engine_name, service=[], production=False, **kwargs):
         hosts = service or (engine_obj.all_hosts_in_orchestration())
         engine_obj.orchestrate('run', temp_dir,
                                hosts=hosts)
+
+
+def cmdrun_stop(base_path, engine_name, service=[], **kwargs):
+    assert_initialized(base_path)
+    engine_args = kwargs.copy()
+    engine_args.update(locals())
+    engine_obj = load_engine(**engine_args)
+    with make_temp_dir() as temp_dir:
+        hosts = service or (engine_obj.all_hosts_in_orchestration())
+        engine_obj.terminate('stop', temp_dir, hosts=hosts)
 
 
 def cmdrun_push(base_path, engine_name, username=None, password=None, email=None, push_to=None, **kwargs):
