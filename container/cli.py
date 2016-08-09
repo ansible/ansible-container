@@ -53,6 +53,7 @@ AVAILABLE_COMMANDS = {'help': 'Display this help message',
                       'build': 'Build new images based on ansible/container.yml',
                       'run': 'Run and orchestrate built images based on container.yml',
                       'stop': 'Stop the services defined in container.yml, if deployed',
+                      'restart': 'Restart the services defined in container.yml',
                       'push': 'Push your built images to a Docker Hub compatible registry',
                       'shipit': 'Generate a deployment playbook to your cloud of choice.'}
 
@@ -117,6 +118,11 @@ def subcmd_stop_parser(parser, subparser):
     subparser.add_argument('-f', '--force', action='store_true',
                            help=u'Force stop running containers',
                            dest='force')
+
+def subcmd_restart_parser(parser, subparser):
+    subparser.add_argument('service', action='store',
+                           help=u'The specific services you want to restart',
+                           nargs='*')
 
 def subcmd_help_parser(parser, subparser):
     return
