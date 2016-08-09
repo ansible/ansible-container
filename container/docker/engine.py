@@ -269,6 +269,11 @@ class Engine(BaseEngine):
         u'SERVICE': []
     }
 
+    DEFAULT_COMPOSE_STOP_OPTIONS = {
+        u'--timeout': None,
+        u'SERVICE': []
+    }
+
     def orchestrate(self, operation, temp_dir, hosts=[], context={}):
         """
         Execute the compose engine.
@@ -278,6 +283,10 @@ class Engine(BaseEngine):
         :param hosts: (optional) A list of hosts to limit orchestration to
         :return: The exit status of the builder container (None if it wasn't run)
         """
+        if self.params.get('detached'):
+            is_detached = True
+            del self.params['detached']
+
         self.temp_dir = temp_dir
         try:
             builder_img_id = self.get_image_id_by_tag(
@@ -317,6 +326,9 @@ class Engine(BaseEngine):
         command_options = self.DEFAULT_COMPOSE_UP_OPTIONS.copy()
         command_options[u'--no-build'] = True
         command_options[u'SERVICE'] = hosts
+        if locals().get('is_detached'):
+            logger.info('Deploying application in detached mode')
+            command_options[u'-d'] = True
         command_options.update(extra_options)
         project = project_from_options(self.base_path, options)
         command = main.TopLevelCommand(project)
@@ -339,6 +351,14 @@ class Engine(BaseEngine):
         """
         return {}
 
+    def terminate_stop_extra_args(self):
+        """
+        Provide extra arguments to provide the orchestrator during stop.
+
+        :return: dictionary
+        """
+        return {}
+
     def orchestrate_galaxy_extra_args(self):
         """
         Provide extra arguments to provide the orchestrator during galaxy calls.
@@ -354,6 +374,41 @@ class Engine(BaseEngine):
         :return: dictionary
         """
         return {'--no-color': True}
+
+    def terminate(self, operation, temp_dir, hosts=[]):
+        self.temp_dir = temp_dir
+        extra_options = getattr(self, 'terminate_%s_extra_args' % operation)()
+        config = getattr(self, 'get_config_for_%s' % operation)()
+        logger.debug('%s' % (config,))
+        config_yaml = yaml_dump(config)
+        logger.debug('Config YAML is')
+        logger.debug(config_yaml)
+        jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
+                             temp_dir,
+                             'docker-compose.yml',
+                             hosts=self.all_hosts_in_orchestration(),
+                             project_name=self.project_name,
+                             base_path=self.base_path,
+                             params=self.params,
+                             api_version=self.api_version,
+                             config=config_yaml,
+                             env=os.environ)
+        options = self.DEFAULT_COMPOSE_OPTIONS.copy()
+        options.update({
+            u'--verbose': self.params['debug'],
+            u'--file': [
+                os.path.join(temp_dir,
+                             'docker-compose.yml')],
+            u'COMMAND': 'stop',
+            u'--project-name': 'ansible'
+        })
+        command_options = self.DEFAULT_COMPOSE_STOP_OPTIONS.copy()
+        command_options[u'SERVICE'] = hosts
+        command_options.update(extra_options)
+        project = project_from_options(self.base_path, options)
+        command = main.TopLevelCommand(project)
+        command.stop(command_options)
+
 
     def _fix_volumes(self, service_name, service_config):
         # If there are volumes defined for this host, we need to create the
@@ -419,6 +474,10 @@ class Engine(BaseEngine):
                     )
                 )
             self._fix_volumes(service, service_config)
+        return compose_config
+
+    def get_config_for_stop(self):
+        compose_config = config_to_compose(self.config)
         return compose_config
 
     def get_config_for_listhosts(self):
