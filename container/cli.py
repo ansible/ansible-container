@@ -86,6 +86,10 @@ def subcmd_build_parser(parser, subparser):
                            help=u'Define one or more environment variables in the Ansible '
                                 u'Builder Container. Format is key=value. Separate multiple pairs'
                                 u'with a space.')
+    subparser.add_argument('--save-build-container', action='store_true',
+                           help=u'Leave the build container untouched on build completion. Normally '
+                                u'the build is removed after the build completes. Use for debugging '
+                                u'and testing.', default=False)
     subparser.add_argument('ansible_options', action='store',
                            help=u'Provide additional commandline arguments to '
                                 u'Ansible in executing your playbook. If you '
