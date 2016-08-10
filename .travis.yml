@@ -9,7 +9,7 @@ before_install:
   - sudo apt-add-repository 'deb http://archive.ubuntu.com/ubuntu trusty-backports universe'
   - sudo apt-get update -qq
   - sudo apt-get install -y shellcheck
-  - sudo apt-get install -y -o Dpkg::Options::="--force-confold" docker-engine
+  - sudo apt-get install -y -o Dpkg::Options::="--force-confold" docker-engine=1.11.2~trusty
 
 install:
   - pip install -r requirements.txt -r test/requirements.txt

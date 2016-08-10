@@ -26,13 +26,12 @@
     - name: Update cache again
       apt: update_cache=yes
 
-    - name: Install apt packages
+    - name: Install docker engine
+      apt: name=docker-engine version=1.11.2-0~jessie
+
+    - name: Install other packages 
       apt: name="{{ item }}"
       with_items:
-        # - python-setuptools
-        # - python-dev
-        # - python-pip
-        - docker-engine
         - shellcheck
 
     - name: Install python packages 
