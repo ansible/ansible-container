@@ -18,11 +18,8 @@ script:
   - python setup.py develop
   - docker version
   - docker-compose version
-  - export ANSIBLE_CONTAINER_PATH=${PWD}
-  - cd test/local
-  - ansible-container build --with-variables ANSIBLE_CONTAINER_PATH=${ANSIBLE_CONTAINER_PATH} 
-  - docker images
-  - ansible-container run 
+  - docker info
+  - test/run.sh  
 
 after_success:
   - bash <(curl -s https://codecov.io/bash) -F unit        -f test/reports/unit/coverage.xml
