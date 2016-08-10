@@ -407,7 +407,10 @@ class Engine(BaseEngine):
         command_options.update(extra_options)
         project = project_from_options(self.base_path, options)
         command = main.TopLevelCommand(project)
-        command.stop(command_options)
+        if self.params.get('force'):
+            command.kill(command_options)
+        else:
+            command.stop(command_options)
 
 
     def _fix_volumes(self, service_name, service_config):
