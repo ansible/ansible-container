@@ -78,6 +78,11 @@ def subcmd_build_parser(parser, subparser):
     subparser.add_argument('--local-builder', action='store_true',
                            help=u'Instead of using the Ansible Builder Container '
                                 u'image from Docker Hub, generate one locally.')
+    subparser.add_argument('--with-volumes', action='append', nargs='+',
+                           help=u'Mount one or more volumes to the Ansible Builder Container.'
+                                u'Separate volumes with commas. Format volumes as: '
+                                u'/path/to/mount:/container/mount[:permissions]. Permissions '
+                                u'can be one of: ro, rw, z, Z.')
     subparser.add_argument('ansible_options', action='store',
                            help=u'Provide additional commandline arguments to '
                                 u'Ansible in executing your playbook. If you '

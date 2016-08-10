@@ -266,6 +266,7 @@ def cmdrun_init(base_path, **kwargs):
 
 def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, local_builder=False,
                  rebuild=False, ansible_options='', **kwargs):
+
     engine_args = kwargs.copy()
     engine_args.update(locals())
     engine_obj = load_engine(**engine_args)
@@ -279,7 +280,13 @@ def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, local_bu
         logger.info('Starting %s engine to build your images...'
                     % engine_obj.orchestrator_name)
         touched_hosts = engine_obj.hosts_touched_by_playbook()
-        engine_obj.orchestrate('build', temp_dir, context=dict(rebuild=rebuild))
+        with_volumes = []
+        if kwargs.get('with_volumes'):
+            for vol in kwargs.pop('with_volumes'):
+                with_volumes += vol
+            logger.debug("volumes: %s" % ','.join(with_volumes))
+        engine_obj.orchestrate('build', temp_dir, context=dict(rebuild=rebuild,
+                                                               with_volumes=with_volumes))
         if not engine_obj.build_was_successful():
             logger.error('Ansible playbook run failed.')
             logger.info('Cleaning up Ansible Container builder...')
