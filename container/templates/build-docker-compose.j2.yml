@@ -7,7 +7,9 @@ ansible-container:
     {% if env.DOCKER_CERT_PATH %}- DOCKER_CERT_PATH=/docker-certs/{% endif %}
     - COMPOSE_HTTP_TIMEOUT=3000
     - DOCKER_API_VERSION={{ api_version }}
-    {% if with_variables %}{% for env_var in with_variables %}- {{ env_var }}{% endfor %}{% endif %}
+    {% if with_variables %}{% for env_var in with_variables %}
+    - {{ env_var }}
+    {% endfor %}{% endif %}
   volumes:
     {% if env.DOCKER_CERT_PATH %}- $DOCKER_CERT_PATH:/docker-certs/:Z{% endif %}
     - {{ base_path }}:/ansible-container/:Z
