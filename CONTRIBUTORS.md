@@ -11,11 +11,16 @@ clear in the title, and be sure to look through the issues just in case someone 
 
 ## Pull requests
 
-Pull requests are always welcome. We may not necessarily accept them, but we will happy to discuss them with you.
+Pull requests are always welcome. We may not necessarily accept them, but we will happy to discuss them with you. Please
+observe the following when submitting a PR:
+
+- Follow the [gitflow](ihttps://github.com/nvie/gitflow) branching model.
+- Submit PRs against the *develop* branch.
+- New features should include unit and integration tests. 
 
 ## Provide examples
 
 Examples of working Ansible Container playbooks will be very useful! Please feel free to provide Pull Requests linking
-to examples from your own repos in [EXAMPLES.md](./EXAMPLES.md).
+to examples from your own repos in [EXAMPLES.md](./EXAMPLES.md) or submit them to [ansible-container-examples](https://github.com/ansible/ansible-container-examples).
 
 Thanks for trying out Ansible Container!
