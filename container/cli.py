@@ -80,16 +80,15 @@ def subcmd_build_parser(parser, subparser):
                                 u'image from Docker Hub, generate one locally.')
     subparser.add_argument('--with-volumes', '-v', action='append', nargs='+',
                            help=u'Mount one or more volumes to the Ansible Builder Container. '
-                                u'Specify volumes using the same format as the doker run -v option. '
-                                u'Separate multiple volumes with a space.')
+                                u'Specify volumes as strings using the Docker volume format. '
+                                u'Separate multiple volume strings with spaces.')
     subparser.add_argument('--with-variables', '-e', action='append', nargs='+',
                            help=u'Define one or more environment variables in the Ansible '
-                                u'Builder Container. Format is key=value. Separate multiple pairs'
-                                u'with a space.')
+                                u'Builder Container. Format each variable as a key=value string. '
+                                u'Separate multiple variable strings with spaces.')
     subparser.add_argument('--save-build-container', action='store_true',
-                           help=u'Leave the build container untouched on build completion. Normally '
-                                u'the build is removed after the build completes. Use for debugging '
-                                u'and testing.', default=False)
+                           help=u'Leave the Ansible Builder Container intact upon build completion. '
+                                u'Use for debugging and testing.', default=False)
     subparser.add_argument('ansible_options', action='store',
                            help=u'Provide additional commandline arguments to '
                                 u'Ansible in executing your playbook. If you '
