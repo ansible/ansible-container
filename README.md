@@ -26,3 +26,13 @@ The `ansible-container shipit` command will export the necessary playbooks and r
 
 For examples and a tour of ansible-container 
 [visit our docs site](http://docs.ansible.com/ansible-container/).
+
+## Get Involved
+
+There are several ways to get involved. We invite you to join in and share your feedback and ideas:
+
+* On irc.freenode.net: #ansible-container  
+* [Join the  mailing list](https://groups.google.com/forum/?hl=en-GB#!forum/ansible-container)
+* If you're considering submitting code, review the [contributor guidelines](https://github.com/ansible/ansible-container/blob/develop/CONTRIBUTORS.md).
+* [Open an issue](https://github.com/ansible/ansible-container/issues)
+
