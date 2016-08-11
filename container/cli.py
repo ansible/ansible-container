@@ -78,6 +78,17 @@ def subcmd_build_parser(parser, subparser):
     subparser.add_argument('--local-builder', action='store_true',
                            help=u'Instead of using the Ansible Builder Container '
                                 u'image from Docker Hub, generate one locally.')
+    subparser.add_argument('--with-volumes', '-v', action='append', nargs='+',
+                           help=u'Mount one or more volumes to the Ansible Builder Container. '
+                                u'Specify volumes as strings using the Docker volume format. '
+                                u'Separate multiple volume strings with spaces.')
+    subparser.add_argument('--with-variables', '-e', action='append', nargs='+',
+                           help=u'Define one or more environment variables in the Ansible '
+                                u'Builder Container. Format each variable as a key=value string. '
+                                u'Separate multiple variable strings with spaces.')
+    subparser.add_argument('--save-build-container', action='store_true',
+                           help=u'Leave the Ansible Builder Container intact upon build completion. '
+                                u'Use for debugging and testing.', default=False)
     subparser.add_argument('ansible_options', action='store',
                            help=u'Provide additional commandline arguments to '
                                 u'Ansible in executing your playbook. If you '
@@ -132,6 +143,11 @@ def subcmd_shipit_parser(parser, subparser):
         engine_obj.add_options(engine_parser)
 
 def commandline():
+
+    # default_base_path = os.getcwd()
+    # if os.environ.get('ANSIBLE_CONTAINER_PROJECT'):
+    #     default_base_path = os.environ['ANSIBLE_CONTAINER_PROJECT']
+
     parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '
                                                  u'ship Docker containers with '
                                                  u'Ansible playbooks')
