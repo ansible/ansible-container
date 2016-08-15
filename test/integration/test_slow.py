@@ -73,6 +73,25 @@ def test_stop_service_minimal_docker_container():
     assert "Stopping ansible_minimal2_1 ... done" not in result.stderr
 
 
+def test_force_stop_minimal_docker_container():
+    env = ScriptTestEnvironment()
+    env.run('ansible-container', 'run', '--detached', cwd=project_dir('minimal_sleep'), expect_stderr=True)
+    result = env.run('ansible-container', 'stop', '--force',
+                     cwd=project_dir('minimal_sleep'), expect_stderr=True)
+    assert "Killing ansible_minimal1_1 ... done" in result.stderr
+    assert "Killing ansible_minimal2_1 ... done" in result.stderr
+
+
+def test_force_stop_service_minimal_docker_container():
+    env = ScriptTestEnvironment()
+    env.run('ansible-container', 'run', '--detached', cwd=project_dir('minimal_sleep'), expect_stderr=True)
+    result = env.run('ansible-container', 'stop', '--force', 'minimal1',
+                     cwd=project_dir('minimal_sleep'), expect_stderr=True)
+    assert "Killing ansible_minimal1_1 ... done" in result.stderr
+    assert "Killing ansible_minimal2_1 ... done" not in result.stderr
+
+
+
 #def test_shipit_minimal_docker_container():
 #    env = ScriptTestEnvironment()
 #    result = env.run('ansible-container', 'shipit', 'kube', cwd=project_dir('minimal'), expect_error=True)

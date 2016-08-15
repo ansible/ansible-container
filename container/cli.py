@@ -114,6 +114,9 @@ def subcmd_stop_parser(parser, subparser):
     subparser.add_argument('service', action='store',
                            help=u'The specific services you want to stop',
                            nargs='*')
+    subparser.add_argument('-f', '--force', action='store_true',
+                           help=u'Force stop running containers',
+                           dest='force')
 
 def subcmd_help_parser(parser, subparser):
     return
