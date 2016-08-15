@@ -321,11 +321,13 @@ class Engine(BaseEngine):
                              'docker-compose.yml')],
             u'COMMAND': 'up',
             u'ARGS': ['--no-build'] + hosts,
-            u'--project-name': 'ansible'
+            u'--project-name': 'ansible',
         })
         command_options = self.DEFAULT_COMPOSE_UP_OPTIONS.copy()
         command_options[u'--no-build'] = True
         command_options[u'SERVICE'] = hosts
+        command_options[u'--remove-orphans'] = self.params.get('remove_orphans', False)
+
         if locals().get('is_detached'):
             logger.info('Deploying application in detached mode')
             command_options[u'-d'] = True

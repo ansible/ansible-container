@@ -15,3 +15,5 @@ if [ "${image_exists}" -le "1" ]; then
 fi
 
 ansible-container --project "${source_root}/test/local" run
+status=$(docker inspect --format="{{ .State.ExitCode }}" ansible_test_1)
+exit "${status}"
