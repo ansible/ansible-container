@@ -1,7 +1,7 @@
 PYTHON ?= python
 
 .PHONY: develop 
-install:
+develop:
 	$(PYTHON) setup.py develop 
 
 .PHONY: install
