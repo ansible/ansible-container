@@ -247,7 +247,7 @@ Use *kubectl* to list the services:
 
 .. code-block:: bash
 
-    $ kubectl get servies
+    $ kubectl get services
 
     NAME         CLUSTER-IP     EXTERNAL-IP       PORT(S)    AGE
     django       10.3.243.23    nodes             8080/TCP   22m
