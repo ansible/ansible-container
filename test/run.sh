@@ -11,7 +11,7 @@ export ANSIBLE_CONTAINER_PATH=${source_root}
 
 image_exists=$(docker images local-test:latest | wc -l)
 if [ "${image_exists}" -le "1" ]; then
-   ansible-container --project "${source_root}/test/local" build --with-variables ANSIBLE_CONTAINER_PATH="${source_root}"
+   ansible-container --project "${source_root}/test/local" build --flatten --with-variables ANSIBLE_CONTAINER_PATH="${source_root}"
 fi
 
 ansible-container --project "${source_root}/test/local" run
