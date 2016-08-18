@@ -289,8 +289,7 @@ def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, local_bu
     engine_args.update(locals())
     engine_obj = load_engine(**engine_args)
     try:
-        builder_img_id = engine_obj.get_image_id_by_tag(
-            engine_obj.builder_container_img_tag)
+        builder_img_id = engine_obj.get_image_id_by_tag(engine_obj.builder_container_img_tag)
     except NameError:
         if local_builder:
             create_build_container(engine_obj, base_path)
