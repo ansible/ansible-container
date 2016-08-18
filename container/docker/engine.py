@@ -491,7 +491,8 @@ class Engine(BaseEngine):
                     dict(
                         user='root',
                         working_dir='/',
-                        command='sh -c "while true; do sleep 1; done"'
+                        command='sh -c "while true; do sleep 1; done"',
+                        entrypoint=[]
                     )
                 )
             if not self.params['rebuild']:
@@ -538,7 +539,8 @@ class Engine(BaseEngine):
                 dict(
                     user='root',
                     working_dir='/',
-                    command='sh -c "while true; do sleep 1; done"'
+                    command='sh -c "while true; do sleep 1; done"',
+                    entrypoint=[]
                 )
             )
         return compose_config
