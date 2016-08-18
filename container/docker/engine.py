@@ -12,6 +12,7 @@ import getpass
 import json
 import base64
 import pprint
+import shutil
 
 import docker
 from docker.client import errors as docker_errors
@@ -288,14 +289,10 @@ class Engine(BaseEngine):
         :param hosts: (optional) A list of hosts to limit orchestration to
         :return: The exit status of the builder container (None if it wasn't run)
         """
-        if self.params.get('detached'):
-            is_detached = True
-            del self.params['detached']
-
+        is_detached = self.params.pop('detached', False)
         self.temp_dir = temp_dir
         try:
-            builder_img_id = self.get_image_id_by_tag(
-                self.builder_container_img_tag)
+            builder_img_id = self.get_image_id_by_tag(self.builder_container_img_tag)
         except NameError:
             image_version = '.'.join(release_version.split('.')[:2])
             builder_img_id = 'ansible/%s:%s' % (self.builder_container_img_tag,
@@ -332,12 +329,11 @@ class Engine(BaseEngine):
         command_options[u'--no-build'] = True
         command_options[u'SERVICE'] = hosts
         command_options[u'--remove-orphans'] = self.params.get('remove_orphans', False)
-
-        if locals().get('is_detached'):
+        if is_detached:
             logger.info('Deploying application in detached mode')
             command_options[u'-d'] = True
         command_options.update(extra_options)
-        project = project_from_options(self.base_path, options)
+        project = project_from_options(self.base_path + '/ansible', options)
         command = main.TopLevelCommand(project)
         command.up(command_options)
 
@@ -412,7 +408,7 @@ class Engine(BaseEngine):
         command_options = self.DEFAULT_COMPOSE_STOP_OPTIONS.copy()
         command_options[u'SERVICE'] = hosts
         command_options.update(extra_options)
-        project = project_from_options(self.base_path, options)
+        project = project_from_options(self.base_path + '/ansible', options)
         command = main.TopLevelCommand(project)
         if self.params.get('force'):
             command.kill(command_options)
@@ -449,7 +445,7 @@ class Engine(BaseEngine):
         command_options = self.DEFAULT_COMPOSE_RESTART_OPTIONS.copy()
         command_options[u'SERVICE'] = hosts
         command_options.update(extra_options)
-        project = project_from_options(self.base_path, options)
+        project = project_from_options(self.base_path + '/ansible', options)
         command = main.TopLevelCommand(project)
         command.restart(command_options)
 
