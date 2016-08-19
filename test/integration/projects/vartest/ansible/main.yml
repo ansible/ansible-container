@@ -1,0 +1,10 @@
+# main.yml
+#
+---
+- name: Fake play
+  gather_facts: no
+  hosts: all 
+  tasks:
+    - name: Say hello
+      shell: echo "Hello world!"
+

@@ -4,10 +4,13 @@ import yaml
 import json
 import sys
 import argparse
+import re
 
 def config_keys():
     ifs = open('/ansible-container/ansible/container.yml', 'r')
-    config = yaml.safe_load(ifs)
+    config = ifs.read()
+    config = re.sub(r"}}(?!\"|\')", "}}'", re.sub(r"(?<!\"|\'){{", "'{{", config, flags=re.M), flags=re.M)
+    config = yaml.safe_load(config)
     return config['services'].keys()
 
 def cmd_list():

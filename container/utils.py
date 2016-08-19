@@ -72,8 +72,8 @@ def jinja_render_to_temp(template_file, temp_dir, dest_file, **context):
     open(os.path.join(temp_dir, dest_file), 'w').write(
         rendered.encode('utf8'))
 
-def get_config(base_path):
-    return AnsibleContainerConfig(base_path)
+def get_config(base_path, var_files=None):
+    return AnsibleContainerConfig(base_path, var_files=var_files)
 
 def config_format_version(base_path, config_data=None):
     if not config_data:

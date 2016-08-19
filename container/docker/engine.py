@@ -12,7 +12,6 @@ import getpass
 import json
 import base64
 import pprint
-import shutil
 
 import docker
 from docker.client import errors as docker_errors

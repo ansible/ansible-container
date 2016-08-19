@@ -26,7 +26,7 @@ class BaseEngine(object):
     def __init__(self, base_path, project_name, params={}):
         self.base_path = base_path
         self.project_name = project_name
-        self.config = get_config(base_path)
+        self.config = get_config(base_path, var_files=params.get('var_files'))
         logger.debug('Initialized with params: %s', params)
         self.params = params
 

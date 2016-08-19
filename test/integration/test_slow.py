@@ -109,6 +109,20 @@ def test_restart_service_minimal_docker_container():
     assert "Restarting ansible_minimal2_1 ... done" not in result.stderr
 
 
+def test_build_with_var_file():
+    env = ScriptTestEnvironment()
+    result = env.run('ansible-container', '--var-files=devel.yaml','--debug', 'build', '--local-build',
+                     cwd=project_dir('vartest'), expect_stderr=True)
+    assert "ansible_ansible-container_1 exited with code 0" in result.stderr
+    assert "Exporting built containers as images..." in result.stderr
+
+def test_run_with_var_file():
+    env = ScriptTestEnvironment()
+    result = env.run('ansible-container', '--var-files=devel.yaml', '--debug', 'run',
+                     cwd=project_dir('vartest'), expect_stderr=True)
+    assert "ansible_db_1 exited with code 0" in result.stdout
+    assert "ansible_web_1 exited with code 0" in result.stdout
+
 #def test_shipit_minimal_docker_container():
 #    env = ScriptTestEnvironment()
 #    result = env.run('ansible-container', 'shipit', 'kube', cwd=project_dir('minimal'), expect_error=True)

@@ -97,6 +97,7 @@ def subcmd_build_parser(parser, subparser):
                                 u'prefix your extra options. Use this feature with '
                                 u'caution.', default=u'', nargs='*')
 
+
 def subcmd_run_parser(parser, subparser):
     subparser.add_argument('service', action='store',
                            help=u'The specific services you want to run',
@@ -171,6 +172,10 @@ def commandline():
     parser.add_argument('--project', '-p', action='store', dest='base_path',
                         help=u'Specify a path to your project. Defaults to '
                              u'current working directory.', default=os.getcwd())
+    parser.add_argument('--var-files', action='store',
+                        help=u'One or more YAML or JSON formatted files providing variables for '
+                             u'template expansion in container.yml.', default=None, nargs='*')
+
     subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
     for subcommand in AVAILABLE_COMMANDS:
         logger.debug('Registering subcommand %s', subcommand)
