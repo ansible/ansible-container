@@ -111,14 +111,14 @@ def test_restart_service_minimal_docker_container():
 
 def test_build_with_var_file():
     env = ScriptTestEnvironment()
-    result = env.run('ansible-container', '--var-files=devel.yaml','--debug', 'build', '--local-build',
+    result = env.run('ansible-container', '--var-file=devel.yaml','--debug', 'build', '--local-build',
                      cwd=project_dir('vartest'), expect_stderr=True)
     assert "ansible_ansible-container_1 exited with code 0" in result.stderr
     assert "Exporting built containers as images..." in result.stderr
 
 def test_run_with_var_file():
     env = ScriptTestEnvironment()
-    result = env.run('ansible-container', '--var-files=devel.yaml', '--debug', 'run',
+    result = env.run('ansible-container', '--var-file=devel.yaml', '--debug', 'run',
                      cwd=project_dir('vartest'), expect_stderr=True)
     assert "ansible_db_1 exited with code 0" in result.stdout
     assert "ansible_web_1 exited with code 0" in result.stdout

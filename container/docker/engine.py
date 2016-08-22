@@ -210,7 +210,7 @@ class Engine(BaseEngine):
         :param namespace: path to append to the url. required if pull_from not provided.
         :return: config dict
         '''
-        config = get_config(self.base_path)
+        config = get_config(self.base_path, var_file=self.var_file)
         client = self.get_client()
 
         if pull_from:

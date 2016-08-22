@@ -172,9 +172,9 @@ def commandline():
     parser.add_argument('--project', '-p', action='store', dest='base_path',
                         help=u'Specify a path to your project. Defaults to '
                              u'current working directory.', default=os.getcwd())
-    parser.add_argument('--var-files', action='store',
-                        help=u'One or more YAML or JSON formatted files providing variables for '
-                             u'template expansion in container.yml.', default=None, nargs='*')
+    parser.add_argument('--var-file', action='store',
+                        help=u'Path to a YAML or JSON formatted file providing variables for '
+                             u'Jinja2 templating in container.yml.', default=None)
 
     subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
     for subcommand in AVAILABLE_COMMANDS:
