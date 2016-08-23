@@ -43,6 +43,9 @@ class AnsibleContainerConfig(Mapping):
         if template_vars:
             config = self._render_template(template_vars)
         for service, service_config in config['services'].items():
+            if not service_config or isinstance(service_config, basestring):
+                raise AnsibleContainerConfigException(u"Error: no definition found in container.yml for service %s."
+                                                      % service)
             if isinstance(service_config, dict):
                 dev_overrides = service_config.pop('dev_overrides', {})
                 if env == 'dev':

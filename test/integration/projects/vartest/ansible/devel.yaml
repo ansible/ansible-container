@@ -9,6 +9,6 @@ db_service:
   expose:
     - 5432
   environment:
-    POSTGRES_DB_NAME: foobar
-    POSTGRES_USER: admin
-    POSTGRES_PASSWORD: admin
+    - POSTGRES_DB_NAME=foobar
+    - POSTGRES_USER-admin
+    - POSTGRES_PASSWORD=admin

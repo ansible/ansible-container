@@ -24,38 +24,40 @@ class TestAnsibleContainerConfig(unittest.TestCase):
         os.mkdir(self.ansible_dir)
         # Create container.yml.
         container_text = (
-            "version: '1'\n"
-            "defaults:\n"
-            "    web_image: apache:latest\n"
-            "    web_ports: ['8080:80']\n"
-            "    debug: 0\n"
-            "    foo: bar\n"
-            "services:\n"
-            "    web:\n"
-            "        image: {{ web_image }}\n"
-            "        ports: {{ web_ports }}\n"
-            "        command: ['sleep', '1d']\n"
-            "        foo: {{ foo }}\n"
-            "        dev_overrides:\n"
-            "            environment: ['DEBUG={{ debug }}']\n"
-            "    db: {{ db_service }}\n"
-            "registries: {}\n"
+            u"version: '1'\n"
+            u"defaults:\n"
+            u"    web_image: apache:latest\n"
+            u"    web_ports: ['8080:80']\n"
+            u"    debug: 0\n"
+            u"    foo: bar\n"
+            u"    db_service:\n"
+            u"      image: 'postgres:9.5.4'\n"
+            u"services:\n"
+            u"    web:\n"
+            u"        image: {{ web_image }}\n"
+            u"        ports: {{ web_ports }}\n"
+            u"        command: ['sleep', '1d']\n"
+            u"        foo: {{ foo }}\n"
+            u"        dev_overrides:\n"
+            u"            environment: ['DEBUG={{ debug }}']\n"
+            u"    db: {{ db_service }}\n"
+            u"registries: {}\n"
         )
         with open(os.path.join(self.ansible_dir, 'container.yml'), 'w') as fs:
             fs.write(container_text)
         var_data = {
-            "debug": 1,
-            "web_ports": ["8000:8000"],
-            "web_image": "python:2.7",
-            "foo": "baz",
-            "db_service": {
-                "image": "python:2.7",
-                "command": "sleep 10",
-                "expose": [5432],
-                "environment": {
-                    "POSTGRES_DB_NAME": "foobar",
-                    "POSTGRES_USER": "admin",
-                    "POSTGRES_PASSWORD": "admin"
+            u"debug": 1,
+            u"web_ports": [u"8000:8000"],
+            u"web_image": u"python:2.7",
+            u"foo": u"baz",
+            u"db_service": {
+                u"image": u"python:2.7",
+                u"command": u"sleep 10",
+                u"expose": [5432],
+                u"environment": {
+                    u"POSTGRES_DB_NAME": u"foobar",
+                    u"POSTGRES_USER": u"admin",
+                    u"POSTGRES_PASSWORD": u"admin"
                 }
             }
         }

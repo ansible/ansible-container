@@ -7,10 +7,17 @@ import argparse
 import re
 
 def config_keys():
-    ifs = open('/ansible-container/ansible/container.yml', 'r')
-    config = ifs.read()
-    config = re.sub(r"}}(?!\"|\')", "}}'", re.sub(r"(?<!\"|\'){{", "'{{", config, flags=re.M), flags=re.M)
-    config = yaml.safe_load(config)
+    '''
+    Read container.yml and return the set of service keys.
+
+    :return: list
+    '''
+    with open('/ansible-container/ansible/container.yml', 'r') as f:
+        config = f.read()
+        # Escape any vars. Replaces {{ with '{{ when not preceded by a non-whitespace
+        # char and }} with  }}' when not followed by a non-whitespace char.
+        config = re.sub(r"}}(?!\S)", "}}'", re.sub(r"(?<!\S){{", "'{{", config))
+        config = yaml.safe_load(config)
     return config['services'].keys()
 
 def cmd_list():
