@@ -152,7 +152,7 @@ class BaseShipItEngine(object):
 
     def create_role(self, tasks):
         '''
-        Creates tasks/mainy.yml with all the deployment tasks, and copy modules into the library dir.
+        Creates tasks/main.yml with all the deployment tasks, and copy modules into the library dir.
 
         :param tasks: dict of playbook tasks to be rendered in yaml
         :return: None
