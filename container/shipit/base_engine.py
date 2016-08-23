@@ -187,7 +187,7 @@ class BaseShipItEngine(object):
         playbook_name = "%s-%s.yml" % (SHIPIT_PLAYBOOK_PREFIX, self.name)
         playbook_path = os.path.join(self.base_path, SHIPIT_PATH, playbook_name)
         if not os.path.exists(playbook_path):
-            logger.debug('Creating the sample plabyook')
+            logger.debug('Creating the sample playbook')
             play = OrderedDict()
             play['name'] = "Deploy %s to  %s" % (self.project_name, self.name)
             play['hosts'] = 'localhost'
