@@ -15,13 +15,10 @@ Make sure that the following things are installed and available on your system:
 
 The easiest way to install Ansible Container is with the Python package manager, `pip`.
 
-.. code-block:: bash
 
     $ sudo pip install ansible-container
 
 If you do not have root privileges, you'll need to use a `virtualenv` to create a Python sandbox.
-
-.. code-block:: bash
     
     $ virtualenv ansible-container
     $ source ansible-container/bin/activate

@@ -1,8 +1,3 @@
-.. ansible-container documentation master file, created by
-   sphinx-quickstart on Wed May 25 11:17:05 2016.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Welcome to ansible-container!
 =============================
 Ansible Container is the ultimate workflow for container development, testing, and deployment.
@@ -29,6 +24,7 @@ deployment.
    example
    registry_auth
    reference/index
-
-
+   releases
+   Roadmap<roadmaps/index>
+   community/index
 

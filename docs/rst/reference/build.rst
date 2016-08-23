@@ -22,14 +22,42 @@ playbook against it. That way, if a build fails, you're not starting from zero w
 With this option, Ansible Container starts with fresh copies of your base images and
 rebuilds from zero.
 
+.. option:: --local-builder
+
+**New in version 0.2.0**
+
+Instead of using the Ansible Builder Container image from Docker Hub, generate one locally.
+
 .. option:: --no-purge-last
+
+**New in version 0.2.0**
 
 By default, upon successful completion of a build, the previously latest builds for
 your hosts are deleted and purged from the engine. Specifying this option, the prior builds
 are retained.
 
+.. option:: --with-volumes WITH_VOLUMES [WITH_VOLUMES ...]
+
+**New in version 0.2.0**
+
+Mount one or more volumes to the Ansible Builder Container. Specify volumes as strings using the Docker
+volume format. Separate multiple volume strings with spaces.
+
+.. option:: --with-variables WITH_VARIABLES [WITH_VARIABLES ...]
+
+**New in version 0.2.0**
+
+Define one or more environment variables in the Ansible Builder Container. Format each variable as a
+key=value string. Separate multiple variable strings with spaces.
+
+.. option:: --save-build-container
+
+**New in version 0.2.0**
+
+Leave the Ansible Builder Container intact upon build completion. Use for debugging and testing.
+
 .. option:: <ansible_options>
-l
+
 You may also provide additional commandline arguments to give Ansible in executing your
 playbook. Use this option with care, as there is no real sanitation or validation of
 your input. It is recommended you only use this option to limit the hosts you build
@@ -43,9 +71,9 @@ Caveats
 ```````
 
 Ansible ordinarily connects to hosts it is managing via the SSH protocol. Ansible Container
-uses the latest Docker connection plugin to talk to the other containers. Since not all modules
-presently function with the Docker connection plugin, it limits the modules your playbook may
-rely on. As examples:
+uses the latest Docker connection plugin to communicate from the Ansible Builder Container to
+the other containers. Since not all modules presently function with the Docker connection plugin, 
+it limits the modules your playbook may rely on. As examples:
 
 * The `become` methods do not work with Ansible Container, as `su` is disallowed in the Docker
   connection plugin (see `#16226 <https://github.com/ansible/ansible/pull/16226>`_)
@@ -56,4 +84,4 @@ rely on. As examples:
   achieve similar effects.
 
 Also, remember that the ``ansible-playbook`` executable runs on your builder container, not
-your local host, and thus operates in the filesystem and network context of that container.
+your local host, and thus operates in the filesystem and network context of the build container.
