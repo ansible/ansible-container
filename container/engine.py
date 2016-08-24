@@ -26,14 +26,15 @@ class BaseEngine(object):
     def __init__(self, base_path, project_name, params={}):
         self.base_path = base_path
         self.project_name = project_name
-        self.config = get_config(base_path)
-        logger.debug('Initialized with params: %s', params)
+        self.var_file = params.get('var_file')
+        self.config = get_config(base_path, var_file=self.var_file)
         self.params = params
-
         self.support_init = True
         self.supports_build = True
         self.supports_push = True
         self.supports_run = True
+
+        logger.debug('Initialized with params: %s', params)
 
 
     def all_hosts_in_orchestration(self):
