@@ -753,20 +753,22 @@ class Engine(BaseEngine):
         client.tag(image_id, repository, tag=image_buildstamp)
 
         logger.info('Pushing %s:%s...' % (repository, image_buildstamp))
-        status = client.push(repository,
+        stream = client.push(repository,
                              tag=image_buildstamp,
                              stream=True)
         last_status = None
-        for line in status:
-            line = json.loads(line)
-            if type(line) is dict and 'error' in line:
-                logger.error(line['error'])
-            elif type(line) is dict and 'status' in line:
-                if line['status'] != last_status:
-                    logger.info(line['status'])
-                last_status = line['status']
-            else:
-                logger.debug(line)
+        for data in stream:
+            data = data.splitlines()
+            for line in data:
+                line = json.loads(line)
+                if type(line) is dict and 'error' in line:
+                    logger.error(line['error'])
+                if type(line) is dict and 'status' in line:
+                    if line['status'] != last_status:
+                        logger.info(line['status'])
+                    last_status = line['status']
+                else:
+                    logger.debug(line)
 
     def get_client(self):
         if not self._client:
