@@ -30,7 +30,7 @@ Use Ansible Container to manage container lifecycle from development, through te
 
   Generates the necessary playbook and role to deploy your containers on a supported cloud provider.
 
-## To install Ansible Container
+## Installing
 
 Install using *pip*, the Python package manager:
 
