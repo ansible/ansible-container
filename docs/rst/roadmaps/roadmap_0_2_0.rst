@@ -4,10 +4,8 @@ Roadmap for release 0.2.0
 **Target delivery: early October 2016**
 
 - **Build Cache** (Jag @j00bar)
-
-    One of the niceties of the Dockerfile is that the Docker engine re-uses cached layers to accelerate rebuilds. We can do something similar using a custom Ansible 
-    execution strategy.
-
+  - One of the niceties of Dockerfile is that Docker Engine re-uses cached layers to accelerate rebuilds. We should be able to create
+    something similar using a custom Ansible execution strategy.
   - Build and test new execution strategy
   - Add CLI option to enable the new strategy in the build command
   - Tracked on issue `#143 <https://github.com/ansible/ansible-container/issues/143>`_.
@@ -21,13 +19,13 @@ Roadmap for release 0.2.0
 
 - **Better SELinux Integration** (Dusty @dustymabe) 
 
-  - Help users navigate SELinux 
+  - Make it easy for users to execute `ansible-container build` in an SELinux environment. 
   - Tracked on issue `#168 <https://github.com/ansible/ansible-container/issues/168>`_.
 
 - **Naming and tagging images** (?)
 
-  - We need a mechanism that allows the user to set image names and tag images into repositories. Currently image names are set exclsuively
-    by ansible-container.
+  - Create a mechanism that allows users to set image names and tag images into repositories. Currently image names are controlled
+    exclusively by Ansible Container.
   - Tracked on issue `#125 <https://github.com/ansible/ansible-container/issues/125>`_.
 
 - **Support detached run, stop, and restart** (Shubham @containscafeine)
