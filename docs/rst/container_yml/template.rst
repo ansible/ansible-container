@@ -1,5 +1,5 @@
-Template Rendering
-==================
+Jinja Templating
+================
 
 **New in 0.2.0**
 
