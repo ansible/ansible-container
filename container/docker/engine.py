@@ -289,51 +289,35 @@ class Engine(BaseEngine):
         :return: The exit status of the builder container (None if it wasn't run)
         """
         is_detached = self.params.pop('detached', False)
-        self.temp_dir = temp_dir
         try:
-            builder_img_id = self.get_image_id_by_tag(self.builder_container_img_tag)
+            builder_img_id = self.get_image_id_by_tag(
+                self.builder_container_img_tag)
         except NameError:
             image_version = '.'.join(release_version.split('.')[:2])
-            builder_img_id = 'ansible/%s:%s' % (self.builder_container_img_tag,
-                                                image_version)
-        extra_options = getattr(self, 'orchestrate_%s_extra_args' % operation)()
-        config = getattr(self, 'get_config_for_%s' % operation)()
-        logger.debug('%s' % (config,))
-        config_yaml = yaml_dump(config)
-        logger.debug('Config YAML is')
-        logger.debug(config_yaml)
-        jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
-                             temp_dir,
-                             'docker-compose.yml',
-                             hosts=self.all_hosts_in_orchestration(),
-                             project_name=self.project_name,
-                             base_path=self.base_path,
-                             params=self.params,
-                             api_version=self.api_version,
-                             builder_img_id=builder_img_id,
-                             config=config_yaml,
-                             env=os.environ,
-                             **context)
-        options = self.DEFAULT_COMPOSE_OPTIONS.copy()
+            builder_img_id = 'ansible/%s:%s' % (
+                self.builder_container_img_tag, image_version)
+
+        options, command_options, command = self.bootstrap_env(
+            temp_dir=temp_dir,
+            builder_img_id=builder_img_id,
+            behavior='orchestrate',
+            compose_option='up',
+            operation=operation,
+            context=context)
+
         options.update({
-            u'--verbose': self.params['debug'],
-            u'--file': [
-                os.path.join(temp_dir,
-                             'docker-compose.yml')],
             u'COMMAND': 'up',
-            u'ARGS': ['--no-build'] + hosts,
-            u'--project-name': 'ansible',
-        })
-        command_options = self.DEFAULT_COMPOSE_UP_OPTIONS.copy()
+            u'ARGS': ['--no-build'] + hosts})
+
         command_options[u'--no-build'] = True
         command_options[u'SERVICE'] = hosts
-        command_options[u'--remove-orphans'] = self.params.get('remove_orphans', False)
+        command_options[u'--remove-orphans'] = self.params.get(
+            'remove_orphans', False)
+
         if is_detached:
             logger.info('Deploying application in detached mode')
             command_options[u'-d'] = True
-        command_options.update(extra_options)
-        project = project_from_options(self.base_path + '/ansible', options)
-        command = main.TopLevelCommand(project)
+
         command.up(command_options)
 
     def orchestrate_build_extra_args(self):
@@ -378,74 +362,36 @@ class Engine(BaseEngine):
         return {'--no-color': True}
 
     def terminate(self, operation, temp_dir, hosts=[]):
-        self.temp_dir = temp_dir
-        extra_options = getattr(self, 'terminate_%s_extra_args' % operation)()
-        config = getattr(self, 'get_config_for_%s' % operation)()
-        logger.debug('%s' % (config,))
-        config_yaml = yaml_dump(config)
-        logger.debug('Config YAML is')
-        logger.debug(config_yaml)
-        jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
-                             temp_dir,
-                             'docker-compose.yml',
-                             hosts=self.all_hosts_in_orchestration(),
-                             project_name=self.project_name,
-                             base_path=self.base_path,
-                             params=self.params,
-                             api_version=self.api_version,
-                             config=config_yaml,
-                             env=os.environ)
-        options = self.DEFAULT_COMPOSE_OPTIONS.copy()
-        options.update({
-            u'--verbose': self.params['debug'],
-            u'--file': [
-                os.path.join(temp_dir,
-                             'docker-compose.yml')],
-            u'COMMAND': 'stop',
-            u'--project-name': 'ansible'
-        })
-        command_options = self.DEFAULT_COMPOSE_STOP_OPTIONS.copy()
+
+        options, command_options, command = self.bootstrap_env(
+            temp_dir=temp_dir,
+            behavior='terminate',
+            operation=operation,
+            compose_option='stop'
+        )
+
+        options.update({u'COMMAND': 'stop'})
+
         command_options[u'SERVICE'] = hosts
-        command_options.update(extra_options)
-        project = project_from_options(self.base_path + '/ansible', options)
-        command = main.TopLevelCommand(project)
+
         if self.params.get('force'):
             command.kill(command_options)
         else:
             command.stop(command_options)
 
     def restart(self, operation, temp_dir, hosts=[]):
-        self.temp_dir = temp_dir
-        extra_options = getattr(self, 'restart_%s_extra_args' % operation)()
-        config = getattr(self, 'get_config_for_%s' % operation)()
-        logger.debug('%s' % (config,))
-        config_yaml = yaml_dump(config)
-        logger.debug('Config YAML is')
-        logger.debug(config_yaml)
-        jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
-                             temp_dir,
-                             'docker-compose.yml',
-                             hosts=self.all_hosts_in_orchestration(),
-                             project_name=self.project_name,
-                             base_path=self.base_path,
-                             params=self.params,
-                             api_version=self.api_version,
-                             config=config_yaml,
-                             env=os.environ)
-        options = self.DEFAULT_COMPOSE_OPTIONS.copy()
-        options.update({
-            u'--verbose': self.params['debug'],
-            u'--file': [
-                os.path.join(temp_dir,
-                             'docker-compose.yml')],
-            u'COMMAND': 'restart',
-            u'--project-name': 'ansible'
-        })
-        command_options = self.DEFAULT_COMPOSE_RESTART_OPTIONS.copy()
+
+        options, command_options, command = self.bootstrap_env(
+            temp_dir=temp_dir,
+            behavior='restart',
+            operation=operation,
+            compose_option='restart'
+        )
+
+        options.update({u'COMMAND': 'restart'})
+
         command_options[u'SERVICE'] = hosts
-        command_options.update(extra_options)
-        project = project_from_options(self.base_path + '/ansible', options)
-        command = main.TopLevelCommand(project)
+
         command.restart(command_options)
 
     def restart_restart_extra_args(self):
@@ -780,3 +726,61 @@ class Engine(BaseEngine):
         client = self.get_client()
         pprint.pprint(client.info())
         pprint.pprint(client.version())
+
+    def bootstrap_env(self, temp_dir, behavior, operation, compose_option,
+                      builder_img_id=None, context=None):
+        """
+        Build common Docker Compose elements required to execute orchestrate,
+        terminate, restart, etc.
+        
+        :param temp_dir: A temporary directory usable as workspace
+        :param behavior: x in x_operation_extra_args
+        :param operation: Operation to perform, like, build, run, listhosts, etc
+        :param compose_option: x in DEFAULT_COMPOSE_X_OPTIONS
+        :param builder_img_id: Ansible Container Builder Image ID
+        :param context: extra context to send to jinja_render_to_temp
+        :return: options (options to pass to compose),
+                 command_options (operation options to pass to compose),
+                 command (compose's top level command)
+        """
+
+        if context is None:
+            context = {}
+
+        self.temp_dir = temp_dir
+        extra_options = getattr(self, '{}_{}_extra_args'.format(behavior,
+                                                                operation))()
+        config = getattr(self, 'get_config_for_%s' % operation)()
+        logger.debug('%s' % (config,))
+        config_yaml = yaml_dump(config)
+        logger.debug('Config YAML is')
+        logger.debug(config_yaml)
+        jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
+                             temp_dir,
+                             'docker-compose.yml',
+                             hosts=self.all_hosts_in_orchestration(),
+                             project_name=self.project_name,
+                             base_path=self.base_path,
+                             params=self.params,
+                             api_version=self.api_version,
+                             builder_img_id=builder_img_id,
+                             config=config_yaml,
+                             env=os.environ,
+                             **context)
+        options = self.DEFAULT_COMPOSE_OPTIONS.copy()
+
+        options.update({
+            u'--verbose': self.params['debug'],
+            u'--file': [
+                os.path.join(temp_dir,
+                             'docker-compose.yml')],
+            u'--project-name': 'ansible',
+        })
+        command_options = getattr(self, 'DEFAULT_COMPOSE_{}_OPTIONS'.format(
+            compose_option.upper())).copy()
+        command_options.update(extra_options)
+
+        project = project_from_options(self.base_path + '/ansible', options)
+        command = main.TopLevelCommand(project)
+
+        return options, command_options, command
