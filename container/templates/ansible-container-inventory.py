@@ -5,20 +5,17 @@ import json
 import sys
 import argparse
 import re
+import os
+
 
 def config_keys():
     '''
-    Read container.yml and return the set of service keys.
+    Get the list of hosts from env var ANSIBLE_ORCHESTRATED_HOSTS.
 
     :return: list
     '''
-    with open('/ansible-container/ansible/container.yml', 'r') as f:
-        config = f.read()
-        # Escape any vars. Replaces {{ with '{{ when not preceded by a non-whitespace
-        # char and }} with  }}' when not followed by a non-whitespace char.
-        config = re.sub(r"}}(?!\S)", "}}'", re.sub(r"(?<!\S){{", "'{{", config))
-        config = yaml.safe_load(config)
-    return config['services'].keys()
+    return os.environ.get('ANSIBLE_ORCHESTRATED_HOSTS', '').split(',')
+
 
 def cmd_list():
     hosts = config_keys()
@@ -31,6 +28,7 @@ def cmd_list():
             }
         )
     )
+
 
 def cmd_host(host):
     hosts = config_keys()

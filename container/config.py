@@ -28,20 +28,18 @@ class AnsibleContainerConfig(Mapping):
 
     def set_env(self, env):
         '''
-        Loads config from container.yml, resolves Jinja2 templates and stores the resulting dict to self._config.
+        Loads config from container.yml, performs Jinja templating, and stores the resulting dict to self._config.
 
         :param env: string of either 'dev' or 'prod'. Indicates 'dev_overrides' handling.
         :return: None
         '''
         assert env in ['dev', 'prod']
-        config = self._read_config()
-        if not config.get('services') or isinstance(config.get('services'), basestring):
-            # Services must be defined, and not as a template variable.
-            raise AnsibleContainerConfigException(u"No services found in ansible/container.yml. "
-                                                  u"Have you defined any services?")
-        template_vars = self._get_variables(config)
+        template_vars = self._get_variables()
         if template_vars:
             config = self._render_template(template_vars)
+        else:
+            config = self._read_config()
+
         for service, service_config in config['services'].items():
             if not service_config or isinstance(service_config, basestring):
                 raise AnsibleContainerConfigException(u"Error: no definition found in container.yml for service %s."
@@ -50,6 +48,7 @@ class AnsibleContainerConfig(Mapping):
                 dev_overrides = service_config.pop('dev_overrides', {})
                 if env == 'dev':
                     service_config.update(dev_overrides)
+
         logger.debug(u"Config:\n%s" % json.dumps(config,
                                                  sort_keys=True,
                                                  indent=4,
@@ -58,8 +57,7 @@ class AnsibleContainerConfig(Mapping):
 
     def _read_config(self):
         '''
-        Initial read of container.yml. Ensures all {{ vars }} are escaped with quotes, then parses the Yaml and
-        returns the resulting dict. Does not perform Jinja2 template rendering.
+        Read container.yml, parse the YAML, and return the resulting dict
 
         returns: dict
         '''
@@ -70,20 +68,17 @@ class AnsibleContainerConfig(Mapping):
             raise AnsibleContainerConfigException(u"Failed to open %s. Are you in the correct directory?" %
                                                   self.config_path)
         try:
-            # Escape vars. Replaces {{ with '{{ when not preceeded by a non-whitespace char and }} with  }}' when
-            # not followed by a non-whitespace char.
-            config = re.sub(r"}}(?!\S)", "}}'", re.sub(r"(?<!\S){{", "'{{", config))
             config = yaml.safe_load(config)
         except yaml.YAMLError as exc:
-            raise AnsibleContainerConfigException(u"Initial parse of container.yml - %s" % str(exc))
+            raise AnsibleContainerConfigException(u"Parsing container.yml - %s" % str(exc))
 
         return config
 
     def _render_template(self, template_vars):
         '''
-        Reads container.yml, applies Jinja2 template rendering, parses the Yaml and returns the resulting dict.
+        Reads container.yml, applies Jinja template rendering, parses the YAML and returns the resulting dict.
 
-        :param template_vars: dict providing context for Jinja2 template rendering
+        :param template_vars: dict providing Jinja context
         :return: dict
         '''
         j2_tmpl_path = os.path.join(self.base_path, 'ansible')
@@ -99,17 +94,15 @@ class AnsibleContainerConfig(Mapping):
             del config['defaults']
         return config
 
-    def _get_variables(self, config):
+    def _get_variables(self):
         '''
         Resolve variables by creating an empty dict and updating it first with the 'defaults' section in the config,
         then any variables from var_file, and finally any AC_* environment variables. Returns the resulting dict.
 
-        :param config: dict from parsed container.yml
         :return: dict
         '''
         new_vars = {}
-        if config.get('defaults'):
-            new_vars.update(config.pop('defaults'))
+        new_vars.update(self._get_defaults())
         if self.var_file:
             logger.debug('Reading variables from var file...')
             new_vars.update(self._get_variables_from_file(self.var_file))
@@ -119,6 +112,44 @@ class AnsibleContainerConfig(Mapping):
                                                               indent=4,
                                                               separators=(',', ': ')))
         return new_vars
+
+    def _get_defaults(self):
+        '''
+        Parse the optional 'defaults' section of container.yml
+
+        :return: dict
+        '''
+        defaults = {}
+        default_lines = ['defaults:']
+        found = False
+        sections = [u'version:', u'services:', u'registries:']
+        try:
+            with open(self.config_path, 'r') as f:
+                for line in f:
+                    if re.search(r'^defaults:', line):
+                        found = True
+                        logger.debug('Found!')
+                        continue
+                    if found:
+                        if re.sub(u'\n', '', line) not in sections:
+                            default_lines.append(re.sub(u'\n', '', line))
+                        else:
+                            break
+        except OSError:
+            raise AnsibleContainerConfigException(u"Failed to open %s. Are you in the correct directory?" %
+                                                  self.config_path)
+
+        if len(default_lines) > 1:
+            # re-assemble the defaults section and parse it as yaml
+            default_section = u'\n'.join(default_lines)
+            try:
+                config = yaml.safe_load(default_section)
+                defaults.update(config.get('defaults'))
+            except yaml.YAMLError as exc:
+                raise AnsibleContainerConfigException(u"Parsing container.yml - %s" % str(exc))
+        logger.debug(u"Default vars:")
+        logger.debug(json.dumps(defaults, sort_keys=True, indent=4, separators=(',', ': ')))
+        return defaults
 
     def _get_environment_variables(self):
         '''
@@ -138,9 +169,10 @@ class AnsibleContainerConfig(Mapping):
 
     def _get_variables_from_file(self, file):
         '''
-        Read variables from a file. Checks if file contains an absolute path, if not then looks relative to base_path,
-        if still not found checks relative to base_path/ansible. If file extension is .yml | .yaml parses as Yaml,
-        otherwise attempts to parse as JSON. Returns file contents as dict.
+        Read variables from a file. Checks if file contains an absolute path. If not, then looks relative to base_path.
+        If still not found, checks relative to base_path/ansible.
+
+        If file extension is .yml | .yaml parses as YAML, otherwise attempts to parse as JSON.
 
         :param file: string: Absolute file path or path relative to base_path or base_path/ansible.
         :return: dict
