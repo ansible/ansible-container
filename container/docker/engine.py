@@ -730,8 +730,9 @@ class Engine(BaseEngine):
     def bootstrap_env(self, temp_dir, behavior, operation, compose_option,
                       builder_img_id=None, context=None):
         """
-        Builds the environment for common operations for compose engine,
-        like orchestration, termination, etc.
+        Build common Docker Compose elements required to execute orchestrate,
+        terminate, restart, etc.
+        
         :param temp_dir: A temporary directory usable as workspace
         :param behavior: x in x_operation_extra_args
         :param operation: Operation to perform, like, build, run, listhosts, etc
