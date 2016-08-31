@@ -75,25 +75,14 @@ class TestAnsibleContainerConfig(unittest.TestCase):
     def test_should_instantiate(self):
         self.assertEqual(len(self.config._config['services'].keys()), 2, 'Failed to load container.yml')
 
-    def test_should_quote_template_vars(self):
-        config = self.config._read_config()
-        self.assertTrue(isinstance(config['services']['web']['image'], basestring),
-                        'Failed to escape web.image.')
-        self.assertTrue(isinstance(config['services']['web']['ports'], basestring),
-                        'Failed to escape web.ports.')
-        self.assertTrue(isinstance(config['services']['db'], basestring),
-                        'Failed to escape db service.')
-
     def test_should_remove_defaults_section(self):
         self.assertEqual(self.config._config.get('defaults', None), None, 'Failed to remove defaults.')
 
     def test_should_parse_defaults(self):
-        self.config.var_file = None
-        config = self.config._read_config()
-        template_vars = self.config._get_variables(config)
-        self.assertEqual(template_vars['web_image'], 'apache:latest')
-        self.assertEqual(template_vars['debug'], 0)
-        self.assertEqual(template_vars['foo'], 'bar')
+        defaults = self.config._get_defaults()
+        self.assertEqual(defaults['foo'], 'bar')
+        self.assertEqual(defaults['debug'], 0)
+        self.assertEqual(defaults['web_image'], 'apache:latest')
 
     def test_should_parse_yaml_file(self):
         new_vars = self.config._get_variables_from_file('devel.yml')
