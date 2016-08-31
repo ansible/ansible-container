@@ -24,6 +24,7 @@ deployment.
    example
    registry_auth
    reference/index
+   container_yml/index
    releases
    Roadmap<roadmaps/index>
    community/index

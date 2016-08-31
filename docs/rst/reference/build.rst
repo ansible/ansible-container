@@ -56,7 +56,7 @@ key=value string. Separate multiple variable strings with spaces.
 
 Leave the Ansible Builder Container intact upon build completion. Use for debugging and testing.
 
-.. option:: <ansible_options>
+.. option:: ansible_options
 
 You may also provide additional commandline arguments to give Ansible in executing your
 playbook. Use this option with care, as there is no real sanitation or validation of
