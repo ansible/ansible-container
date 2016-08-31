@@ -11,5 +11,5 @@ RUN apt-get update -y && \
 
 ADD builder.sh /usr/local/bin/builder.sh
 ADD ansible-container-inventory.py /etc/ansible/ansible-container-inventory.py
-RUN pip install -q --no-cache-dir ansible==2.1.0.0 PyYAML==3.11
+RUN pip install -q --no-cache-dir ansible==2.1.1.0 PyYAML==3.11
 
