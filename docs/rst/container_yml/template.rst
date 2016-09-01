@@ -43,11 +43,11 @@ There are three ways to provide variable values:
 * Create environment variables
 * Add a top-level ``defaults`` section to ``container.yml``
 
-See `Passing environment variables`_ , `Providing defaults`_, `Passing variable files`_, and `Variable precedence`_ for a deeper discussion of
-variables. For the purpose of understanding how templating works, we'll use a file.
+See `Passing environment variables`_ , `Providing defaults`_, `Passing variable files`_, and `Variable precedence`_ for
+a deeper discussion of variables. For the purpose of understanding how templating works, we'll use a file.
 
-Using the *--var-file* option, a file containing variable definitions can be passed to any command. The file format
-can be YAML or JSON. For example, the following passes a YAML file, ``devel.yaml``, to the build command:
+Using the ``--var-file`` option, the path to a file containing variable definitions can be passed to Ansible Container.
+The file format can be YAML or JSON. For example, the following passes a YAML file, ``devel.yaml``, to the build command:
 
 .. code-block:: bash
 
@@ -109,38 +109,37 @@ The following is the ``container.yml`` returned from Jinja and used to execute t
 Passing variable files
 ----------------------
 
-In short, pass variable definitions in a file using the ``--var-file`` option. The search order is:
+Pass the path to a file containing variable definitions using the ``--var-file`` option. The file path must be one of
+the following:
 
-* Absolute path
+* Absolute
 * Relative to the project path
 * Relative to the ``ansible`` folder
 
-Locating the file
-`````````````````
 When ``--var-file`` is passed, Ansible Container checks to see if the file name points to an absolute file path. If the
 file is not found, it checks for the file relative to the project path, which is the current working directory or a path
 specified using the ``--project`` option. And finally, if the file is still not found, it looks for the file relative to
-the ansible folder within the project path.
+the ``ansible`` folder within the project path.
 
 YAML vs JSON
 ````````````
-The file passed to the ``--var-file`` will be a text file containing variable defintions formatted as either YAML or JSON.
-The filename extension determines how the file is parsed. If the name ends with ``.yaml`` or ``.yml``, the contents are parsed
+The file will be a text file containing variable definitions formatted as either YAML or JSON.
+The filename extension determines how the file is parsed. If the name ends with ``.yaml`` or ``.yml``, contents are parsed
 as YAML, otherwise contents are parsed as JSON.
 
 Limitations
 ```````````
-Jinja template rendering is not recursively applied to ``container.yml``. In other words, do not put Jinja expressions
-in your variable file. Any expressions contained in the variable file will not be resolved, causing an error in
-Ansible Container.
+Jinja template rendering is not recursively applied to ``container.yml``. Because of this you cannot include
+Jinja expressions in a variable file. The expressions will not be resolved, and an error will occur when attempting to
+process ``container.yml``.
 
 
 Passing environment variables
 -----------------------------
 
-Pass variable values by defining ``AC_*`` variables in the Ansible Container environment corresponding to Jinja variables
-or expressions in your ``container.yml``. For example, to provide a value for the Jina expression
-``{{ web_image }}``, we would define ``AC_WEB_IMAGE`` in the environment:
+Variable definitions can also be provided as environment variables. Create ``AC_*`` variables in the Ansible Container environment
+that correspond to Jinja expressions in ``container.yml``. For example, to provide a value for the Jina expression
+``{{ web_image }}``, define ``AC_WEB_IMAGE`` in the environment:
 
 .. code-block:: bash
 
@@ -154,8 +153,10 @@ and send the result to Jinja. Thus ``AC_WEB_IMAGE`` becomes ``web_image`` and ge
 Providing defaults
 ------------------
 
-We can also provide default values for Jinja expressions by adding a top-level ``defaults`` section to ``container.yml``.
-Using our original ``container.yml`` example from above, we could add the following:
+Default values for Jinja expressions can also be supplied by adding a top-level ``defaults`` section to ``container.yml``.
+
+Using our original ``container.yml`` example from above, we could add a ``defaults`` section that looks like the
+following:
 
 .. code-block:: yaml
 
@@ -233,7 +234,7 @@ Passing variables to your playbook:
 -----------------------------------
 
 The same variables passed to Ansible Container to resolve expressions in ``container.yml`` can also be passed to
-Ansible Playbook used by the ``build`` command. Pass variables by way of environment variables or files.
+Ansible Playbook during the ``build`` process using environment variables or files.
 
 Environment variables
 `````````````````````
