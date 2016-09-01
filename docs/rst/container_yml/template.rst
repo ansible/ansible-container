@@ -290,22 +290,20 @@ Using Ansible Vault
 -------------------
 
 `Ansible Vault <http://docs.ansible.com/ansible/playbooks_vault.html>`_ provides a way to encrypt and decrypt files, and
-Ansible Playbook can use Vault files as variable files, if given the Vault password.
+Ansible Playbook can also decrypt Vault files and use them as variable files.
 
 As of now Ansible Container cannot decrypt a Vault file. If you wish to use a Vault, you will have to decrypt it first,
 and then pass the decrypted contents to Ansible Container either by way of ``--var-file`` or environment variables.
 
 It is certainly possible to decrypt a Vault file within your CI/CD process and expose it to Ansible Container. We'll
-leave that part up to you. Just be careful!
+leave it up to you to figure out the right way to do that in your environment. Just be careful!
 
 
 Known limitations
 -----------------
 
-Jinja templating for ``container.yml`` is not recursive. This means you cannot include variables inside a YAML or JSON
-file passed to Ansible Container via ``--var-file``. If the file contains Jinja expressions, they will not be transposed or
-resolved, and will cause an error in Ansible Container.
-
+Jinja templating for ``container.yml`` is not recursive. This means you cannot include Jinja expressions inside a variable file.
+If the file contains expressions, they will not be resolved, which will cause an error when processing ``container.yml``.
 
 
 
