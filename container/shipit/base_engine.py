@@ -85,7 +85,7 @@ class BaseShipItEngine(object):
         include_files = list(set(include_files))
         for mod in glob.glob(modules_dir + '/*.py'):
             base_file = os.path.basename(mod)
-            if base_file not in include_files:
+            if base_file not in include_files and not base_file.endswith('__init__.py'):
                 with open(os.path.join(library_path, base_file), 'w') as new_file:
                     with open(mod, 'r') as mod_file:
                         for line in mod_file:
