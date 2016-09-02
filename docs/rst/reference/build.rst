@@ -17,8 +17,8 @@ Container flattens the union filesystem of your image to a single layer.
 
 .. note::
 
-The image is flattened by exporting the container to a tar file and re-importing the tar 
-file as a new image. A side effect of performing this operation is a loss of image metadata. 
+    The image is flattened by exporting the container to a tar file and re-importing the tar 
+    file as a new image. A side effect of performing this operation is a loss of image metadata. 
 
 .. option:: --from-scratch
 
