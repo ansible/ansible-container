@@ -15,6 +15,11 @@ By default, Ansible container commits the changes your playbook made to the base
 but it retains the original layers from that base image. Specifying this option, Ansible
 Container flattens the union filesystem of your image to a single layer.
 
+.. note::
+
+The image is flattened by exporting the container to a tar file and re-importing the tar 
+file as a new image. A side effect of performing this operation is a loss of image metadata. 
+
 .. option:: --from-scratch
 
 By default, Ansible Container starts with the last instance of your containers and runs your
