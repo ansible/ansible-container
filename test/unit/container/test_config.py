@@ -8,7 +8,7 @@ import json
 
 from container.config import AnsibleContainerConfig
 from container.exceptions import AnsibleContainerConfigException
-
+from container import __version__
 
 class TestAnsibleContainerConfig(unittest.TestCase):
 
@@ -39,34 +39,53 @@ class TestAnsibleContainerConfig(unittest.TestCase):
             u"        command: ['sleep', '1d']\n"
             u"        foo: {{ foo }}\n"
             u"        dev_overrides:\n"
-            u"            environment: ['DEBUG={{ debug }}']\n"
+            u"            environment:\n"
+            u"              - DEBUG={{ debug }}\n"
+            u"              - TEST={{ ac_test_filter }}\n"
+            u"              - VERSION={{ ac_version }}\n"
             u"    db: {{ db_service }}\n"
             u"registries: {}\n"
         )
         with open(os.path.join(self.ansible_dir, 'container.yml'), 'w') as fs:
             fs.write(container_text)
-        var_data = {
-            u"debug": 1,
-            u"web_ports": [u"8000:8000"],
-            u"web_image": u"python:2.7",
-            u"foo": u"baz",
-            u"db_service": {
-                u"image": u"python:2.7",
-                u"command": u"sleep 10",
-                u"expose": [5432],
-                u"environment": {
-                    u"POSTGRES_DB_NAME": u"foobar",
-                    u"POSTGRES_USER": u"admin",
-                    u"POSTGRES_PASSWORD": u"admin"
-                }
-            }
-        }
+        var_yaml = (
+            u"debug: 1\n"
+            u"web_ports: ['8000:8000']\n"
+            u"web_image: python:2.7\n"
+            u"foo: baz\n"
+            u"ac_version: {{ lookup('version') }}\n"
+            u"ac_test_filter: {{ 'foo' | test_filter }}\n"
+            u"db_service:\n"
+            u"  image: python:2.7\n"
+            u"  command: 'sleep 10'\n"
+            u"  expose: [5432]\n"
+            u"  environment:\n"
+            u"    POSTGRES_DB_NAME=foobar\n"
+            u"    POSTGRES_USER=admin\n"
+            u"    POSTGRES_PASSWORD=admin\n"
+        )
         # Create var file devel.yml
         with open(os.path.join(self.ansible_dir, 'devel.yml'), 'w') as fs:
-            yaml.safe_dump(var_data, fs, default_flow_style=False, indent=2)
+            fs.write(var_yaml)
+        var_json = (
+            u'{\n'
+            u'    "debug": 1,\n'
+            u'    "web_ports": ["8000:8000"],\n'
+            u'    "web_image": "python:2.7",\n'
+            u'    "foo": "baz",\n'
+            u'    "ac_version": "{{ lookup(\'version\') }}",\n'
+            u'    "ac_test_filter": "{{ \'foo\' | test_filter }}",\n'
+            u'    "db_service": {\n'
+            u'        "image": "python:2.7",\n'
+            u'        "command": "sleep 10",\n'
+            u'        "expose": [5432],\n'
+            u'        "environment": ["POSTGRES_DB_NAME=foobar","POSTGRES_USER=admin","POSTGRES_PASSWORD=admin"]\n'
+            u'    }\n'
+            u'}\n'
+        )
         # create var file devel.txt
         with open(os.path.join(self.ansible_dir, 'devel.txt'), 'w') as fs:
-            fs.write(json.dumps(var_data))
+            fs.write(var_json)
         self.config = AnsibleContainerConfig(self.test_dir)
 
     def tearDown(self):
@@ -126,5 +145,15 @@ class TestAnsibleContainerConfig(unittest.TestCase):
         self.config.var_file = None
         self.config.set_env('prod')
         self.assertEqual(self.config._config['services']['web']['foo'], 'bar')
+
+    def test_should_resolve_lookup(self):
+        self.config.var_file = 'devel.yml'
+        self.config.set_env('dev')
+        self.assertEqual(self.config._config['services']['web']['environment'][1], 'TEST=success!')
+
+    def test_should_resolve_filter(self):
+        self.config.var_file = 'devel.yml'
+        self.config.set_env('dev')
+        self.assertEqual(self.config._config['services']['web']['environment'][2], 'VERSION={0}'.format(__version__))
 
 
