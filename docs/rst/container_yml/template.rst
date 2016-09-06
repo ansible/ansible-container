@@ -37,6 +37,12 @@ Variable definitions are needed for Jinja to execute the control statements, res
 contents of the fully rendered template. In the above example, definitions are required for ``web_image``, ``web_reports``,
 ``debug``, and ``db_service``. Without them an incomplete ``container.yml`` will be rendered.
 
+.. note::
+
+    Rendering the completed ``container.yml`` by resolving Jinja expressions to actual values is the very first thing Ansible
+    Container does before starting any process. In the case of the ``build`` command, for example, template rendering happens
+    before any containers are started, and it occurs outside of the Ansible Build Container.
+
 There are three ways to provide variable values:
 
 * Pass a YAML or JSON file with the ``--var-file`` option
@@ -112,14 +118,13 @@ Passing variable files
 Pass the path to a file containing variable definitions using the ``--var-file`` option. The file path must be one of
 the following:
 
-* Absolute
+* Absolute file path
 * Relative to the project path
 * Relative to the ``ansible`` folder
 
-When ``--var-file`` is passed, Ansible Container checks to see if the file name points to an absolute file path. If the
-file is not found, it checks for the file relative to the project path, which is the current working directory or a path
-specified using the ``--project`` option. And finally, if the file is still not found, it looks for the file relative to
-the ``ansible`` folder within the project path.
+When ``--var-file`` is passed, Ansible Container checks if the path is an absolute path to a file. If not, it checks for the
+file relative to the project path, which is the current working directory or a path specified using the ``--project`` option.
+If the file is still not found, it looks for the file relative to the ``ansible`` folder within the project path.
 
 YAML vs JSON
 ````````````
@@ -127,11 +132,11 @@ The file will be a text file containing variable definitions formatted as either
 The filename extension determines how the file is parsed. If the name ends with ``.yaml`` or ``.yml``, contents are parsed
 as YAML, otherwise contents are parsed as JSON.
 
-Filters and expression
-``````````````````````
+Filters and expressions
+```````````````````````
 
-Variable files may also include Jinja expressions. Variables defined in the ``defaults`` section of ``container.yml`` are
-available when templating of the variable file is performed.
+Variable files may also include Jinja expressions. And for convenience, variables defined in the ``defaults`` section of
+``container.yml`` can be referenced in a variable file.
 
 Suppose that ``container.yml`` defines *smtp_port* as follows:
 
@@ -156,7 +161,7 @@ The variable file is templated before ``container.yml``, so any expressions foun
 the variable file is used to template ``container.yml``.
 
 Since default variable values are already available in ``container.yml`` this might not seem very useful. Consider, however,
-that all of the Jinja control structures and filters are available in a variable file. That means given the following
+that all of the Jinja control structures and filters are available in a variable file as well. That means given the following
 variable file:
 
 .. code-block:: yaml
@@ -196,6 +201,9 @@ with Ansible Container and Ansible Playbook:
 
     ansible-container --var-file vars.yml build --with-vars POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
     -- -e"@/ansible-container/ansible/vars.yml"
+
+Ansible filters and expressions are also available, if Ansible is installed in the same environment where Ansible Container
+run. See `Ansible filters and lookups`_.
 
 Passing environment variables
 -----------------------------
@@ -362,8 +370,15 @@ It is certainly possible to decrypt a Vault file within your CI/CD process and e
 leave it up to you to figure out the right way to do that in your environment. Just be careful!
 
 
-Ansible Filters and Lookups
+Ansible filters and lookups
 ---------------------------
 
 All Ansible Jinja filters and lookups are available for use in Ansible Container. See `Lookups <http://docs.ansible.com/ansible/playbooks_lookups.html#>`_
 and `Jinja2 Filters <http://docs.ansible.com/ansible/playbooks_filters.html>`_.
+
+.. note::
+
+    Ansible Jinja filters and lookups are only available if Ansible is installed on the host where Ansible Container runs.
+    Template rendering occurs outside of the Ansible Build Container, so access to Ansible filters and lookups requires that
+    Ansible be installed locally. If Ansible is not installed, and ``containery.yml`` includes references to Ansible filters
+    and lookups, an error will occur.

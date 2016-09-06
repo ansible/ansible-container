@@ -178,17 +178,21 @@ class AnsibleContainerConfig(Mapping):
         :param context: dict of any available default variables
         :return: dict
         '''
-        path = self.base_path
-        file_path = os.path.normpath(os.path.join(self.base_path, file))
+        file_path = os.path.abspath(file)
+        path = os.path.dirname(file_path)
         name = os.path.basename(file_path)
         if not os.path.isfile(file_path):
-            path = os.path.join(self.base_path, 'ansible')
-            file_path = os.path.normpath(os.path.join(path, file))
+            path = self.base_path
+            file_path = os.path.normpath(os.path.join(self.base_path, file))
             name = os.path.basename(file_path)
             if not os.path.isfile(file_path):
-                raise AnsibleContainerConfigException(u"Unable to locate %s. Provide a path relative to %s or %s." % (
-                                                      file, self.base_path, os.path.join(self.base_path, 'ansible')))
-
+                path = os.path.join(self.base_path, 'ansible')
+                file_path = os.path.normpath(os.path.join(path, file))
+                name = os.path.basename(file_path)
+                if not os.path.isfile(file_path):
+                    raise AnsibleContainerConfigException(u"Unable to locate %s. Provide a path relative to %s or %s." % (
+                                                          file, self.base_path, os.path.join(self.base_path, 'ansible')))
+        logger.debug("Use variable file: %s" % file_path)
         data = self._render_template(context=context, path=path, template=name)
 
         if name.endswith('yml') or name.endswith('yaml'):
