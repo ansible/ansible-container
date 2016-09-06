@@ -127,12 +127,75 @@ The file will be a text file containing variable definitions formatted as either
 The filename extension determines how the file is parsed. If the name ends with ``.yaml`` or ``.yml``, contents are parsed
 as YAML, otherwise contents are parsed as JSON.
 
-Limitations
-```````````
-Jinja template rendering is not recursively applied to ``container.yml``. Because of this you cannot include
-Jinja expressions in a variable file. The expressions will not be resolved, and an error will occur when attempting to
-process ``container.yml``.
+Filters and expression
+``````````````````````
 
+Variable files may also include Jinja expressions. Variables defined in the ``defaults`` section of ``container.yml`` are
+available when templating of the variable file is performed.
+
+Suppose that ``container.yml`` defines *smtp_port* as follows:
+
+.. code-block:: yaml
+
+    version: "1"
+    defaults:
+        smtp_port: 3309
+
+    django:
+        environment:
+           GALAXY_SMTP_PORT={{ galaxy_smtp_port }}
+
+Then the following would be a valid expression in the variable file:
+
+.. code-block:: yaml
+
+    ---
+    galaxy_smtp_port: {{ smtp_port }}
+
+The variable file is templated before ``container.yml``, so any expressions found in the variable file are resolved before
+the variable file is used to template ``container.yml``.
+
+Since default variable values are already available in ``container.yml`` this might not seem very useful. Consider, however,
+that all of the Jinja control structures and filters are available in a variable file. That means given the following
+variable file:
+
+.. code-block:: yaml
+
+    ---
+    postgres_password: {{ lookup('env', 'POSTGRES_PASSWORD') }}
+
+
+The value of *postgres_password* will be taken from the environment variable *POSTGRES_PASSWORD* defined at run-time. It can
+then be used to override the default defined in the following ``container.yml`` (see `Variable precedence`_ for more about
+overriding variable values):
+
+.. code-block:: yaml
+
+    version: "1"
+    defaults:
+        postgres_password: galaxy
+
+    db:
+        image: postgres:9.5.4
+        environment:
+            POSTGRES_PASSWORD={{ postgres_password }}
+
+    django:
+        image: centos:7
+        environment:
+            POSTGRES_PASSWORD={{ postgres_password }}
+
+ following command
+
+
+
+And since Ansible Playbook also applies templating to variable files, we could share the same variable file
+with Ansible Container and Ansible Playbook:
+
+..  code-block:: bash
+
+    ansible-container --var-file vars.yml build --with-vars POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
+    -- -e"@/ansible-container/ansible/vars.yml"
 
 Passing environment variables
 -----------------------------
@@ -299,11 +362,8 @@ It is certainly possible to decrypt a Vault file within your CI/CD process and e
 leave it up to you to figure out the right way to do that in your environment. Just be careful!
 
 
-Known limitations
------------------
+Ansible Filters and Lookups
+---------------------------
 
-Jinja templating for ``container.yml`` is not recursive. This means you cannot include Jinja expressions inside a variable file.
-If the file contains expressions, they will not be resolved, which will cause an error when processing ``container.yml``.
-
-
-
+All Ansible Jinja filters and lookups are available for use in Ansible Container. See `Lookups <http://docs.ansible.com/ansible/playbooks_lookups.html#>`_
+and `Jinja2 Filters <http://docs.ansible.com/ansible/playbooks_filters.html>`_.

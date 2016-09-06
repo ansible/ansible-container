@@ -6,13 +6,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 import os
-import tempfile
-import shutil
 import importlib
 from jinja2 import Environment, FileSystemLoader
 
 from .exceptions import AnsibleContainerNotInitializedException
 from .config import AnsibleContainerConfig
+from .temp import MakeTempDir
+
 
 __all__ = ['make_temp_dir',
            'jinja_template_path',
@@ -37,21 +37,6 @@ AVAILABLE_SHIPIT_ENGINES = {
     }
 }
 
-class MakeTempDir(object):
-    temp_dir = None
-
-    def __enter__(self):
-        self.temp_dir = tempfile.mkdtemp()
-        logger.debug('Using temporary directory %s...', self.temp_dir)
-        return os.path.realpath(self.temp_dir)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        try:
-            logger.debug('Cleaning up temporary directory %s...', self.temp_dir)
-            shutil.rmtree(self.temp_dir)
-        except Exception, e:
-            logger.exception('Failure cleaning up temp space')
-            pass
 
 make_temp_dir = MakeTempDir
 

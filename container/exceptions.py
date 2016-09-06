@@ -43,3 +43,7 @@ class AnsibleContainerShipItException(Exception):
         self.stdout = stdout
 
         Exception.__init__(self, msg)
+
+class AnsibleContainerFilterException(Exception):
+    pass
+
