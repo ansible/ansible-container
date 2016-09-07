@@ -85,7 +85,8 @@ class OriginAPI(object):
         if rc == 0:
             result = json.loads(stdout) 
         elif rc != 0 and not re.search('not found', stderr):
-            raise OriginAPIException("Error getting %s/%s" % (type, name), stderr=stderr, stdout=stdout)
+            error_msg = "Error getting %s/%s" % (type, name)
+            self.module.fail_json(msg=error_msg, stderr=stderr, stdout=stdout)
         return result
    
     def set_context(self, context_name):
@@ -103,7 +104,8 @@ class OriginAPI(object):
         if rc != 0:
             result = False
             if not re.search('does not exist', stderr):
-                raise OriginAPIException("Error switching to project %s" % project_name, stderr=stderr, stdout=stdout)
+                error_msg = "Error switching to project %s" % project_name
+                self.module.fail_json(msg=error_msg, stderr=stderr, stdout=stdout)
         return result
 
     def create_project(self, project_name):
@@ -120,6 +122,6 @@ class OriginAPI(object):
         rc, stdout, stderr = self.call_api(cmd)
         if rc != 0:
             if not re.search('not found', stderr):
-                raise OriginAPIException("Error getting deployment state %s" % deployment_name, stderr=stderr,
-                                         stdout=stdout)
+                error_msg = "Error getting deployment state %s" % deployment_name
+                self.module.fail_json(msg=error_msg, stderr=stderr, stdout=stdout)
         return stdout
