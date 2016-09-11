@@ -10,14 +10,14 @@ ansible-container:
     - COMPOSE_HTTP_TIMEOUT=3000
     - DOCKER_API_VERSION={{ api_version }}
     - ANSIBLE_ORCHESTRATED_HOSTS={% for host in hosts %}{{ host }}{% if not loop.last %},{% endif %}{% endfor %}
-    {% if with_variables %}{% for env_var in with_variables %}
+    {% if params.with_variables %}{% for env_var in params.with_variables %}
     - {{ env_var }}
     {% endfor %}{% endif %}
   volumes:
     {% if not env.DOCKER_HOST %}- /var/run/docker.sock:/var/run/docker.sock{% endif %}
     {% if env.DOCKER_CERT_PATH %}- $DOCKER_CERT_PATH:/docker-certs/:Z{% endif %}
     - {{ base_path }}:/ansible-container/:Z
-    {% if with_volumes %}{% for vol in with_volumes %}
+    {% if params.with_volumes %}{% for vol in params.with_volumes %}
     - {{ vol }}{% endfor %}{% endif %}
   working_dir: /ansible-container/ansible/
 {{ config }}
