@@ -11,7 +11,7 @@ images built for each of the containers in your orchestration. This is analogous
 
 .. option:: --flatten
 
-By default, Ansible container commits the changes your playbook made to the base image,
+By default, Ansible Container commits the changes your playbook made to the base image,
 but it retains the original layers from that base image. Specifying this option, Ansible
 Container flattens the union filesystem of your image to a single layer.
 
@@ -41,25 +41,25 @@ By default, upon successful completion of a build, the previously latest builds 
 your hosts are deleted and purged from the engine. Specifying this option, the prior builds
 are retained.
 
-.. option:: --with-volumes WITH_VOLUMES [WITH_VOLUMES ...]
+.. option:: --save-build-container
 
 **New in version 0.2.0**
 
-Mount one or more volumes to the Ansible Builder Container. Specify volumes as strings using the Docker
-volume format. Separate multiple volume strings with spaces.
+Leave the Ansible Builder Container intact upon build completion. Use for debugging and testing.
 
 .. option:: --with-variables WITH_VARIABLES [WITH_VARIABLES ...]
 
 **New in version 0.2.0**
 
 Define one or more environment variables in the Ansible Builder Container. Format each variable as a
-key=value string. Separate multiple variable strings with spaces.
+key=value string.
 
-.. option:: --save-build-container
+.. option:: --with-volumes WITH_VOLUMES [WITH_VOLUMES ...]
 
 **New in version 0.2.0**
 
-Leave the Ansible Builder Container intact upon build completion. Use for debugging and testing.
+Mount one or more volumes to the Ansible Builder Container. Specify volumes as strings using the Docker
+volume format.
 
 .. option:: ansible_options
 

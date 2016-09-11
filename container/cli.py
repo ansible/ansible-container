@@ -57,6 +57,17 @@ AVAILABLE_COMMANDS = {'help': 'Display this help message',
                       'push': 'Push your built images to a Docker Hub compatible registry',
                       'shipit': 'Generate a deployment playbook to your cloud of choice.'}
 
+def subcmd_common_parsers(parser, subparser, cmd):
+    if cmd in ('build', 'run', 'shipit'):
+        subparser.add_argument('--with-volumes', '-v', action='store', nargs='+',
+                               help=u'Mount one or more volumes to the Ansible Builder Container. '
+                                    u'Specify volumes as strings using the Docker volume format.',
+                               default=[])
+        subparser.add_argument('--with-variables', '-e', action='store', nargs='+',
+                               help=u'Define one or more environment variables in the Ansible '
+                                    u'Builder Container. Format each variable as a key=value string.',
+                               default=[])
+
 def subcmd_init_parser(parser, subparser):
     return
 
@@ -79,14 +90,6 @@ def subcmd_build_parser(parser, subparser):
     subparser.add_argument('--local-builder', action='store_true',
                            help=u'Instead of using the Ansible Builder Container '
                                 u'image from Docker Hub, generate one locally.')
-    subparser.add_argument('--with-volumes', '-v', action='append', nargs='+',
-                           help=u'Mount one or more volumes to the Ansible Builder Container. '
-                                u'Specify volumes as strings using the Docker volume format. '
-                                u'Separate multiple volume strings with spaces.')
-    subparser.add_argument('--with-variables', '-e', action='append', nargs='+',
-                           help=u'Define one or more environment variables in the Ansible '
-                                u'Builder Container. Format each variable as a key=value string. '
-                                u'Separate multiple variable strings with spaces.')
     subparser.add_argument('--save-build-container', action='store_true',
                            help=u'Leave the Ansible Builder Container intact upon build completion. '
                                 u'Use for debugging and testing.', default=False)
@@ -96,7 +99,7 @@ def subcmd_build_parser(parser, subparser):
                                 u'use this argument, you will need to use -- to '
                                 u'prefix your extra options. Use this feature with '
                                 u'caution.', default=u'', nargs='*')
-
+    subcmd_common_parsers(parser, subparser, 'build')
 
 def subcmd_run_parser(parser, subparser):
     subparser.add_argument('service', action='store',
@@ -110,6 +113,7 @@ def subcmd_run_parser(parser, subparser):
     subparser.add_argument('-o', '--remove-orphans', action='store_true',
                            help=u'Remove containers for services not defined in container.yml',
                            default=False, dest='remove_orphans')
+    subcmd_common_parsers(parser, subparser, 'run')
 
 def subcmd_stop_parser(parser, subparser):
     subparser.add_argument('service', action='store',
@@ -153,13 +157,9 @@ def subcmd_shipit_parser(parser, subparser):
         engine_parser = se_subparser.add_parser(engine_name, help=engine['help'])
         engine_obj = load_shipit_engine(engine['cls'], base_path=os.getcwd())
         engine_obj.add_options(engine_parser)
+    subcmd_common_parsers(parser, subparser, 'shipit')
 
 def commandline():
-
-    # default_base_path = os.getcwd()
-    # if os.environ.get('ANSIBLE_CONTAINER_PROJECT'):
-    #     default_base_path = os.environ['ANSIBLE_CONTAINER_PROJECT']
-
     parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '
                                                  u'ship Docker containers with '
                                                  u'Ansible playbooks')
