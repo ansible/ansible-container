@@ -103,11 +103,12 @@ class Engine(BaseEngine):
                                  'Dockerfile')
             tarball.add(os.path.join(temp_dir, 'Dockerfile'),
                         arcname='Dockerfile')
-
             tarball.add(os.path.join(jinja_template_path(), 'builder.sh'),
                         arcname='builder.sh')
             tarball.add(os.path.join(jinja_template_path(), 'ansible-container-inventory.py'),
                         arcname='ansible-container-inventory.py')
+            tarball.add(os.path.join(jinja_template_path(), 'ansible.cfg'),
+                        arcname='ansible.cfg')
             tarball.close()
             tarball_file.close()
             tarball_file = open(tarball_path, 'rb')
