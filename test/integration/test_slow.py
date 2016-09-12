@@ -123,6 +123,12 @@ def test_run_with_var_file():
     assert "ansible_db_1 exited with code 0" in result.stdout
     assert "ansible_web_1 exited with code 0" in result.stdout
 
+def test_install_role_requirements():
+    env = ScriptTestEnvironment()
+    result = env.run('ansible-container', '--debug', 'build',
+                     cwd=project_dir('requirements'), expect_stderr=True)
+    assert "ansible-role-apache was installed successfully" in result.stderr
+
 #def test_shipit_minimal_docker_container():
 #    env = ScriptTestEnvironment()
 #    result = env.run('ansible-container', 'shipit', 'kube', cwd=project_dir('minimal'), expect_error=True)
