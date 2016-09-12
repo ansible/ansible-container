@@ -134,7 +134,7 @@ class AnsibleContainerConfig(Mapping):
                             default_lines.append(re.sub(u'\n', '', line))
                         else:
                             break
-        except OSError:
+        except Exception:
             raise AnsibleContainerConfigException(u"Failed to open %s. Are you in the correct directory?" %
                                                   self.config_path)
 
