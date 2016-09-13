@@ -4,6 +4,7 @@ ansible-container:
   image: "{{ builder_img_id }}"
   command: "/usr/local/bin/builder.sh /usr/local/bin/ac_galaxy.py {{ params.roles | join(' ')  }}"
   environment:
+    - ANSIBLE_CONTAINER=1
     {% if with_variables %}{% for env_var in with_variables %}
     - {{ env_var }}
     {% endfor %}{% endif %}

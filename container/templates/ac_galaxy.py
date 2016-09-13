@@ -112,7 +112,7 @@ def update_container_yml(role_obj):
                      'already has a service with this name', new_service_key)
         raise RoleException()
 
-    services.append(snippet)
+    services[new_service_key] = snippet[new_service_key]
     try:
         ruamel.yaml.round_trip_dump(container_yml,
                                     stream=open(container_yml_path, 'w'))
