@@ -54,7 +54,7 @@ class Engine(BaseEngine):
 
         :return: list of strings
         """
-        return self.config.get('services', {}).keys()
+        return (self.config.get('services') or {}).keys()
 
     def hosts_touched_by_playbook(self):
         """
@@ -77,7 +77,7 @@ class Engine(BaseEngine):
                 host_lines = [line for line in lines_minus_builder_host
                               if line.startswith('       ')]
                 self._orchestrated_hosts = list(set([line.strip() for line in host_lines]))
-        return self._orchestrated_hosts
+        return filter(None, self._orchestrated_hosts)
 
     def build_buildcontainer_image(self):
         """
@@ -765,7 +765,7 @@ class Engine(BaseEngine):
                                                                 operation))()
         config = getattr(self, 'get_config_for_%s' % operation)()
         logger.debug('%s' % (config,))
-        config_yaml = yaml_dump(config)
+        config_yaml = yaml_dump(config) if config else ''
         logger.debug('Config YAML is')
         logger.debug(config_yaml)
         jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),

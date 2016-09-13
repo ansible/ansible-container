@@ -101,6 +101,9 @@ def update_container_yml(role_obj):
         logger.exception('Could not load project ansible/container.yml')
         raise FatalException()
 
+    # It can be None if left empty
+    if not container_yml['services']:
+        container_yml['services'] = {}
     services = container_yml['services']
     # The snippet should be a dictionary with one key
     new_service_key = snippet.keys()[0]
@@ -149,7 +152,7 @@ def update_requirements_yml(role_obj):
                                          'requirements.yml')
     if os.path.exists(requirements_yml_path):
         try:
-            requirements = ruamel.yaml.round_trip_load(open(requirements_yml_path))
+            requirements = ruamel.yaml.round_trip_load(open(requirements_yml_path)) or []
         except Exception, e:
             logger.exception('Could not load project ansible/requirements.yml')
             raise FatalException()
