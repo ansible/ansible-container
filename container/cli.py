@@ -50,6 +50,7 @@ LOGGING = {
 AVAILABLE_COMMANDS = {'help': 'Display this help message',
                       'version': 'Display Ansible Container version information',
                       'init': 'Initialize a new Ansible Container project',
+                      'install': 'Install a service from Ansible Galaxy',
                       'build': 'Build new images based on ansible/container.yml',
                       'run': 'Run and orchestrate built images based on container.yml',
                       'stop': 'Stop the services defined in container.yml, if deployed',
@@ -158,6 +159,9 @@ def subcmd_shipit_parser(parser, subparser):
         engine_obj = load_shipit_engine(engine['cls'], base_path=os.getcwd())
         engine_obj.add_options(engine_parser)
     subcmd_common_parsers(parser, subparser, 'shipit')
+
+def subcmd_install_parser(parser, subparser):
+    subparser.add_argument('roles', nargs='+', action='store', dest='roles')
 
 def commandline():
     parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '

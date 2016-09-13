@@ -148,9 +148,9 @@ class BaseEngine(object):
         """
         raise NotImplementedError()
 
-    def orchestrate_galaxy_extra_args(self):
+    def orchestrate_install_extra_args(self):
         """
-        Provide extra arguments to provide the orchestrator during galaxy calls.
+        Provide extra arguments to provide the orchestrator during install calls.
 
         :return: dictionary
         """
@@ -429,6 +429,16 @@ def cmdrun_shipit(base_path, engine_name, pull_from=None, **kwargs):
         # generate and save the configuration templates
         config_path = shipit_engine_obj.save_config()
         logger.info('Saved configuration to %s' % config_path)
+
+def cmdrun_install(base_path, engine_name, roles=[], **kwargs):
+    assert_initialized(base_path)
+    engine_args = kwargs.copy()
+    engine_args.update(locals())
+    engine_obj = load_engine(**engine_args)
+
+    with make_temp_dir() as temp_dir:
+        engine_obj.orchestrate('install', temp_dir)
+
 
 def cmdrun_version(base_path, engine_name, debug=False, **kwargs):
     print 'Ansible Container, version', __version__

@@ -105,7 +105,7 @@ class Engine(BaseEngine):
                         arcname='Dockerfile')
 
             for context_file in ['builder.sh', 'ansible-container-inventory.py',
-                                 'ansible.cfg', 'wait_on_host.py']:
+                                 'ansible.cfg', 'wait_on_host.py', 'ac_galaxy.py']:
                 tarball.add(os.path.join(jinja_template_path(), context_file),
                             arcname=context_file)
 
@@ -346,9 +346,9 @@ class Engine(BaseEngine):
         """
         return {}
 
-    def orchestrate_galaxy_extra_args(self):
+    def orchestrate_install_extra_args(self):
         """
-        Provide extra arguments to provide the orchestrator during galaxy calls.
+        Provide extra arguments to provide the orchestrator during install calls.
 
         :return: dictionary
         """
@@ -500,14 +500,8 @@ class Engine(BaseEngine):
             )
         return compose_config
 
-    def get_config_for_galaxy(self):
+    def get_config_for_install(self):
         compose_config = config_to_compose(self.config)
-        for service, service_config in compose_config.items():
-            service_config.update(
-                dict(
-                    command='echo "Started"'
-                )
-            )
         return compose_config
 
     def post_build(self, host, version, flatten=True, purge_last=True):
