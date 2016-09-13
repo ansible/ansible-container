@@ -65,12 +65,37 @@ The ``main.yml`` file contains the playbook to use in building your containers. 
 inventory with the hosts defined in your ``container.yml`` file. All Ansible features are available, and the ``ansible/``
 directory is the proper place to put any roles or modules that your playbook requires.
 
+For convenience the environment variable ``ANSIBLE_CONTAINER=1`` is set in any containers where ``main.yml`` executes. This
+may be useful in roles or includes where task execution needs to be conditional. For example:
+
+.. code-block:: yaml
+
+  - name: Only say hello when running via Ansible Container
+    command: echo "Hello!"
+    when: ansible_env.ANSIBLE_CONTAINER is defined
+
+Visit `Ansible Roles </ansible-container/roles/index.html>`_ for best practices around writing and using roles within
+Ansible Container.
+
 requirements.txt
 ````````````````
 Running Ansible inside of your build container may have Python library dependencies that your modules require. Use
 the ``requirements.txt`` file to specify those dependencies. This file follows the standard `pip <https://pip.pypa.io/>`_
 format for Python dependencies. When your Ansible build container is created, these dependencies are installed prior
 to executing the playbook.
+
+requirements.yml
+````````````````
+If your playbook has role dependencies, and you want the roles automatically installed from Galaxy or directly from
+version control, add them to ``requirements.yml``. For more information about ``requirements.yml`` see
+`Installing Roles From a File <http://docs.ansible.com/ansible/galaxy.html#installing-multiple-roles-from-a-file>`_.
+
+Roles are installed to the default ``roles_path``, ``/etc/ansible/roles``. If needed, you can override this by updating
+``ansible.cfg``.
+
+ansible.cfg
+```````````
+Set Ansible configuration settings within the build container. For more information see `Configuration File <http://docs.ansible.com/ansible/intro_configuration.html`_.
 
 
 
