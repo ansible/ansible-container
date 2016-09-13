@@ -4,5 +4,6 @@ Ansible Roles
 .. toctree::
    :maxdepth: 2
 
-   existing
+   access
+   writing
    galaxy
