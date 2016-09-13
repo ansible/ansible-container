@@ -10,6 +10,7 @@ ansible-container:
     - COMPOSE_HTTP_TIMEOUT=3000
     - DOCKER_API_VERSION={{ api_version }}
     - ANSIBLE_ORCHESTRATED_HOSTS={% for host in hosts %}{{ host }}{% if not loop.last %},{% endif %}{% endfor %}
+    - ANSIBLE_CONTAINER=1
     {% if params.with_variables %}{% for env_var in params.with_variables %}
     - {{ env_var }}
     {% endfor %}{% endif %}

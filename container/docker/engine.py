@@ -438,9 +438,18 @@ class Engine(BaseEngine):
                         user='root',
                         working_dir='/',
                         command='sh -c "while true; do sleep 1; done"',
-                        entrypoint=[]
+                        entrypoint=[],
                     )
                 )
+                # Set ANSIBLE_CONTAINER=1 in env
+                if service_config.get('environment'):
+                    if isinstance(service_config['environment'], list):
+                        service_config['environment'].append("ANSIBLE_CONTAINER=1")
+                    elif isinstance(service_config['environment'], dict):
+                        service_config['environment']['ANSIBLE_CONTAINER'] = 1
+                else:
+                    service_config['environment'] = dict(ANSIBLE_CONTAINER=1)
+
             if not self.params['rebuild']:
                 tag = '%s-%s:latest' % (self.project_name,
                                         service)

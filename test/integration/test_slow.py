@@ -129,6 +129,14 @@ def test_install_role_requirements():
                      cwd=project_dir('requirements'), expect_stderr=True)
     assert "ansible-role-apache was installed successfully" in result.stderr
 
+def test_setting_ansible_container_envar():
+    env = ScriptTestEnvironment()
+    result = env.run('ansible-container', '--debug', 'build',
+                     cwd=project_dir('environment'), expect_stderr=True)
+    assert "web MYVAR=foo ANSIBLE_CONTAINER=1" in result.stdout
+    assert "db MYVAR=foo ANSIBLE_CONTAINER=1" in result.stdout
+    assert "mw ANSIBLE_CONTAINER=1" in result.stdout
+
 #def test_shipit_minimal_docker_container():
 #    env = ScriptTestEnvironment()
 #    result = env.run('ansible-container', 'shipit', 'kube', cwd=project_dir('minimal'), expect_error=True)
