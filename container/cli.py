@@ -161,7 +161,7 @@ def subcmd_shipit_parser(parser, subparser):
     subcmd_common_parsers(parser, subparser, 'shipit')
 
 def subcmd_install_parser(parser, subparser):
-    subparser.add_argument('roles', nargs='+', action='store', dest='roles')
+    subparser.add_argument('roles', nargs='+', action='store')
 
 def commandline():
     parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '

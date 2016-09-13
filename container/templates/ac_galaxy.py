@@ -11,6 +11,7 @@ import shutil
 import os
 import sys
 
+import ansible.constants as C
 from ansible.galaxy import Galaxy
 from ansible.galaxy.role import GalaxyRole
 from ansible.playbook.role.requirement import RoleRequirement
@@ -44,9 +45,11 @@ class AttrDict(dict):
         self.__dict__ = self
 
 def get_galaxy(tmp_dir, token):
-    return Galaxy(AttrDict(ignore_errors=False,
+    return Galaxy(AttrDict(api_server=C.GALAXY_SERVER,
+                           ignore_certs=C.GALAXY_IGNORE_CERTS,
+                           ignore_errors=False,
                            no_deps=False,
-                           roles_path=tmp_dir,
+                           roles_path=[tmp_dir],
                            token=token))
 
 def role_to_temp_space(role_req, galaxy):
@@ -166,7 +169,7 @@ def update_requirements_yml(role_obj):
         raise FatalException()
 
 def install(roles):
-    roles_to_install = roles.copy()
+    roles_to_install = list(roles)
     with MakeTempDir() as temp_dir:
         galaxy = get_galaxy(temp_dir, None) # FIXME: support tokens
         roles_processed = []
@@ -174,7 +177,7 @@ def install(roles):
         while roles_to_install:
             try:
                 role_to_install = roles_to_install.pop()
-                role_obj, installed = role_to_install(role_to_install, galaxy)
+                role_obj, installed = role_to_temp_space(role_to_install, galaxy)
                 if installed:
                     deps = role_obj.metadata.get('dependencies', [])
                     for dep in deps:
@@ -186,6 +189,7 @@ def install(roles):
                     else:
                         logger.warning('Role %s is not Ansible Container enabled.',
                                        role_obj)
+                    update_requirements_yml(role_obj)
                 roles_processed.append(role_to_install)
             except FatalException:
                 raise
@@ -200,7 +204,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('role', nargs='+', action='store', dest='roles')
+    parser.add_argument('roles', nargs='+', action='store')
 
     args = parser.parse_args()
     install(args.roles)
