@@ -2,7 +2,7 @@ Ansible Container has been contribued to by the following authors:
 (This list is automatically generated - please file an issue for corrections)
 
 Chris Houseknecht <chouseknecht@ansible.com>
-Joshua "jag" Ginsberg <jag@flowtheory.net>
+Joshua "jag" Ginsberg <jag@ansible.com>
 Shubham Minglani <shubham@linux.com>
 Matt Clay <matt@mystile.com>
 Greg DeKoenigsberg <greg.dekoenigsberg@gmail.com>
@@ -10,7 +10,6 @@ Sandra Wills <swills@ansible.com>
 Dusty Mabe <dusty@dustymabe.com>
 Charlie Drage <charlie@charliedrage.com>
 Roderick Randolph <roderickrandolph@users.noreply.github.com>
-chouseknecht <chousek@redhat.com>
 Todd Barr <tbarr@ansible.com>
 Will Thames <wthames@redhat.com>
 Grzegorz Nosek <root@localdomain.pl>
