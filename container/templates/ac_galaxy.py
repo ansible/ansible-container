@@ -38,6 +38,22 @@ class MakeTempDir(object):
             logger.exception('Failure cleaning up temp space')
             pass
 
+class InCaseOfFail(object):
+    def __init__(self, temp_dir):
+        self.temp_dir = temp_dir
+
+    def __enter__(self):
+        for yml_file in ['container.yml', 'main.yml', 'requirements.yml']:
+            shutil.copyfile(os.path.join(ANSIBLE_CONTAINER_PATH, 'ansible', yml_file),
+                            os.path.join(self.temp_dir, yml_file))
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            logger.info('Undoing changes to .yml files')
+            for yml_file in ['container.yml', 'main.yml', 'requirements.yml']:
+                shutil.copyfile(
+                    os.path.join(self.temp_dir, yml_file),
+                    os.path.join(ANSIBLE_CONTAINER_PATH, 'ansible', yml_file))
 
 class AttrDict(dict):
     def __init__(self, *args, **kwargs):
@@ -177,28 +193,29 @@ def install(roles):
         galaxy = get_galaxy(temp_dir, None) # FIXME: support tokens
         roles_processed = []
         role_failure = False
-        while roles_to_install:
-            try:
-                role_to_install = roles_to_install.pop()
-                role_obj, installed = role_to_temp_space(role_to_install, galaxy)
-                if installed:
-                    deps = role_obj.metadata.get('dependencies', [])
-                    for dep in deps:
-                        if dep not in roles_to_install + roles_processed:
-                            roles_to_install.append(dep)
-                    service = update_container_yml(role_obj)
-                    if service:
-                        update_main_yml(service, role_obj)
-                    else:
-                        logger.warning('Role %s is not Ansible Container enabled.',
-                                       role_obj)
-                    update_requirements_yml(role_obj)
-                roles_processed.append(role_to_install)
-            except FatalException:
-                raise
-            except RoleException:
-                role_failure = True
-                continue
+        with InCaseOfFail(temp_dir):
+            while roles_to_install:
+                try:
+                    role_to_install = roles_to_install.pop()
+                    role_obj, installed = role_to_temp_space(role_to_install, galaxy)
+                    if installed:
+                        deps = role_obj.metadata.get('dependencies', [])
+                        for dep in deps:
+                            if dep not in roles_to_install + roles_processed:
+                                roles_to_install.append(dep)
+                        service = update_container_yml(role_obj)
+                        if service:
+                            update_main_yml(service, role_obj)
+                        else:
+                            logger.warning('Role %s is not Ansible Container enabled.',
+                                           role_obj)
+                        update_requirements_yml(role_obj)
+                    roles_processed.append(role_to_install)
+                except FatalException:
+                    raise
+                except RoleException:
+                    role_failure = True
+                    continue
     if role_failure:
         raise RoleException()
 
