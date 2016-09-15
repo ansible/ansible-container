@@ -267,20 +267,24 @@ class BaseEngine(object):
         '''
 
 
-def cmdrun_init(base_path, **kwargs):
-    container_dir = os.path.normpath(
-        os.path.join(base_path, 'ansible'))
-    container_cfg = os.path.join(container_dir, 'container.yml')
-    if os.path.exists(container_cfg):
-        raise AnsibleContainerAlreadyInitializedException()
-    if not os.path.exists(container_dir):
-        os.mkdir(container_dir)
-    template_dir = os.path.join(jinja_template_path(), 'ansible')
-    for tmpl_filename in os.listdir(template_dir):
-        jinja_render_to_temp('ansible/%s' % tmpl_filename,
-                             container_dir,
-                             tmpl_filename.replace('.j2', ''))
-    logger.info('Ansible Container initialized.')
+def cmdrun_init(base_path, project=None, **kwargs):
+    if project:
+        # Clone project from Ansible Container
+        pass
+    else:
+        container_dir = os.path.normpath(
+            os.path.join(base_path, 'ansible'))
+        container_cfg = os.path.join(container_dir, 'container.yml')
+        if os.path.exists(container_cfg):
+            raise AnsibleContainerAlreadyInitializedException()
+        if not os.path.exists(container_dir):
+            os.mkdir(container_dir)
+        template_dir = os.path.join(jinja_template_path(), 'ansible')
+        for tmpl_filename in os.listdir(template_dir):
+            jinja_render_to_temp('ansible/%s' % tmpl_filename,
+                                 container_dir,
+                                 tmpl_filename.replace('.j2', ''))
+        logger.info('Ansible Container initialized.')
 
 
 def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, local_builder=False,

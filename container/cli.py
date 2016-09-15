@@ -70,7 +70,10 @@ def subcmd_common_parsers(parser, subparser, cmd):
                                default=[])
 
 def subcmd_init_parser(parser, subparser):
-    return
+    subparser.add_argument('project', nargs='?', action='store',
+                           help=u'Use a project template instead of making a '
+                                u'blank project from an Ansible Container project '
+                                u'from Ansible Galaxy.')
 
 def subcmd_build_parser(parser, subparser):
     subparser.add_argument('--flatten', action='store_true',
