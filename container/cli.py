@@ -68,6 +68,9 @@ def subcmd_common_parsers(parser, subparser, cmd):
                                help=u'Define one or more environment variables in the Ansible '
                                     u'Builder Container. Format each variable as a key=value string.',
                                default=[])
+        subparser.add_argument('--roles-path', action='store', default=None,
+                               help=u'Specify a local path containing roles you want to '
+                                    u'use in the builder container.')
 
 def subcmd_init_parser(parser, subparser):
     subparser.add_argument('project', nargs='?', action='store',

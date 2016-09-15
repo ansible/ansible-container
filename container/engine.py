@@ -288,8 +288,8 @@ def cmdrun_init(base_path, project=None, **kwargs):
 
 
 def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, local_builder=False,
-                 rebuild=False, ansible_options='', **kwargs):
-    save_build_container = kwargs.pop('save_build_container')
+                 rebuild=False, ansible_options='', save_build_container=False,
+                 roles_path=None, **kwargs):
     engine_args = kwargs.copy()
     engine_args.update(locals())
     engine_obj = load_engine(**engine_args)

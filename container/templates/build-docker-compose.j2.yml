@@ -11,6 +11,7 @@ ansible-container:
     - DOCKER_API_VERSION={{ api_version }}
     - ANSIBLE_ORCHESTRATED_HOSTS={% for host in hosts %}{{ host }}{% if not loop.last %},{% endif %}{% endfor %}
     - ANSIBLE_CONTAINER=1
+    {% if params.roles_path %}- ANSIBLE_ROLES_PATH=/local-roles:/etc/ansible/roles{% endif %}
     {% if params.with_variables %}{% for env_var in params.with_variables %}
     - {{ env_var }}
     {% endfor %}{% endif %}
@@ -20,5 +21,6 @@ ansible-container:
     - {{ base_path }}:/ansible-container/:Z
     {% if params.with_volumes %}{% for vol in params.with_volumes %}
     - {{ vol }}{% endfor %}{% endif %}
+    {% if params.roles_path %}- {{ params.roles_path }}:/local-roles{% endif %}
   working_dir: /ansible-container/ansible/
 {{ config }}
