@@ -217,15 +217,20 @@ def install(roles):
                     role_failure = True
                     continue
     if role_failure:
-        raise RoleException()
+        raise RoleException('One or more roles failed.')
 
 if __name__ == '__main__':
     import argparse
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
 
     parser = argparse.ArgumentParser()
     parser.add_argument('roles', nargs='+', action='store')
 
     args = parser.parse_args()
-    install(args.roles)
+    try:
+        install(args.roles)
+    except Exception, e:
+        logger.error(unicode(e))
+        sys.exit(1)
+
 
