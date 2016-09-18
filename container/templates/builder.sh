@@ -9,4 +9,8 @@ if [ -f "./requirements.yml" ]; then
     fi
 fi
 
+if [ "$ANSIBLE_ORCHESTRATED_HOSTS" != "" ]; then
+    /usr/local/bin/wait_on_host.py $(echo $ANSIBLE_ORCHESTRATED_HOSTS | tr "," " ")
+fi
+
 "$@"

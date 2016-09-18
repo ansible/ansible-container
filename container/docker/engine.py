@@ -105,6 +105,8 @@ class Engine(BaseEngine):
                         arcname='Dockerfile')
             tarball.add(os.path.join(jinja_template_path(), 'builder.sh'),
                         arcname='builder.sh')
+            tarball.add(os.path.join(jinja_template_path(), 'wait_on_host.py'),
+                        arcname='wait_on_host.py')
             tarball.add(os.path.join(jinja_template_path(), 'ansible-container-inventory.py'),
                         arcname='ansible-container-inventory.py')
             tarball.add(os.path.join(jinja_template_path(), 'ansible.cfg'),
