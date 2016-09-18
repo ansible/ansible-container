@@ -21,6 +21,7 @@ def wait_on_hosts(hosts, max_attempts=3, sleep_time=1):
         tries = max_attempts
         host_ready = False
         output = None
+        results[host] = False
         while tries > 0 and not host_ready:
             try:
                 output = subprocess.check_output(["docker", "inspect", "--format", "{{ .State.Running }}",
@@ -33,8 +34,6 @@ def wait_on_hosts(hosts, max_attempts=3, sleep_time=1):
                 results[host] = True
             else:
                 sleep(sleep_time)
-        if not host_ready:
-            results[host] = False
     return results
 
 if __name__ == '__main__':
