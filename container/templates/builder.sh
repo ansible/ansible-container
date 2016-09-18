@@ -9,8 +9,9 @@ if [ -f "./requirements.yml" ]; then
     fi
 fi
 
-if [ "$ANSIBLE_ORCHESTRATED_HOSTS" != "" ]; then
-    /usr/local/bin/wait_on_host.py -m 5 $(echo $ANSIBLE_ORCHESTRATED_HOSTS | tr "," " ")
+if [ "${ANSIBLE_ORCHESTRATED_HOSTS}" != "" ]; then
+    # shellcheck disable=SC2046
+    /usr/local/bin/wait_on_host.py -m 5 $(echo "${ANSIBLE_ORCHESTRATED_HOSTS}" | tr ',' ' ')
 fi
 
 "$@"
