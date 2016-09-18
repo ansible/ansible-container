@@ -11,6 +11,7 @@ RUN apt-get update -y && \
     mkdir -p /etc/ansible/roles
 
 ADD builder.sh /usr/local/bin/builder.sh
+ADD wait_on_host.py /usr/local/bin/wait_on_host.py
 ADD ansible-container-inventory.py /etc/ansible/ansible-container-inventory.py
 ADD ansible.cfg /etc/ansible/ansible.cfg
 RUN pip install -q --no-cache-dir ansible==2.1.1.0 PyYAML==3.11
