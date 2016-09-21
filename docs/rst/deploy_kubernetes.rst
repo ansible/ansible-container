@@ -8,12 +8,11 @@ example we'll walk through a deployment to `Google Container Engine <https://clo
 
 Requirements
 ''''''''''''
-If you have not already done so, follow the `installation guide <http://docs.ansible.com/ansible-container/installation.html>`_
+If you have not already done so, follow the :doc:`installation guide <../installation>`_
 to install ansible-container.
 
 In addition to Ansible Container, the following are also required:
 
-+ `Docker <http://www.docker.com/products/docker-engine>`_
 + kubectl installed locally (see below)
 + Kubernetes cluster hosted on Google Container Engine (see below)
 
@@ -67,9 +66,10 @@ run the following, replacing VALUE with the Zone assigned to your *example-clust
 
 Deployment
 ''''''''''
-In this walk through we'll demonstrate deploying `the example application <https://github.com/ansible/ansible-container/tree/master/example>`_
-found in the ansible-container repo. Here's the workflow we'll follow to deploy the application on a Kubernetes cluster using Ansible Container:
+In this walk through we'll demonstrate deploying :ref:`the example application <example-project>`_
+found on Ansible Galaxy. Here's the workflow we'll follow to deploy the application on a Kubernetes cluster using Ansible Container:
 
++ Initialize a new project from the app with ``ansible-container init``.
 + Build the images with ``ansible-container build``.
 + Push the new images to the cloud with ``ansible-container push``.
 + Create the deployment role and playbook with ``ansible container shipit kube``.
@@ -78,12 +78,19 @@ found in the ansible-container repo. Here's the workflow we'll follow to deploy 
 Build the Images
 ----------------
 
-From inside the example project, start the process to build the images. This will take a few minutes to download base images
+Let's call our project ``shipit-example``. Start by initializing it from the skeleton app:
+
+.. code-block:: bash
+
+    $ mkdir shipit-example
+    $ cd shipit-example
+    $ ansible-container init j00bar.django-gulp-nginx
+
+From inside your project, start the process to build the images. This will take a few minutes to download base images
 and run the build process for 4 application containers plus the Ansible build container.
 
 .. code-block:: bash
 
-    $ cd example
     $ ansible-container build
 
 After the build completes, run `docker images` to view the available images:
@@ -93,14 +100,12 @@ After the build completes, run `docker images` to view the available images:
     $ docker images
 
     REPOSITORY                                   TAG                 IMAGE ID            CREATED             SIZE
-    example-django                               20160622155105      2463f6029944        3 hours ago         794.8 MB
-    example-django                               latest              2463f6029944        3 hours ago         794.8 MB
-    example-postgresql                           20160622155105      e936d28ff596        3 hours ago         764.1 MB
-    example-postgresql                           latest              e936d28ff596        3 hours ago         764.1 MB
-    example-static                               20160622155105      c1a1f10afd4e        3 hours ago         796 MB
-    example-static                               latest              c1a1f10afd4e        3 hours ago         796 MB
-    example-gulp                                 20160622155105      a06c743d37e2        3 hours ago         331 MB
-    example-gulp                                 latest              a06c743d37e2        3 hours ago         331 MB
+    shipit-example-django                        20160622155105      2463f6029944        3 hours ago         794.8 MB
+    shipit-example-django                        latest              2463f6029944        3 hours ago         794.8 MB
+    shipit-example-nginx                         20160622155105      c1a1f10afd4e        3 hours ago         796 MB
+    shipit-example-nginx                         latest              c1a1f10afd4e        3 hours ago         796 MB
+    shipit-example-gulp                          20160622155105      a06c743d37e2        3 hours ago         331 MB
+    shipit-example-gulp                          latest              a06c743d37e2        3 hours ago         331 MB
 
 
 Push the Images to the Cloud
@@ -123,9 +128,9 @@ Run the following command from inside the example directory:
     Pushing to "https://us.gcr.io/stoked-archway-645"
     Attaching to ansible_ansible-container_1
     Cleaning up Ansible Container builder...
-    Tagging us.gcr.io/stoked-archway-645/example-gulp
-    Pushing us.gcr.io/stoked-archway-645/example-gulp:20160624200715...
-    The push refers to a repository [us.gcr.io/stoked-archway-645/example-gulp]
+    Tagging us.gcr.io/stoked-archway-645/shipit-example-gulp
+    Pushing us.gcr.io/stoked-archway-645/shipit-example-gulp:20160624200715...
+    The push refers to a repository [us.gcr.io/stoked-archway-645/shipit-example-gulp]
     Preparing
     Pushing
     Pushed
@@ -134,14 +139,14 @@ Run the following command from inside the example directory:
     Pushing
     Pushed
     20160624200715: digest: sha256:950462364217948fa8f2663f92e6c3390ab7e5d54a40a4e2cdf5fc026b2ad809 size: 4125
-    Tagging us.gcr.io/stoked-archway-645/example-static
-    Pushing us.gcr.io/stoked-archway-645/example-static:20160624200715...
-    The push refers to a repository [us.gcr.io/stoked-archway-645/example-static]
+    Tagging us.gcr.io/stoked-archway-645/shipit-example-nginx
+    Pushing us.gcr.io/stoked-archway-645/shipit-example-nginx:20160624200715...
+    The push refers to a repository [us.gcr.io/stoked-archway-645/shipit-example-nginx]
     Preparing
     Pushing
-    Mounted from stoked-archway-645/example-gulp
+    Mounted from stoked-archway-645/shipit-example-gulp
     Pushing
-    Mounted from stoked-archway-645/example-gulp
+    Mounted from stoked-archway-645/shipit-example-gulp
     Pushing
     ...
     Done!
@@ -156,16 +161,16 @@ Run the following command from inside the example directory:
 Shipit - Build the Deployment Role
 ----------------------------------
 
-Next, run the *shipit* command to generate the role and playbook needed to deploy the application to Kubernetes.
+Next, run the ``shipit`` command to generate the role and playbook needed to deploy the application to Kubernetes.
 
 The cluster needs to know from where to pull the application's images. In the previous step the images were pushed to Google
 Container Registry. The combination of the registry URL, *https://us.gcr.io*, plus your <Project ID> provides the
-path from which images are pulled. Use the *--pull-from* option to pass this path to the *shipit* command.
+path from which images are pulled. Use the ``--pull-from`` option to pass this path to the ``shipit`` command.
 
-Additionally, the *shipit* command needs to know which cloud provider to use. In this case Kubernetes is being used, so the
-cloud option is *kube*.
+Additionally, the ``shipit`` command needs to know which cloud provider to use. In this case Kubernetes is being used, so the
+cloud option is ``kube``.
 
-Run the following command to execute *shipit*:
+Run the following command to execute ``shipit``:
 
 .. code-block:: bash
 
@@ -178,7 +183,7 @@ Run the following command to execute *shipit*:
 Run the Role
 ------------
 
-The *shipit* commands adds a playbook and role to the ansible directory. Run the playbook from inside the ansible directory to deploy the
+The ``shipit`` commands adds a playbook and role to the ansible directory. Run the playbook from inside the ansible directory to deploy the
 application:
 
 .. code-block:: bash
@@ -252,30 +257,30 @@ Use *kubectl* to list the services:
     django       10.3.243.23    nodes             8080/TCP   22m
     kubernetes   10.3.240.1     <none>            443/TCP    6d
     postgresql   10.3.246.164   nodes             5432/TCP   22m
-    static       10.3.253.131   104.155.181.157   80/TCP     22m
+    nginx        10.3.253.131   104.155.181.157   80/TCP     22m
 
-Notice the static service has an external IP address. Point a browser at *http://<static service external IP>/admin*
-to view the application. An external IP address is assigned to the static service because of the port directive in the
-static service definition found in container.yml:
+Notice the nginx service has an external IP address. Point a browser at *http://<nginx service external IP>/admin*
+to view the application. An external IP address is assigned to the nginx service because of the `ports` key in the
+nginx service definition found in ``container.yml``:
 
-.. code-block:: bash
+.. code-block:: yaml
 
-    static:
-    image: centos:7
-    ports:
-      - "80:8080"
-    user: 'nginx'
-    links:
-      - django
-    command: ['/usr/bin/dumb-init', 'nginx', '-c', '/etc/nginx/nginx.conf']
-    dev_overrides:
-      ports: []
-      command: /bin/false
-    options:
-      kube_runAsUser: 997
+    nginx:
+      image: centos:7
+      ports:
+        - "80:8080"
+      user: 'nginx'
+      links:
+        - django
+      command: ['/usr/bin/dumb-init', 'nginx', '-c', '/etc/nginx/nginx.conf']
+      dev_overrides:
+        ports: []
+        command: /bin/false
+      options:
+        kube_runAsUser: 997
 
 The ports list includes *80:8080*, which indicates that port 8080 from the container should be exposed as port 80 on the
-host. The *shipit* command interprets this as port 80 should be exposed to the outside, as it would be when the application
+host. The ``shipit`` command interprets this as port 80 should be exposed to the outside, as it would be when the application
 is launched locally.
 
 Now take a look at the deployments:
@@ -287,7 +292,7 @@ Now take a look at the deployments:
     NAME         DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     django       1         1         1            1           1h
     postgresql   1         1         1            1           1h
-    static       1         1         1            1           1h
+    nginx        1         1         1            1           1h
 
 
 A deployment is a way to create resource controllers, pods and containers in a single step. It also comes with the ability
@@ -303,7 +308,7 @@ Next, take a look at the pods created by the deployments:
     NAME                          READY     STATUS    RESTARTS   AGE
     django-1184821742-93px6       1/1       Running   0          59s
     postgresql-2580868339-2qk2k   1/1       Running   0          1m
-    static-3768509799-r3zbl       1/1       Running   0          1m
+    nginx-3768509799-r3zbl       1/1       Running   0          1m
 
 And finally, view the details for one of the pods:
 
@@ -352,7 +357,7 @@ And finally, view the details for one of the pods:
     SecretName:	default-token-728nf
 
 The above reveals some of the details of the configuration used to create the pod and container. Notice the image value in the
-example is *gcr.io/<Project ID>/example-django:20160622155105*. This is the result of passing the *--pull-from* option to the *shipit*
+example is *gcr.io/<Project ID>/example-django:20160622155105*. This is the result of passing the ``--pull-from`` option to the ``shipit``
 command.
 
 To see the full configuration template run ``kubectl get pods/<name of the pod> -o json``.
@@ -362,22 +367,11 @@ ShipIt Role and Playbook Notes
 ------------------------------
 
 A couple notes on the playbook run. The WARNING messages appear because there is no inventory file. The play in playbook
-runs on localhost, which as the messages indicates, is actually available. For future runs You can ignore the
+runs on localhost, which as the messages indicates, is actually available. For future runs, you can ignore the
 warnings by turning them off as discussed in `Ansible Configuration file <http://docs.ansible.com/ansible/intro_configuration.html>`_.
-Or, create an inventory file with a single line:
-
-.. code-block:: bash
-
-    $ echo localhost >inventory
-
-In subsequent playbook runs, include the *-i* option:
-
-.. code-block:: bash
-
-    $ ansible-playbook -i inventory shipit_kuberenete.yml
 
 There are debug statements inserted into the role for each task. By default they do not execute, which is why the 'skipping: [localhost]'
-messages appear. To see the output from the debug statements in future runs, set the variable *playbook_debug* to true.
+messages appear. To see the output from the debug statements in future runs, set the variable ``playbook_debug`` to true.
 For example:
 
 .. code-block:: bash

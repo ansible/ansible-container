@@ -116,6 +116,8 @@ ansible.cfg
 ```````````
 Set Ansible configuration settings within the build container. For more information see `Configuration File <http://docs.ansible.com/ansible/intro_configuration.html>`_.
 
+.. _example-project:
+
 Real World Usage - Starting from a Working Base Setup
 -----------------------------------------------------
 
