@@ -26,7 +26,7 @@ services:
     command: ['/usr/bin/dumb-init', 'nginx', '-c', '/etc/nginx/nginx.conf']
     dev_overrides:
       ports: []
-      command: 'bin/false'
+      command: '/bin/false'
     options:
       kube:
         runAsUser: 997
