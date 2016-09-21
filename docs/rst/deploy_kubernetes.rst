@@ -8,7 +8,7 @@ example we'll walk through a deployment to `Google Container Engine <https://clo
 
 Requirements
 ''''''''''''
-If you have not already done so, follow the :doc:`installation guide <../installation>`_
+If you have not already done so, follow the :doc:`installation guide <../installation>`
 to install ansible-container.
 
 In addition to Ansible Container, the following are also required:
@@ -66,7 +66,7 @@ run the following, replacing VALUE with the Zone assigned to your *example-clust
 
 Deployment
 ''''''''''
-In this walk through we'll demonstrate deploying :ref:`the example application <example-project>`_
+In this walk through we'll demonstrate deploying :ref:`the example application <example-project>`
 found on Ansible Galaxy. Here's the workflow we'll follow to deploy the application on a Kubernetes cluster using Ansible Container:
 
 + Initialize a new project from the app with ``ansible-container init``.
