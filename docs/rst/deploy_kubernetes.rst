@@ -13,7 +13,6 @@ to install ansible-container.
 
 In addition to Ansible Container, the following are also required:
 
-+ `Ansible 2.0+ <http://docs.ansible.com/ansible/intro_installation.html>`_
 + `Docker <http://www.docker.com/products/docker-engine>`_
 + kubectl installed locally (see below)
 + Kubernetes cluster hosted on Google Container Engine (see below)
