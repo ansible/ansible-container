@@ -7,26 +7,18 @@ Accessing Roles
 From the file system
 --------------------
 
-Starting with version 0.2.0 Ansible Container provides the ability to add custom volumes to the Ansible Build Container
-by using the ``--with-volumes`` option. So if you have roles already installed on the local file system, you can simply
-mount the path to the build container.
+Starting with version 0.2.0 Ansible Container provides the ability to add local to the Ansible Build Container
+by using the ``--roles-path`` option. So if you have roles already installed on the local file system, you can simply
+reference the local path for the build container to use.
 
-For example, if roles are installed at /var/roles, the following will make the roles available inside the build container
-as ``/roles``:
-
-.. code-block:: bash
-
-    $ ansible-container build --with-volumes /var/roles:/roles
-
-For the roles to be accessed by Ansible Playbook, add an ``ansible.cfg`` file to the ``ansible`` directory, and set the
-``roles_path``:
+For example, if roles are locally installed in ``/etc/ansible/roles``, the following will make the roles available
+inside the build container:
 
 .. code-block:: bash
 
-    [defaults]
-    roles_path=/roles
+    $ ansible-container build --roles-path /etc/ansible/roles
 
-In your ``main.yml`` playbook refer to roles by name. For example, if the role ``geerlingguy.apache`` is installed in /var/roles
+In your ``main.yml`` playbook refer to roles by name. For example, if the role ``apache`` is installed in ``/etc/ansible/roles``
 locally, then the following will execute the role as part of ``main.yml``:
 
 .. code-block:: yaml
@@ -35,7 +27,7 @@ locally, then the following will execute the role as part of ``main.yml``:
       hosts: web
       roles:
         - name: Install apache
-          role: geerlingguy.apache
+          role: apache
 
 .. note::
 
@@ -44,7 +36,7 @@ locally, then the following will execute the role as part of ``main.yml``:
 
 .. note::
 
-    If you choose to access locally installed roles using ``--with-volumes``, then you must include the same volumes for 
+    If you choose to access locally installed roles using ``--roles-path``, then you must include the same volumes for
     the ``run`` and ``shipit`` commands as you did for ``build``. During these operations the ``main.yml`` playbook is
     accessed using the ``--list-hosts`` option to determine the list of hosts affected by the playbook. If roles cannot be
     accessed, Ansible Playbook will fail to parse ``main.yml``.

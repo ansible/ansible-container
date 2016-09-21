@@ -4,7 +4,7 @@ Writing Roles
 If you're new to managing the application lifecycle through containers, it's almost certain that any roles you've written in the
 past were not written from the perspective of running inside a container and with the intent of producing a container image.
 With the growing popularity of containers, it's important to consider that a role may find itself executing within a container, and
-as a role author you should be creating *container safe* roles. That means disabling or removing tasks that won't work or go against the
+as a role author you should be creating *container-enabled* roles. That means disabling or removing tasks that won't work or go against the
 principles that define containerized infrastructure.
 
 Here are some best practices to consider when creating a new role or attempting to use an existing role within Ansible Container:
