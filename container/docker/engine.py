@@ -522,8 +522,8 @@ class Engine(BaseEngine):
             self.project_name, host, client
         )
         cmd = self.config['services'][host].get('command', '')
-        if isinstance(self.config['services'][host].get('command'), list):
-            cmd = ' '.join(self.config['services'][host]['command'])
+        if isinstance(cmd, list):
+            cmd = json.dumps(cmd)
         image_config = dict(
             USER=self.config['services'][host].get('user', 'root'),
             WORKDIR=self.config['services'][host].get('working_dir', '/'),
