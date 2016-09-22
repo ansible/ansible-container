@@ -524,9 +524,13 @@ class Engine(BaseEngine):
         cmd = self.config['services'][host].get('command', '')
         if isinstance(cmd, list):
             cmd = json.dumps(cmd)
+        entrypoint = self.config['services'][host].get('entrypoint', '')
+        if isinstance(entrypoint, list):
+            entrypoint = json.dumps(entrypoint)
         image_config = dict(
             USER=self.config['services'][host].get('user', 'root'),
             WORKDIR=self.config['services'][host].get('working_dir', '/'),
+            ENTRYPOINT=entrypoint,
             CMD=cmd
         )
         if flatten:
