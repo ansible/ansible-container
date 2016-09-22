@@ -522,11 +522,16 @@ class Engine(BaseEngine):
             self.project_name, host, client
         )
         cmd = self.config['services'][host].get('command', '')
-        if isinstance(self.config['services'][host].get('command'), list):
-            cmd = ' '.join(self.config['services'][host]['command'])
+        if isinstance(cmd, list):
+            cmd = json.dumps(cmd)
+        entrypoint = self.config['services'][host].get('entrypoint', '')
+        if isinstance(entrypoint, list):
+            entrypoint = json.dumps(entrypoint)
         image_config = dict(
             USER=self.config['services'][host].get('user', 'root'),
             WORKDIR=self.config['services'][host].get('working_dir', '/'),
+            LABEL='com.docker.compose.oneoff="" com.docker.compose.project="%s"' % self.project_name,
+            ENTRYPOINT=entrypoint,
             CMD=cmd
         )
         if flatten:
