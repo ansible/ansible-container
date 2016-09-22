@@ -22,6 +22,5 @@ class MakeTempDir(object):
         try:
             logger.debug('Cleaning up temporary directory %s...', self.temp_dir)
             shutil.rmtree(self.temp_dir)
-        except Exception, e:
-            logger.exception('Failure cleaning up temp space')
-            pass
+        except Exception:
+            logger.exception('Failure cleaning up temp space %s', self.temp_dir)
