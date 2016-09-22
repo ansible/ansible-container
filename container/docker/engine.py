@@ -530,6 +530,7 @@ class Engine(BaseEngine):
         image_config = dict(
             USER=self.config['services'][host].get('user', 'root'),
             WORKDIR=self.config['services'][host].get('working_dir', '/'),
+            LABEL='com.docker.compose.oneoff="" com.docker.compose.project="%s"' % self.project_name,
             ENTRYPOINT=entrypoint,
             CMD=cmd
         )
