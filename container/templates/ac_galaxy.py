@@ -141,11 +141,15 @@ def update_main_yml(service, role_obj):
     defaults = get_knobs_and_dials(role_obj)
     main_yml_path = os.path.join(ANSIBLE_CONTAINER_PATH, 'ansible',
                                  'main.yml')
+    main_yml = None
     try:
         main_yml = ruamel.yaml.round_trip_load(open(main_yml_path))
     except Exception, e:
         logger.exception('Could not load project ansible/main.yml')
         raise FatalException()
+
+    if not main_yml:
+        main_yml = [] 
 
     # this is a ruamel.ordereddict.OrderedDict
     # for readability, put the role name at the start of the dict
@@ -166,13 +170,14 @@ def update_main_yml(service, role_obj):
 def update_requirements_yml(role_obj):
     requirements_yml_path = os.path.join(ANSIBLE_CONTAINER_PATH, 'ansible',
                                          'requirements.yml')
+    requirements = None
     if os.path.exists(requirements_yml_path):
         try:
             requirements = ruamel.yaml.round_trip_load(open(requirements_yml_path)) or []
         except Exception, e:
             logger.exception('Could not load project ansible/requirements.yml')
             raise FatalException()
-    else:
+    if not requirements:
         requirements = []
     for req in requirements:
         if req.get('src', '') == role_obj.name:
