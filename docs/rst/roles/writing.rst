@@ -7,7 +7,14 @@ With the growing popularity of containers, it's important to consider that a rol
 as a role author you should be creating *container-enabled* roles. That means disabling or removing tasks that won't work or go against the
 principles that define containerized infrastructure.
 
-Here are some best practices to consider when creating a new role or attempting to use an existing role within Ansible Container:
+If your role defines an installable, containerized service, you can declare your role to be container-enabled
+by including a ``meta/container.yml`` file in your role source. While it carries the same name as ``ansible/container.yml``, the
+``meta/container.yml`` is only the service definition that gets added to the ``services`` key in ``ansible/container.yml``. This
+service snippet will be injected into ``ansible/container.yml`` when a user runs :doc:`/reference/install`. Additionally, any defaults
+in your role's ``defaults/main.yml`` will be added to ``ansible/main.yml`` as build-time variables that can be adjusted.
+
+Best Practices when Writing Container-Enabled Roles
+---------------------------------------------------
 
 Eliminate what doesn't work
 ```````````````````````````
