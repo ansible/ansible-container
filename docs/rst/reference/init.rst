@@ -13,6 +13,7 @@ document outlines the files created. You should modify as based on your individu
 **New in version 0.2.0**
 
 If you include a Container App reference from Ansible Galaxy, your new project
-will be initialized from the referenced skeleton app.
+will be initialized from the referenced skeleton app. See :ref:`container_apps` for
+details.
 
 

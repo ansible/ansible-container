@@ -4,6 +4,8 @@ Galaxy Integration
 `Ansible Galaxy <https://galaxy.ansible.com/>`_ is the public commons for Ansible roles,
 and it now includes support for container-enabled roles and container app skeletons.
 
+.. _container_enabled_roles:
+
 Container-Enabled Roles
 -----------------------
 
@@ -23,6 +25,8 @@ Container-enabled roles are best added to your project using the :doc:`ansible-c
 command, which will add the role to your ``ansible/requirements.yml`` and modify your
 ``ansible/container.yml`` and ``ansible/main.yml`` to build and run the service the role
 defines.
+
+.. _container_apps:
 
 Container Apps
 --------------

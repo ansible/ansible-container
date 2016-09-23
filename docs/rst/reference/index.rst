@@ -6,6 +6,7 @@ Command Reference
 
    options/index
    init
+   install
    build
    restart
    run
