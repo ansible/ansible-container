@@ -110,7 +110,7 @@ writing any values to the filesystem.
 
 One way to define environment variables is by using ``--var-file`` to pass a variable file:
 
-In ``container.yl`` you might have the following:
+In ``container.yml`` you might have the following:
 
 .. code-block:: yaml
 
@@ -120,7 +120,7 @@ In ``container.yl`` you might have the following:
                 - POSTGRES_USERNAME={{ postgres_username }}
                 - POSTGRES_PASSWORD={{ postgres_password }}
 
-In a variable file called `develop.yml`, provide the username and password values:
+In a variable file called ``develop.yml``, provide the username and password values:
 
 .. code-block:: yaml
 
@@ -150,7 +150,7 @@ Containers are meant to be immutable, which means log files and data should `not
 a role author, consider configuring a service in such a way that it's easy for an image user to mount custom volumes to collect log
 files and data, and if necessary makes changes to how and where data is written simply by setting environment variables.
 
-Don't rely on IP addresses
+Use 12-factor when you can
 ``````````````````````````
 
 Virtual machines generally have a hostname that doesn't change and often a static IP address, so an entry
