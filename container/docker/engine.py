@@ -737,6 +737,8 @@ class Engine(BaseEngine):
             client_kwargs = kwargs_from_env(assert_hostname=False)
             self._client = docker.AutoVersionClient(**client_kwargs)
             self.api_version = self._client.version()['ApiVersion']
+            # Set the version in the env so it can be used elsewhere
+            os.environ['DOCKER_API_VERSION'] = self.api_version
         return self._client
 
     def print_version_info(self):
