@@ -7,7 +7,8 @@ services:
        - /var/run/docker.sock:/var/run/docker.sock
     working_dir: "${ANSIBLE_CONTAINER_PATH}" 
     environment:
-      VIRTUAL_ENV: /usr/local  
+      - VIRTUAL_ENV=/usr/local  
+      - DOCKER_API_VERSION
     command:
       - ./test/utils/run_tests.sh
 
