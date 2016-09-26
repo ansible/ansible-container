@@ -6,7 +6,7 @@ ansible-container:
   environment:
     {% if env.DOCKER_HOST %}- DOCKER_HOST{% else %}- DOCKER_HOST=unix:///var/run/docker.sock{% endif %}
     {% if env.DOCKER_TLS_VERIFY %}- DOCKER_TLS_VERIFY{% endif %}
-    {% if env.DOCKER_CERT_PATH %}- DOCKER_CERT_PATH=/docker-certs/{% endif %}
+    {% if env.DOCKER_CERT_PATH %}- DOCKER_CERT_PATH=/etc/docker{% endif %}
     - COMPOSE_HTTP_TIMEOUT=3000
     - DOCKER_API_VERSION={{ api_version }}
     - ANSIBLE_ORCHESTRATED_HOSTS={% for host in hosts %}{{ host }}{% if not loop.last %},{% endif %}{% endfor %}
@@ -17,7 +17,7 @@ ansible-container:
     {% endfor %}{% endif %}
   volumes:
     {% if not env.DOCKER_HOST %}- /var/run/docker.sock:/var/run/docker.sock{% endif %}
-    {% if env.DOCKER_CERT_PATH %}- $DOCKER_CERT_PATH:/docker-certs/:Z{% endif %}
+    {% if env.DOCKER_CERT_PATH %}- $DOCKER_CERT_PATH:/etc/docker:Z{% endif %}
     - {{ base_path }}:/ansible-container/:Z
     {% if params.with_volumes %}{% for vol in params.with_volumes %}
     - {{ vol }}{% endfor %}{% endif %}

@@ -3,7 +3,6 @@ FROM centos:7
 # Install:
 #   docker (to use as client)
 #   ansible + some deps
-ADD docker.repo /etc/yum.repos.d/docker.repo
 RUN yum update -y                 && \
     yum install -y epel-release   && \
     yum install -y docker-latest && \
