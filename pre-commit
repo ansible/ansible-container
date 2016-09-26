@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+# Copy this script to .git/hooks/pre-commit
+#
+
+python update-authors.py > AUTHORS
+git add AUTHORS
