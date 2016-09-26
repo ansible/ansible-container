@@ -10,10 +10,10 @@ source_root=$(python -c "from os import path; print(path.abspath(path.join(path.
 export ANSIBLE_CONTAINER_PATH=${source_root}
 
 image_exists=$(docker images local-test:latest | wc -l)
-if [ "${image_exists}" -le "1" ]; then
-   ansible-container --project "${source_root}/test/local" build --local-builder --with-variables ANSIBLE_CONTAINER_PATH="${source_root}"
+if [ "${image_exists}" -le 1 ]; then
+   ansible-container --project "${source_root}/test/local" --debug build --local-builder --with-variables ANSIBLE_CONTAINER_PATH="${source_root}"
 fi
 
-ansible-container --project "${source_root}/test/local" run
+ansible-container --project "${source_root}/test/local" --debug run
 status=$(docker inspect --format="{{ .State.ExitCode }}" ansible_test_1)
 exit "${status}"

@@ -13,6 +13,10 @@ Use Ansible Container to manage container lifecycle from development, through te
 
   Creates a directory *ansible* with files to get you started. Read the comments and edit to suit your needs.
 
+* `ansible-container install`
+
+  Downloads Ansible-Container-ready roles from Ansible Galaxy and installs them in your project.
+
 * `ansible-container build`
 
   Creates images from your Ansible playbooks.

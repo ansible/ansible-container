@@ -49,7 +49,7 @@ class AnsibleContainerConfig(Mapping):
         if config.get('defaults'):
             del config['defaults']
 
-        for service, service_config in config['services'].items():
+        for service, service_config in (config.get('services') or {}).items():
             if not service_config or isinstance(service_config, basestring):
                 raise AnsibleContainerConfigException(u"Error: no definition found in container.yml for service %s."
                                                       % service)

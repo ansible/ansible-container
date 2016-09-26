@@ -4,10 +4,17 @@ Writing Roles
 If you're new to managing the application lifecycle through containers, it's almost certain that any roles you've written in the
 past were not written from the perspective of running inside a container and with the intent of producing a container image.
 With the growing popularity of containers, it's important to consider that a role may find itself executing within a container, and
-as a role author you should be creating *container safe* roles. That means disabling or removing tasks that won't work or go against the
+as a role author you should be creating *container-enabled* roles. That means disabling or removing tasks that won't work or go against the
 principles that define containerized infrastructure.
 
-Here are some best practices to consider when creating a new role or attempting to use an existing role within Ansible Container:
+If your role defines an installable, containerized service, you can declare your role to be container-enabled
+by including a ``meta/container.yml`` file in your role source. While it carries the same name as ``ansible/container.yml``, the
+``meta/container.yml`` is only the service definition that gets added to the ``services`` key in ``ansible/container.yml``. This
+service snippet will be injected into ``ansible/container.yml`` when a user runs :doc:`/reference/install`. Additionally, any defaults
+in your role's ``defaults/main.yml`` will be added to ``ansible/main.yml`` as build-time variables that can be adjusted.
+
+Best Practices when Writing Container-Enabled Roles
+---------------------------------------------------
 
 Eliminate what doesn't work
 ```````````````````````````
@@ -110,7 +117,7 @@ writing any values to the filesystem.
 
 One way to define environment variables is by using ``--var-file`` to pass a variable file:
 
-In ``container.yl`` you might have the following:
+In ``container.yml`` you might have the following:
 
 .. code-block:: yaml
 
@@ -120,7 +127,7 @@ In ``container.yl`` you might have the following:
                 - POSTGRES_USERNAME={{ postgres_username }}
                 - POSTGRES_PASSWORD={{ postgres_password }}
 
-In a variable file called `develop.yml`, provide the username and password values:
+In a variable file called ``develop.yml``, provide the username and password values:
 
 .. code-block:: yaml
 
@@ -150,7 +157,7 @@ Containers are meant to be immutable, which means log files and data should `not
 a role author, consider configuring a service in such a way that it's easy for an image user to mount custom volumes to collect log
 files and data, and if necessary makes changes to how and where data is written simply by setting environment variables.
 
-Don't rely on IP addresses
+Use 12-factor when you can
 ``````````````````````````
 
 Virtual machines generally have a hostname that doesn't change and often a static IP address, so an entry

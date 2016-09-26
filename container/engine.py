@@ -148,9 +148,9 @@ class BaseEngine(object):
         """
         raise NotImplementedError()
 
-    def orchestrate_galaxy_extra_args(self):
+    def orchestrate_install_extra_args(self):
         """
-        Provide extra arguments to provide the orchestrator during galaxy calls.
+        Provide extra arguments to provide the orchestrator during install calls.
 
         :return: dictionary
         """
@@ -267,25 +267,29 @@ class BaseEngine(object):
         '''
 
 
-def cmdrun_init(base_path, **kwargs):
-    container_dir = os.path.normpath(
-        os.path.join(base_path, 'ansible'))
-    container_cfg = os.path.join(container_dir, 'container.yml')
-    if os.path.exists(container_cfg):
-        raise AnsibleContainerAlreadyInitializedException()
-    if not os.path.exists(container_dir):
-        os.mkdir(container_dir)
-    template_dir = os.path.join(jinja_template_path(), 'ansible')
-    for tmpl_filename in os.listdir(template_dir):
-        jinja_render_to_temp('ansible/%s' % tmpl_filename,
-                             container_dir,
-                             tmpl_filename.replace('.j2', ''))
-    logger.info('Ansible Container initialized.')
+def cmdrun_init(base_path, project=None, **kwargs):
+    if project:
+        # Clone project from Ansible Container
+        pass
+    else:
+        container_dir = os.path.normpath(
+            os.path.join(base_path, 'ansible'))
+        container_cfg = os.path.join(container_dir, 'container.yml')
+        if os.path.exists(container_cfg):
+            raise AnsibleContainerAlreadyInitializedException()
+        if not os.path.exists(container_dir):
+            os.mkdir(container_dir)
+        template_dir = os.path.join(jinja_template_path(), 'ansible')
+        for tmpl_filename in os.listdir(template_dir):
+            jinja_render_to_temp('ansible/%s' % tmpl_filename,
+                                 container_dir,
+                                 tmpl_filename.replace('.j2', ''))
+        logger.info('Ansible Container initialized.')
 
 
 def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, local_builder=False,
-                 rebuild=False, ansible_options='', **kwargs):
-    save_build_container = kwargs.pop('save_build_container')
+                 rebuild=False, ansible_options='', save_build_container=False,
+                 roles_path=None, **kwargs):
     engine_args = kwargs.copy()
     engine_args.update(locals())
     engine_obj = load_engine(**engine_args)
@@ -429,6 +433,16 @@ def cmdrun_shipit(base_path, engine_name, pull_from=None, **kwargs):
         # generate and save the configuration templates
         config_path = shipit_engine_obj.save_config()
         logger.info('Saved configuration to %s' % config_path)
+
+def cmdrun_install(base_path, engine_name, roles=[], **kwargs):
+    assert_initialized(base_path)
+    engine_args = kwargs.copy()
+    engine_args.update(locals())
+    engine_obj = load_engine(**engine_args)
+
+    with make_temp_dir() as temp_dir:
+        engine_obj.orchestrate('install', temp_dir)
+
 
 def cmdrun_version(base_path, engine_name, debug=False, **kwargs):
     print 'Ansible Container, version', __version__

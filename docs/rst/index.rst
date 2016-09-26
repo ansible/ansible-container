@@ -19,9 +19,8 @@ deployment.
    :maxdepth: 2
 
    installation
-   tour
+   getting_started
    deploy_kubernetes
-   example
    registry_auth
    reference/index
    container_yml/index

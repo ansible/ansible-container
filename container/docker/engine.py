@@ -54,7 +54,7 @@ class Engine(BaseEngine):
 
         :return: list of strings
         """
-        return self.config.get('services', {}).keys()
+        return (self.config.get('services') or {}).keys()
 
     def hosts_touched_by_playbook(self):
         """
@@ -77,7 +77,7 @@ class Engine(BaseEngine):
                 host_lines = [line for line in lines_minus_builder_host
                               if line.startswith('       ')]
                 self._orchestrated_hosts = list(set([line.strip() for line in host_lines]))
-        return self._orchestrated_hosts
+        return filter(None, self._orchestrated_hosts)
 
     def build_buildcontainer_image(self):
         """
@@ -105,7 +105,7 @@ class Engine(BaseEngine):
                         arcname='Dockerfile')
 
             for context_file in ['builder.sh', 'ansible-container-inventory.py',
-                                 'ansible.cfg', 'wait_on_host.py']:
+                                 'ansible.cfg', 'wait_on_host.py', 'ac_galaxy.py']:
                 tarball.add(os.path.join(jinja_template_path(), context_file),
                             arcname=context_file)
 
@@ -346,9 +346,9 @@ class Engine(BaseEngine):
         """
         return {}
 
-    def orchestrate_galaxy_extra_args(self):
+    def orchestrate_install_extra_args(self):
         """
-        Provide extra arguments to provide the orchestrator during galaxy calls.
+        Provide extra arguments to provide the orchestrator during install calls.
 
         :return: dictionary
         """
@@ -500,14 +500,8 @@ class Engine(BaseEngine):
             )
         return compose_config
 
-    def get_config_for_galaxy(self):
+    def get_config_for_install(self):
         compose_config = config_to_compose(self.config)
-        for service, service_config in compose_config.items():
-            service_config.update(
-                dict(
-                    command='echo "Started"'
-                )
-            )
         return compose_config
 
     def post_build(self, host, version, flatten=True, purge_last=True):
@@ -771,7 +765,7 @@ class Engine(BaseEngine):
                                                                 operation))()
         config = getattr(self, 'get_config_for_%s' % operation)()
         logger.debug('%s' % (config,))
-        config_yaml = yaml_dump(config)
+        config_yaml = yaml_dump(config) if config else ''
         logger.debug('Config YAML is')
         logger.debug(config_yaml)
         jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),

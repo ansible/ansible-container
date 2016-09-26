@@ -5,13 +5,16 @@ FROM centos:7
 #   ansible + some deps
 RUN yum update -y                 && \
     yum install -y epel-release   && \
-    yum install -y docker-latest  && \
-    yum install -y ansible git    && \
+    yum install -y docker-latest && \
+    yum install -y "@Development Tools" ansible git python-setuptools python-devel python-pip && \
     yum clean all
+
+RUN pip install -q --no-cache-dir ansible==2.1.1.0 ruamel.yaml
 
 RUN mkdir -p /etc/ansible/roles
 
 ADD builder.sh /usr/local/bin/builder.sh
+ADD ac_galaxy.py /usr/local/bin/ac_galaxy.py
 ADD wait_on_host.py /usr/local/bin/wait_on_host.py
 ADD ansible-container-inventory.py /etc/ansible/ansible-container-inventory.py
 ADD ansible.cfg /etc/ansible/ansible.cfg

@@ -80,7 +80,7 @@ def which_docker():
 def config_to_compose(config):
     # This could probably be better done - include what keys are in compose vs
     # removing the ones that aren't.
-    compose = copy.deepcopy(config.get('services', {}))
+    compose = copy.deepcopy(config.get('services') or {})
     assert compose is not config.get('services')
     for service, service_config in compose.items():
         if 'options' in service_config:

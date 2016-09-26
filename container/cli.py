@@ -50,6 +50,7 @@ LOGGING = {
 AVAILABLE_COMMANDS = {'help': 'Display this help message',
                       'version': 'Display Ansible Container version information',
                       'init': 'Initialize a new Ansible Container project',
+                      'install': 'Install a service from Ansible Galaxy',
                       'build': 'Build new images based on ansible/container.yml',
                       'run': 'Run and orchestrate built images based on container.yml',
                       'stop': 'Stop the services defined in container.yml, if deployed',
@@ -67,9 +68,15 @@ def subcmd_common_parsers(parser, subparser, cmd):
                                help=u'Define one or more environment variables in the Ansible '
                                     u'Builder Container. Format each variable as a key=value string.',
                                default=[])
+        subparser.add_argument('--roles-path', action='store', default=None,
+                               help=u'Specify a local path containing roles you want to '
+                                    u'use in the builder container.')
 
 def subcmd_init_parser(parser, subparser):
-    return
+    subparser.add_argument('project', nargs='?', action='store',
+                           help=u'Use a project template instead of making a '
+                                u'blank project from an Ansible Container project '
+                                u'from Ansible Galaxy.')
 
 def subcmd_build_parser(parser, subparser):
     subparser.add_argument('--flatten', action='store_true',
@@ -158,6 +165,9 @@ def subcmd_shipit_parser(parser, subparser):
         engine_obj = load_shipit_engine(engine['cls'], base_path=os.getcwd())
         engine_obj.add_options(engine_parser)
     subcmd_common_parsers(parser, subparser, 'shipit')
+
+def subcmd_install_parser(parser, subparser):
+    subparser.add_argument('roles', nargs='+', action='store')
 
 def commandline():
     parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '

@@ -1,0 +1,16 @@
+ansible-container:
+  # If no $DOCKER_HOST then we need to run privileged so we can access /var/run/docker.sock
+  {% if not env.DOCKER_HOST %}privileged: true{% endif %}
+  image: "{{ builder_img_id }}"
+  command: "/usr/local/bin/builder.sh /usr/local/bin/ac_galaxy.py {{ params.roles | join(' ')  }}"
+  environment:
+    - ANSIBLE_CONTAINER=1
+    {% if with_variables %}{% for env_var in with_variables %}
+    - {{ env_var }}
+    {% endfor %}{% endif %}
+  volumes:
+    - {{ base_path }}:/ansible-container/:Z
+    {% if with_volumes %}{% for vol in with_volumes %}
+    - {{ vol }}{% endfor %}{% endif %}
+  working_dir: /ansible-container/ansible/
+# No need for other services here
