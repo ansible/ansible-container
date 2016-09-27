@@ -7,12 +7,14 @@ The ``ansible-container shipit openshift`` command creates in the ``ansible`` di
 playbook and role to deploy your application on Openshift. The name of the playbook is
 *shipit-openshift.yml*, and the name of the role is *roles/<project_name>-openshift*.
 
+.. note::
+    The generated role requires that ``oc``, the OpenShift client tool, be installed.
 
 .. note::
 
     Before ``shipit`` starts, the build container is started, and Ansible Playbook is
     invoked with the ``--list-hosts`` option to inspect ``main.yml`` and return the list of hosts
-    it touches. When entering the ``run`` command supply the same ``--with-volumes`` and
+    it touches. When entering the ``run`` command supply the same ``--roles-path``, ``--with-volumes`` and
     ``--with-variables`` options passed to the``build`` command. This will ensure that ``main.yml``
     can be parsed and interpreted.
 
