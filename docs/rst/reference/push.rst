@@ -31,3 +31,27 @@ The password used to authenticate your user with the registry.
 Pass either a name defined in the *registries* key within container.yml or the actual URL the cluster will use to
 push images. If passing a URL, an example would be 'https://registry.example.com:5000/myproject'.
 
+.. option:: --with-variables WITH_VARIABLES [WITH_VARIABLES ...]
+
+**New in version 0.2.0**
+
+Define one or more environment variables in the Ansible Builder Container. Format each variable as a
+key=value string.
+
+.. option:: --with-volumes WITH_VOLUMES [WITH_VOLUMES ...]
+
+**New in version 0.2.0**
+
+Mount one or more volumes to the Ansible Builder Container. Specify volumes as strings using the Docker
+volume format.
+
+If ``--with-volumes`` was used during the `build` process to access roles or includes, then pass the same option to the `push` command so that ``main.yml`` can be parsed. 
+
+.. option:: --roles-path LOCAL_PATH
+
+**New in version 0.2.0**
+
+If you have Ansible roles in a local path other than your `ansible/` directory that you wish to use, specify that path with this option.
+
+If ``--roles-path`` was used during the `build` process, then pass the same option to the `push` command so that ``main.yml`` can be parsed. 
+
