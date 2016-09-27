@@ -59,7 +59,7 @@ AVAILABLE_COMMANDS = {'help': 'Display this help message',
                       'shipit': 'Generate a deployment playbook to your cloud of choice.'}
 
 def subcmd_common_parsers(parser, subparser, cmd):
-    if cmd in ('build', 'run', 'shipit'):
+    if cmd in ('build', 'run', 'shipit', 'push'):
         subparser.add_argument('--with-volumes', '-v', action='store', nargs='+',
                                help=u'Mount one or more volumes to the Ansible Builder Container. '
                                     u'Specify volumes as strings using the Docker volume format.',
@@ -154,6 +154,7 @@ def subcmd_push_parser(parser, subparser):
                                  u'including the namespace. If passing a URL, an example would be: '
                                  u'"https://registry.example.com:5000/myproject"'),
                            dest='push_to', default=None)
+    subcmd_common_parsers(parser, subparser, 'push')
 
 def subcmd_version_parser(parser, subparser):
     return
