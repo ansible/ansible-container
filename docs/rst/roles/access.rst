@@ -36,8 +36,8 @@ locally, then the following will execute the role as part of ``main.yml``:
 
 .. note::
 
-    If you choose to access locally installed roles using ``--roles-path``, then you must include the same volumes for
-    the ``run`` and ``shipit`` commands as you did for ``build``. During these operations the ``main.yml`` playbook is
+    If you choose to access locally installed roles using ``--roles-path``, then you must include the ``--roles-path``
+    optioin when running the ``run``, ``push`` and ``shipit`` commands. During these operations the ``main.yml`` playbook is
     accessed using the ``--list-hosts`` option to determine the list of hosts affected by the playbook. If roles cannot be
     accessed, Ansible Playbook will fail to parse ``main.yml``.
 
