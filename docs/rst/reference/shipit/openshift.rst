@@ -44,4 +44,14 @@ key=value string.
 Mount one or more volumes to the Ansible Builder Container. Specify volumes as strings using the Docker
 volume format.
 
+If ``--with-volumes`` was used during the `build` process to access roles or includes, then pass the same option to the `shipit` command so that ``main.yml`` can be parsed. 
+
+.. option:: --roles-path LOCAL_PATH
+
+**New in version 0.2.0**
+
+If you have Ansible roles in a local path other than your `ansible/` directory that you wish to use, specify that path with this option.
+
+If ``--roles-path`` was used during the `build` process, then pass the same option to the `shipit` command so that ``main.yml`` can be parsed. 
+
 
