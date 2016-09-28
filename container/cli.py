@@ -79,6 +79,9 @@ def subcmd_init_parser(parser, subparser):
                                 u'from Ansible Galaxy.')
 
 def subcmd_build_parser(parser, subparser):
+    subparser.add_argument('service', action='store',
+                           help=u'Rather than perform an orchestrated build, only build specific services.',
+                           nargs='*', default=None)
     subparser.add_argument('--flatten', action='store_true',
                            help=u'By default, Ansible Container will add a single '
                                 u'layer to your base images. Specify this to squash '
@@ -213,6 +216,12 @@ def commandline():
         sys.exit(1)
     except exceptions.AnsibleContainerNoAuthenticationProvidedException, e:
         logger.error(unicode(e))
+        sys.exit(1)
+    except exceptions.AnsibleContainerNoMatchingHosts:
+        logger.error('No matching service found in ansible/container.yml')
+        sys.exit(1)
+    except exceptions.AnsibleContainerHostNotTouchedByPlaybook:
+        logger.error('The requested service(s) is not referenced in ansible/main.yml. Nothing to build.')
         sys.exit(1)
     except Exception, e:
         if args.debug:

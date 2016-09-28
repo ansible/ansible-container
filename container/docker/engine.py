@@ -23,7 +23,8 @@ from yaml import dump as yaml_dump
 from ..exceptions import (AnsibleContainerNotInitializedException,
                           AnsibleContainerNoAuthenticationProvidedException,
                           AnsibleContainerDockerConfigFileException,
-                          AnsibleContainerDockerLoginException)
+                          AnsibleContainerDockerLoginException,
+                          AnsibleContainerNoMatchingHosts)
 
 from ..engine import BaseEngine, REMOVE_HTTP
 from ..utils import *
@@ -429,7 +430,15 @@ class Engine(BaseEngine):
     def get_config_for_build(self):
         compose_config = config_to_compose(self.config)
         orchestrated_hosts = self.hosts_touched_by_playbook()
+        if self.params.get('service'):
+            # only build a subset of the orchestrated hosts
+            orchestrated_hosts = list(set(orchestrated_hosts).intersection(self.params['service']))
+            for host in list(set(compose_config.keys()) - set(orchestrated_hosts)):
+                del compose_config[host]
+            if len(compose_config.keys()) == 0:
+                raise AnsibleContainerNoMatchingHosts()
         logger.debug('Orchestrated hosts: %s', orchestrated_hosts)
+
         for service, service_config in compose_config.items():
             if service in orchestrated_hosts:
                 logger.debug('Setting %s to sleep', service)
@@ -768,10 +777,14 @@ class Engine(BaseEngine):
         config_yaml = yaml_dump(config) if config else ''
         logger.debug('Config YAML is')
         logger.debug(config_yaml)
+        hosts = self.all_hosts_in_orchestration()
+        if operation == 'build' and self.params.get('service'):
+            # build operation is limited to a specific list of services
+            hosts = list(set(hosts).intersection(self.params['service']))
         jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
                              temp_dir,
                              'docker-compose.yml',
-                             hosts=self.all_hosts_in_orchestration(),
+                             hosts=hosts,
                              project_name=self.project_name,
                              base_path=self.base_path,
                              params=self.params,

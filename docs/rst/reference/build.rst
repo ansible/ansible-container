@@ -68,6 +68,11 @@ volume format.
 If you have Ansible roles in a local path other than your `ansible/` directory that you wish to use
 during your build/run/shipit, specify that path with this option.
 
+.. option:: service
+
+Rather than performing an orchestrated build, only build the requested set of services.
+
+
 .. option:: ansible_options
 
 You may also provide additional commandline arguments to give Ansible in executing your
