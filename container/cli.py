@@ -79,9 +79,6 @@ def subcmd_init_parser(parser, subparser):
                                 u'from Ansible Galaxy.')
 
 def subcmd_build_parser(parser, subparser):
-    subparser.add_argument('service', action='store',
-                           help=u'Rather than perform an orchestrated build, only build specific services.',
-                           nargs='*', default=None)
     subparser.add_argument('--flatten', action='store_true',
                            help=u'By default, Ansible Container will add a single '
                                 u'layer to your base images. Specify this to squash '
@@ -103,6 +100,9 @@ def subcmd_build_parser(parser, subparser):
     subparser.add_argument('--save-build-container', action='store_true',
                            help=u'Leave the Ansible Builder Container intact upon build completion. '
                                 u'Use for debugging and testing.', default=False)
+    subparser.add_argument('--services', action='store',
+                           help=u'Rather than perform an orchestrated build, only build specific services.',
+                           nargs='+', dest='service', default=None)
     subparser.add_argument('ansible_options', action='store',
                            help=u'Provide additional commandline arguments to '
                                 u'Ansible in executing your playbook. If you '

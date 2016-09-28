@@ -47,6 +47,10 @@ are retained.
 
 Leave the Ansible Builder Container intact upon build completion. Use for debugging and testing.
 
+.. option:: --services
+
+Rather than performing an orchestrated build, only build the specified set of services.
+
 .. option:: --with-variables WITH_VARIABLES [WITH_VARIABLES ...]
 
 **New in version 0.2.0**
@@ -67,11 +71,6 @@ volume format.
 
 If you have Ansible roles in a local path other than your `ansible/` directory that you wish to use
 during your build/run/shipit, specify that path with this option.
-
-.. option:: service
-
-Rather than performing an orchestrated build, only build the requested set of services.
-
 
 .. option:: ansible_options
 
