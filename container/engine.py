@@ -305,7 +305,7 @@ def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, local_bu
         touched_hosts = engine_obj.hosts_touched_by_playbook()
         if service:
             touched_hosts = list(set(touched_hosts).intersection(service))
-            if len(touched_hosts) == 0:
+            if not touched_hosts:
                 raise AnsibleContainerHostNotTouchedByPlaybook()
         engine_obj.orchestrate('build', temp_dir, context=dict(rebuild=rebuild))
         if not engine_obj.build_was_successful():

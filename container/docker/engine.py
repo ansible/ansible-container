@@ -433,9 +433,9 @@ class Engine(BaseEngine):
         if self.params.get('service'):
             # only build a subset of the orchestrated hosts
             orchestrated_hosts = list(set(orchestrated_hosts).intersection(self.params['service']))
-            for host in list(set(compose_config.keys()) - set(orchestrated_hosts)):
+            for host in set(compose_config.keys()) - set(orchestrated_hosts):
                 del compose_config[host]
-            if len(compose_config.keys()) == 0:
+            if not compose_config:
                 raise AnsibleContainerNoMatchingHosts()
         logger.debug('Orchestrated hosts: %s', orchestrated_hosts)
 
