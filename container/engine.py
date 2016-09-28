@@ -302,9 +302,9 @@ def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, local_bu
     with make_temp_dir() as temp_dir:
         logger.info('Starting %s engine to build your images...'
                     % engine_obj.orchestrator_name)
-        touched_hosts = engine_obj.hosts_touched_by_playbook()
+        touched_hosts = set(engine_obj.hosts_touched_by_playbook())
         if service:
-            touched_hosts = list(set(touched_hosts).intersection(service))
+            touched_hosts &= set(service)
             if not touched_hosts:
                 raise AnsibleContainerHostNotTouchedByPlaybook()
         engine_obj.orchestrate('build', temp_dir, context=dict(rebuild=rebuild))
