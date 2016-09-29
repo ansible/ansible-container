@@ -100,6 +100,9 @@ def subcmd_build_parser(parser, subparser):
     subparser.add_argument('--save-build-container', action='store_true',
                            help=u'Leave the Ansible Builder Container intact upon build completion. '
                                 u'Use for debugging and testing.', default=False)
+    subparser.add_argument('--services', action='store',
+                           help=u'Rather than perform an orchestrated build, only build specific services.',
+                           nargs='+', dest='service', default=None)
     subparser.add_argument('ansible_options', action='store',
                            help=u'Provide additional commandline arguments to '
                                 u'Ansible in executing your playbook. If you '
@@ -213,6 +216,12 @@ def commandline():
         sys.exit(1)
     except exceptions.AnsibleContainerNoAuthenticationProvidedException, e:
         logger.error(unicode(e))
+        sys.exit(1)
+    except exceptions.AnsibleContainerNoMatchingHosts:
+        logger.error('No matching service found in ansible/container.yml')
+        sys.exit(1)
+    except exceptions.AnsibleContainerHostNotTouchedByPlaybook:
+        logger.error('The requested service(s) is not referenced in ansible/main.yml. Nothing to build.')
         sys.exit(1)
     except Exception, e:
         if args.debug:

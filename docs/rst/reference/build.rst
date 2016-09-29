@@ -47,6 +47,10 @@ are retained.
 
 Leave the Ansible Builder Container intact upon build completion. Use for debugging and testing.
 
+.. option:: --services
+
+Rather than performing an orchestrated build, only build the specified set of services.
+
 .. option:: --with-variables WITH_VARIABLES [WITH_VARIABLES ...]
 
 **New in version 0.2.0**
