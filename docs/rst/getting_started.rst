@@ -17,6 +17,7 @@ your project directory, which creates:
     ansible/
        container.yml
        main.yml
+       meta.yml
        requirements.txt
        requirements.yml
        ansible.cfg
@@ -98,6 +99,11 @@ may be useful in roles or includes where task execution needs to be conditional.
 
 Visit :doc:`roles/index` for best practices around writing and using roles within
 Ansible Container.
+
+meta.yml
+````````
+Share your app on `Ansible Galaxy <https:\\galaxy.ansible.com>`_. Provide the requested information in ``meta.yml``, and
+then log into Galaxy and use the import feature to let the world know about your project.
 
 requirements.txt
 ````````````````
