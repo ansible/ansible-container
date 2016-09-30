@@ -8,7 +8,7 @@ Ansible Container.
 
 If you do not specify a Container App, this command bootstraps your project with
 some boilerplate files in the ``ansible/`` directory. The :doc:`/getting_started`
-document outlines the files created. You should modify as based on your individual needs.
+document outlines the files created. Modify them to fit your needs.
 
 **New in version 0.2.0**
 
