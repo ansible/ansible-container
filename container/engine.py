@@ -281,10 +281,14 @@ def cmdrun_init(base_path, project=None, **kwargs):
         if not os.path.exists(container_dir):
             os.mkdir(container_dir)
         template_dir = os.path.join(jinja_template_path(), 'ansible')
+        context = {
+            u'ansible_container_version': __version__
+        }
         for tmpl_filename in os.listdir(template_dir):
             jinja_render_to_temp('ansible/%s' % tmpl_filename,
                                  container_dir,
-                                 tmpl_filename.replace('.j2', ''))
+                                 tmpl_filename.replace('.j2', ''),
+                                 **context)
         logger.info('Ansible Container initialized.')
 
 

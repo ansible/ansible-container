@@ -1,0 +1,34 @@
+galaxy_info:
+  author: Your name
+  description: Describe your awesome application here.
+  company: Your company
+
+  # If the issue tracker for your role is not on GitHub, uncomment the
+  # next line and provide a value
+  # issue_tracker_url: {{ issue_tracker_url }}
+
+  # Some suggested licenses:
+  # - BSD (default)
+  # - MIT
+  # - GPLv2
+  # - GPLv3
+  # - Apache
+  # - CC-BY
+  license: license (GPLv2, CC-BY, etc)
+
+  min_ansible_container_version: {{ ansible_container_version }}
+
+  # Optionally specify the branch Galaxy will use when accessing the GitHub
+  # repo for this role. During role install, if no tags are available,
+  # Galaxy will use this branch. During import Galaxy will access files on
+  # this branch. If travis integration is cofigured, only notification for this
+  # branch will be accepted. Otherwise, in all cases, the repo's default branch
+  # (usually master) will be used.
+  #github_branch:
+
+  tags: []
+    # List tags for your app here, one per line. A tag is a keyword that describes and categorizes the app.
+    # Users will find your app by searching for tags. Be sure to remove the '[]' above.
+    #
+    # NOTE: A tag is limited to a single word comprised of alphanumeric characters. Maximum 20 tags.
+
