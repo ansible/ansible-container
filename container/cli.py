@@ -73,6 +73,9 @@ def subcmd_common_parsers(parser, subparser, cmd):
                                     u'use in the builder container.')
 
 def subcmd_init_parser(parser, subparser):
+    subparser.add_argument('--server', '-s', action='store',
+                           default='https://galaxy.ansible.com/',
+                           help=u'Use a different Galaxy server URL')
     subparser.add_argument('project', nargs='?', action='store',
                            help=u'Use a project template instead of making a '
                                 u'blank project from an Ansible Container project '

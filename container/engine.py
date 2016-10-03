@@ -9,6 +9,12 @@ import os
 import datetime
 import re
 import sys
+import urllib
+import gzip
+import tarfile
+import StringIO
+
+import requests
 
 from .exceptions import AnsibleContainerAlreadyInitializedException, \
                         AnsibleContainerRegistryAttributeException, \
@@ -270,8 +276,65 @@ class BaseEngine(object):
 
 def cmdrun_init(base_path, project=None, **kwargs):
     if project:
-        # Clone project from Ansible Container
-        pass
+        if os.listdir(base_path):
+            raise AnsibleContainerAlreadyInitializedException(
+                u'The init command can only be run in an empty directory.')
+        try:
+            namespace, name = project.split('.', 1)
+        except ValueError:
+            raise ValueError(u'Invalid project name: %r; use '
+                             u'"username.project" style syntax.' % project)
+        galaxy_base_url = kwargs.pop('server')
+        response = requests.get(urllib.basejoin(galaxy_base_url,
+                                                '/api/v1/roles/'),
+                                params={'role_type': 'APP',
+                                        'namespace': namespace,
+                                        'name': name},
+                                headers={'Accepts': 'application/json'})
+        try:
+            response.raise_for_status()
+        except requests.RequestException, e:
+            raise requests.RequestException(u'Could not find %r on Galaxy '
+                                            u'server %r: %r' % (project,
+                                                                galaxy_base_url,
+                                                                e))
+        if not response.json()['count']:
+            raise ValueError(u'Could not find %r on Galaxy '
+                             u'server %r: No such container app' % (project,
+                                                                    galaxy_base_url))
+        container_app_data = response.json()['results'][0]
+        if not all([container_app_data[k] for k in ['github_user',
+                                                    'github_repo']]):
+            raise ValueError(u'Container app %r does not have a GitHub URL' % project)
+        archive_url = u'https://github.com/%s/%s/archive/%s.tar.gz' % (
+            container_app_data['github_user'],
+            container_app_data['github_repo'],
+            container_app_data['github_branch'] or u'master'
+        )
+        archive = requests.get(archive_url)
+        try:
+            archive.raise_for_status()
+        except requests.RequestException, e:
+            raise requests.RequestException(u'Could not get archive at '
+                                            u'%r: %r' % (archive_url, e))
+        faux_file = StringIO.StringIO(archive.content)
+        gz_obj = gzip.GzipFile(fileobj=faux_file)
+        tar_obj = tarfile.TarFile(fileobj=gz_obj)
+        members = tar_obj.getmembers()
+        # now we do the actual extraction to the path
+        for member in members:
+            # we only extract files, and remove any relative path
+            # bits that might be in the file for security purposes
+            # and drop the leading directory, as mentioned above
+            if member.isreg() or member.issym():
+                parts = member.name.split(os.sep)[1:]
+                final_parts = []
+                for part in parts:
+                    if part != '..' and '~' not in part and '$' not in part:
+                        final_parts.append(part)
+                member.name = os.path.join(*final_parts)
+                tar_obj.extract(member, base_path)
+        logger.info(u'Ansible Container initialized from Galaxy container app %r', project)
     else:
         container_dir = os.path.normpath(
             os.path.join(base_path, 'ansible'))
