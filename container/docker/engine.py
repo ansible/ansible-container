@@ -23,7 +23,8 @@ from yaml import dump as yaml_dump
 from ..exceptions import (AnsibleContainerNotInitializedException,
                           AnsibleContainerNoAuthenticationProvidedException,
                           AnsibleContainerDockerConfigFileException,
-                          AnsibleContainerDockerLoginException)
+                          AnsibleContainerDockerLoginException,
+                          AnsibleContainerNoMatchingHosts)
 
 from ..engine import BaseEngine, REMOVE_HTTP
 from ..utils import *
@@ -54,7 +55,7 @@ class Engine(BaseEngine):
 
         :return: list of strings
         """
-        return self.config.get('services', {}).keys()
+        return (self.config.get('services') or {}).keys()
 
     def hosts_touched_by_playbook(self):
         """
@@ -77,7 +78,7 @@ class Engine(BaseEngine):
                 host_lines = [line for line in lines_minus_builder_host
                               if line.startswith('       ')]
                 self._orchestrated_hosts = list(set([line.strip() for line in host_lines]))
-        return self._orchestrated_hosts
+        return filter(None, self._orchestrated_hosts)
 
     def build_buildcontainer_image(self):
         """
@@ -104,10 +105,11 @@ class Engine(BaseEngine):
             tarball.add(os.path.join(temp_dir, 'Dockerfile'),
                         arcname='Dockerfile')
 
-            tarball.add(os.path.join(jinja_template_path(), 'builder.sh'),
-                        arcname='builder.sh')
-            tarball.add(os.path.join(jinja_template_path(), 'ansible-container-inventory.py'),
-                        arcname='ansible-container-inventory.py')
+            for context_file in ['builder.sh', 'ansible-container-inventory.py',
+                                 'ansible.cfg', 'wait_on_host.py', 'ac_galaxy.py']:
+                tarball.add(os.path.join(jinja_template_path(), context_file),
+                            arcname=context_file)
+
             tarball.close()
             tarball_file.close()
             tarball_file = open(tarball_path, 'rb')
@@ -210,7 +212,7 @@ class Engine(BaseEngine):
         :param namespace: path to append to the url. required if pull_from not provided.
         :return: config dict
         '''
-        config = get_config(self.base_path)
+        config = get_config(self.base_path, var_file=self.var_file)
         client = self.get_client()
 
         if pull_from:
@@ -274,6 +276,11 @@ class Engine(BaseEngine):
         u'SERVICE': []
     }
 
+    DEFAULT_COMPOSE_RESTART_OPTIONS = {
+        u'--timeout': None,
+        u'SERVICE': []
+    }
+
     def orchestrate(self, operation, temp_dir, hosts=[], context={}):
         """
         Execute the compose engine.
@@ -283,55 +290,36 @@ class Engine(BaseEngine):
         :param hosts: (optional) A list of hosts to limit orchestration to
         :return: The exit status of the builder container (None if it wasn't run)
         """
-        if self.params.get('detached'):
-            is_detached = True
-            del self.params['detached']
-
-        self.temp_dir = temp_dir
+        is_detached = self.params.pop('detached', False)
         try:
             builder_img_id = self.get_image_id_by_tag(
                 self.builder_container_img_tag)
         except NameError:
             image_version = '.'.join(release_version.split('.')[:2])
-            builder_img_id = 'ansible/%s:%s' % (self.builder_container_img_tag,
-                                                image_version)
-        extra_options = getattr(self, 'orchestrate_%s_extra_args' % operation)()
-        config = getattr(self, 'get_config_for_%s' % operation)()
-        logger.debug('%s' % (config,))
-        config_yaml = yaml_dump(config)
-        logger.debug('Config YAML is')
-        logger.debug(config_yaml)
-        jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
-                             temp_dir,
-                             'docker-compose.yml',
-                             hosts=self.all_hosts_in_orchestration(),
-                             project_name=self.project_name,
-                             base_path=self.base_path,
-                             params=self.params,
-                             api_version=self.api_version,
-                             builder_img_id=builder_img_id,
-                             config=config_yaml,
-                             env=os.environ,
-                             **context)
-        options = self.DEFAULT_COMPOSE_OPTIONS.copy()
+            builder_img_id = 'ansible/%s:%s' % (
+                self.builder_container_img_tag, image_version)
+
+        options, command_options, command = self.bootstrap_env(
+            temp_dir=temp_dir,
+            builder_img_id=builder_img_id,
+            behavior='orchestrate',
+            compose_option='up',
+            operation=operation,
+            context=context)
+
         options.update({
-            u'--verbose': self.params['debug'],
-            u'--file': [
-                os.path.join(temp_dir,
-                             'docker-compose.yml')],
             u'COMMAND': 'up',
-            u'ARGS': ['--no-build'] + hosts,
-            u'--project-name': 'ansible'
-        })
-        command_options = self.DEFAULT_COMPOSE_UP_OPTIONS.copy()
+            u'ARGS': ['--no-build'] + hosts})
+
         command_options[u'--no-build'] = True
         command_options[u'SERVICE'] = hosts
-        if locals().get('is_detached'):
+        command_options[u'--remove-orphans'] = self.params.get(
+            'remove_orphans', False)
+
+        if is_detached:
             logger.info('Deploying application in detached mode')
             command_options[u'-d'] = True
-        command_options.update(extra_options)
-        project = project_from_options(self.base_path, options)
-        command = main.TopLevelCommand(project)
+
         command.up(command_options)
 
     def orchestrate_build_extra_args(self):
@@ -359,9 +347,9 @@ class Engine(BaseEngine):
         """
         return {}
 
-    def orchestrate_galaxy_extra_args(self):
+    def orchestrate_install_extra_args(self):
         """
-        Provide extra arguments to provide the orchestrator during galaxy calls.
+        Provide extra arguments to provide the orchestrator during install calls.
 
         :return: dictionary
         """
@@ -376,39 +364,49 @@ class Engine(BaseEngine):
         return {'--no-color': True}
 
     def terminate(self, operation, temp_dir, hosts=[]):
-        self.temp_dir = temp_dir
-        extra_options = getattr(self, 'terminate_%s_extra_args' % operation)()
-        config = getattr(self, 'get_config_for_%s' % operation)()
-        logger.debug('%s' % (config,))
-        config_yaml = yaml_dump(config)
-        logger.debug('Config YAML is')
-        logger.debug(config_yaml)
-        jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
-                             temp_dir,
-                             'docker-compose.yml',
-                             hosts=self.all_hosts_in_orchestration(),
-                             project_name=self.project_name,
-                             base_path=self.base_path,
-                             params=self.params,
-                             api_version=self.api_version,
-                             config=config_yaml,
-                             env=os.environ)
-        options = self.DEFAULT_COMPOSE_OPTIONS.copy()
-        options.update({
-            u'--verbose': self.params['debug'],
-            u'--file': [
-                os.path.join(temp_dir,
-                             'docker-compose.yml')],
-            u'COMMAND': 'stop',
-            u'--project-name': 'ansible'
-        })
-        command_options = self.DEFAULT_COMPOSE_STOP_OPTIONS.copy()
-        command_options[u'SERVICE'] = hosts
-        command_options.update(extra_options)
-        project = project_from_options(self.base_path, options)
-        command = main.TopLevelCommand(project)
-        command.stop(command_options)
 
+        options, command_options, command = self.bootstrap_env(
+            temp_dir=temp_dir,
+            behavior='terminate',
+            operation=operation,
+            compose_option='stop'
+        )
+
+        options.update({u'COMMAND': 'stop'})
+
+        command_options[u'SERVICE'] = hosts
+
+        if self.params.get('force'):
+            command.kill(command_options)
+        else:
+            command.stop(command_options)
+
+    def restart(self, operation, temp_dir, hosts=[]):
+
+        options, command_options, command = self.bootstrap_env(
+            temp_dir=temp_dir,
+            behavior='restart',
+            operation=operation,
+            compose_option='restart'
+        )
+
+        options.update({u'COMMAND': 'restart'})
+
+        command_options[u'SERVICE'] = hosts
+
+        command.restart(command_options)
+
+    def restart_restart_extra_args(self):
+        """
+        Provide extra arguments to provide the orchestrator during restart.
+
+        :return: dictionary
+        """
+        return {}
+
+    def get_config_for_restart(self):
+        compose_config = config_to_compose(self.config)
+        return compose_config
 
     def _fix_volumes(self, service_name, service_config):
         # If there are volumes defined for this host, we need to create the
@@ -432,7 +430,15 @@ class Engine(BaseEngine):
     def get_config_for_build(self):
         compose_config = config_to_compose(self.config)
         orchestrated_hosts = self.hosts_touched_by_playbook()
+        if self.params.get('service'):
+            # only build a subset of the orchestrated hosts
+            orchestrated_hosts = list(set(orchestrated_hosts).intersection(self.params['service']))
+            for host in set(compose_config.keys()) - set(orchestrated_hosts):
+                del compose_config[host]
+            if not compose_config:
+                raise AnsibleContainerNoMatchingHosts()
         logger.debug('Orchestrated hosts: %s', orchestrated_hosts)
+
         for service, service_config in compose_config.items():
             if service in orchestrated_hosts:
                 logger.debug('Setting %s to sleep', service)
@@ -440,9 +446,19 @@ class Engine(BaseEngine):
                     dict(
                         user='root',
                         working_dir='/',
-                        command='sh -c "while true; do sleep 1; done"'
+                        command='sh -c "while true; do sleep 1; done"',
+                        entrypoint=[],
                     )
                 )
+                # Set ANSIBLE_CONTAINER=1 in env
+                if service_config.get('environment'):
+                    if isinstance(service_config['environment'], list):
+                        service_config['environment'].append("ANSIBLE_CONTAINER=1")
+                    elif isinstance(service_config['environment'], dict):
+                        service_config['environment']['ANSIBLE_CONTAINER'] = 1
+                else:
+                    service_config['environment'] = dict(ANSIBLE_CONTAINER=1)
+
             if not self.params['rebuild']:
                 tag = '%s-%s:latest' % (self.project_name,
                                         service)
@@ -487,19 +503,14 @@ class Engine(BaseEngine):
                 dict(
                     user='root',
                     working_dir='/',
-                    command='sh -c "while true; do sleep 1; done"'
+                    command='sh -c "while true; do sleep 1; done"',
+                    entrypoint=[]
                 )
             )
         return compose_config
 
-    def get_config_for_galaxy(self):
+    def get_config_for_install(self):
         compose_config = config_to_compose(self.config)
-        for service, service_config in compose_config.items():
-            service_config.update(
-                dict(
-                    command='echo "Started"'
-                )
-            )
         return compose_config
 
     def post_build(self, host, version, flatten=True, purge_last=True):
@@ -510,6 +521,19 @@ class Engine(BaseEngine):
         )
         previous_image_id, previous_image_buildstamp = get_latest_image_for(
             self.project_name, host, client
+        )
+        cmd = self.config['services'][host].get('command', '')
+        if isinstance(cmd, list):
+            cmd = json.dumps(cmd)
+        entrypoint = self.config['services'][host].get('entrypoint', '')
+        if isinstance(entrypoint, list):
+            entrypoint = json.dumps(entrypoint)
+        image_config = dict(
+            USER=self.config['services'][host].get('user', 'root'),
+            WORKDIR=self.config['services'][host].get('working_dir', '/'),
+            LABEL='com.docker.compose.oneoff="" com.docker.compose.project="%s"' % self.project_name,
+            ENTRYPOINT=entrypoint,
+            CMD=cmd
         )
         if flatten:
             logger.info('Flattening image...')
@@ -523,8 +547,11 @@ class Engine(BaseEngine):
             client.commit(container_id,
                           repository='%s-%s' % (self.project_name, host),
                           tag=version,
-                          message='Built using Ansible Container'
-                          )
+                          message='Built using Ansible Container',
+                          changes=u'\n'.join(
+                              [u'%s %s' % (k, unicode(v))
+                               for k, v in image_config.items()]
+                          ))
         image_id, = client.images(
             '%s-%s:%s' % (self.project_name, host, version),
             quiet=True
@@ -690,20 +717,22 @@ class Engine(BaseEngine):
         client.tag(image_id, repository, tag=image_buildstamp)
 
         logger.info('Pushing %s:%s...' % (repository, image_buildstamp))
-        status = client.push(repository,
+        stream = client.push(repository,
                              tag=image_buildstamp,
                              stream=True)
         last_status = None
-        for line in status:
-            line = json.loads(line)
-            if type(line) is dict and 'error' in line:
-                logger.error(line['error'])
-            elif type(line) is dict and 'status' in line:
-                if line['status'] != last_status:
-                    logger.info(line['status'])
-                last_status = line['status']
-            else:
-                logger.debug(line)
+        for data in stream:
+            data = data.splitlines()
+            for line in data:
+                line = json.loads(line)
+                if type(line) is dict and 'error' in line:
+                    logger.error(line['error'])
+                if type(line) is dict and 'status' in line:
+                    if line['status'] != last_status:
+                        logger.info(line['status'])
+                    last_status = line['status']
+                else:
+                    logger.debug(line)
 
     def get_client(self):
         if not self._client:
@@ -711,9 +740,73 @@ class Engine(BaseEngine):
             client_kwargs = kwargs_from_env(assert_hostname=False)
             self._client = docker.AutoVersionClient(**client_kwargs)
             self.api_version = self._client.version()['ApiVersion']
+            # Set the version in the env so it can be used elsewhere
+            os.environ['DOCKER_API_VERSION'] = self.api_version
         return self._client
 
     def print_version_info(self):
         client = self.get_client()
         pprint.pprint(client.info())
         pprint.pprint(client.version())
+
+    def bootstrap_env(self, temp_dir, behavior, operation, compose_option,
+                      builder_img_id=None, context=None):
+        """
+        Build common Docker Compose elements required to execute orchestrate,
+        terminate, restart, etc.
+        
+        :param temp_dir: A temporary directory usable as workspace
+        :param behavior: x in x_operation_extra_args
+        :param operation: Operation to perform, like, build, run, listhosts, etc
+        :param compose_option: x in DEFAULT_COMPOSE_X_OPTIONS
+        :param builder_img_id: Ansible Container Builder Image ID
+        :param context: extra context to send to jinja_render_to_temp
+        :return: options (options to pass to compose),
+                 command_options (operation options to pass to compose),
+                 command (compose's top level command)
+        """
+
+        if context is None:
+            context = {}
+
+        self.temp_dir = temp_dir
+        extra_options = getattr(self, '{}_{}_extra_args'.format(behavior,
+                                                                operation))()
+        config = getattr(self, 'get_config_for_%s' % operation)()
+        logger.debug('%s' % (config,))
+        config_yaml = yaml_dump(config) if config else ''
+        logger.debug('Config YAML is')
+        logger.debug(config_yaml)
+        hosts = self.all_hosts_in_orchestration()
+        if operation == 'build' and self.params.get('service'):
+            # build operation is limited to a specific list of services
+            hosts = list(set(hosts).intersection(self.params['service']))
+        jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
+                             temp_dir,
+                             'docker-compose.yml',
+                             hosts=hosts,
+                             project_name=self.project_name,
+                             base_path=self.base_path,
+                             params=self.params,
+                             api_version=self.api_version,
+                             builder_img_id=builder_img_id,
+                             config=config_yaml,
+                             env=os.environ,
+                             **context)
+        options = self.DEFAULT_COMPOSE_OPTIONS.copy()
+
+        options.update({
+            u'--verbose': self.params['debug'],
+            u'--file': [
+                os.path.join(temp_dir,
+                             'docker-compose.yml')],
+            u'--project-name': 'ansible',
+        })
+        command_options = getattr(self, 'DEFAULT_COMPOSE_{}_OPTIONS'.format(
+            compose_option.upper())).copy()
+        command_options.update(extra_options)
+
+        project = project_from_options(self.base_path + '/ansible', options)
+        command = main.TopLevelCommand(project)
+
+        return options, command_options, command

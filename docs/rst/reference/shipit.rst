@@ -6,6 +6,13 @@ shipit
 The ``ansible-container shipit`` command generates an Ansible role for deploying your app to the cloud. The role is
 created based on the configuration found in container.yml
 
+.. option:: --roles-path LOCAL_PATH
+
+**New in version 0.2.0**
+
+If you have Ansible roles in a local path other than your `ansible/` directory that you wish to use
+during your build/run/shipit, specify that path with this option.
+
 Immediately after *shipit* specify the cloud service provider. See the :ref:`shipit-engine-idx` for the supported *shipit*
 engines. For example, to execute *shipit* with the Kubernetes engine:
 

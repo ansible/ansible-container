@@ -36,6 +36,12 @@ class AnsibleContainerRegistryAttributeException(Exception):
 class AnsibleContainerMissingRegistryName(Exception):
     pass
 
+class AnsibleContainerNoMatchingHosts(Exception):
+    pass
+
+class AnsibleContainerHostNotTouchedByPlaybook(Exception):
+    pass
+
 class AnsibleContainerShipItException(Exception):
 
     def __init__(self, msg, stdout=None, stderr=None):
@@ -43,3 +49,7 @@ class AnsibleContainerShipItException(Exception):
         self.stdout = stdout
 
         Exception.__init__(self, msg)
+
+class AnsibleContainerFilterException(Exception):
+    pass
+

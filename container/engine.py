@@ -9,9 +9,16 @@ import os
 import datetime
 import re
 import sys
+import urllib
+import gzip
+import tarfile
+import StringIO
+
+import requests
 
 from .exceptions import AnsibleContainerAlreadyInitializedException, \
-                        AnsibleContainerRegistryAttributeException
+                        AnsibleContainerRegistryAttributeException, \
+                        AnsibleContainerHostNotTouchedByPlaybook
 from .utils import *
 from . import __version__
 
@@ -26,14 +33,15 @@ class BaseEngine(object):
     def __init__(self, base_path, project_name, params={}):
         self.base_path = base_path
         self.project_name = project_name
-        self.config = get_config(base_path)
-        logger.debug('Initialized with params: %s', params)
+        self.var_file = params.get('var_file')
+        self.config = get_config(base_path, var_file=self.var_file)
         self.params = params
-
         self.support_init = True
         self.supports_build = True
         self.supports_push = True
         self.supports_run = True
+
+        logger.debug('Initialized with params: %s', params)
 
 
     def all_hosts_in_orchestration(self):
@@ -147,9 +155,9 @@ class BaseEngine(object):
         """
         raise NotImplementedError()
 
-    def orchestrate_galaxy_extra_args(self):
+    def orchestrate_install_extra_args(self):
         """
-        Provide extra arguments to provide the orchestrator during galaxy calls.
+        Provide extra arguments to provide the orchestrator during install calls.
 
         :return: dictionary
         """
@@ -179,6 +187,24 @@ class BaseEngine(object):
         """
         return NotImplementedError
 
+    def restart(self, operation, temp_dir, hosts=[]):
+        """
+        Restart containers deployed by `orchestrate`, deploys if not deployed
+
+        :param operation: 'restart'
+        :param temp_dir: A temporary directory usable as workspace
+        :param hosts: (optional) A list of hosts to limit orchestration to
+        """
+
+        return NotImplementedError
+
+    def restart_restart_extra_args(self):
+        """
+        Provide extra arguments to provide the orchestrator during restart.
+
+        :return: dictionary
+        """
+        return NotImplementedError
 
     def post_build(self, host, version, flatten=True, purge_last=True):
         """
@@ -248,52 +274,123 @@ class BaseEngine(object):
         '''
 
 
-def cmdrun_init(base_path, **kwargs):
-    container_dir = os.path.normpath(
-        os.path.join(base_path, 'ansible'))
-    container_cfg = os.path.join(container_dir, 'container.yml')
-    if os.path.exists(container_cfg):
-        raise AnsibleContainerAlreadyInitializedException()
-    if not os.path.exists(container_dir):
-        os.mkdir(container_dir)
-    template_dir = os.path.join(jinja_template_path(), 'ansible')
-    for tmpl_filename in os.listdir(template_dir):
-        jinja_render_to_temp('ansible/%s' % tmpl_filename,
-                             container_dir,
-                             tmpl_filename.replace('.j2', ''))
-    logger.info('Ansible Container initialized.')
+def cmdrun_init(base_path, project=None, **kwargs):
+    if project:
+        if os.listdir(base_path):
+            raise AnsibleContainerAlreadyInitializedException(
+                u'The init command can only be run in an empty directory.')
+        try:
+            namespace, name = project.split('.', 1)
+        except ValueError:
+            raise ValueError(u'Invalid project name: %r; use '
+                             u'"username.project" style syntax.' % project)
+        galaxy_base_url = kwargs.pop('server')
+        response = requests.get(urllib.basejoin(galaxy_base_url,
+                                                '/api/v1/roles/'),
+                                params={'role_type': 'APP',
+                                        'namespace': namespace,
+                                        'name': name},
+                                headers={'Accepts': 'application/json'})
+        try:
+            response.raise_for_status()
+        except requests.RequestException, e:
+            raise requests.RequestException(u'Could not find %r on Galaxy '
+                                            u'server %r: %r' % (project,
+                                                                galaxy_base_url,
+                                                                e))
+        if not response.json()['count']:
+            raise ValueError(u'Could not find %r on Galaxy '
+                             u'server %r: No such container app' % (project,
+                                                                    galaxy_base_url))
+        container_app_data = response.json()['results'][0]
+        if not all([container_app_data[k] for k in ['github_user',
+                                                    'github_repo']]):
+            raise ValueError(u'Container app %r does not have a GitHub URL' % project)
+        archive_url = u'https://github.com/%s/%s/archive/%s.tar.gz' % (
+            container_app_data['github_user'],
+            container_app_data['github_repo'],
+            container_app_data['github_branch'] or u'master'
+        )
+        archive = requests.get(archive_url)
+        try:
+            archive.raise_for_status()
+        except requests.RequestException, e:
+            raise requests.RequestException(u'Could not get archive at '
+                                            u'%r: %r' % (archive_url, e))
+        faux_file = StringIO.StringIO(archive.content)
+        gz_obj = gzip.GzipFile(fileobj=faux_file)
+        tar_obj = tarfile.TarFile(fileobj=gz_obj)
+        members = tar_obj.getmembers()
+        # now we do the actual extraction to the path
+        for member in members:
+            # we only extract files, and remove any relative path
+            # bits that might be in the file for security purposes
+            # and drop the leading directory, as mentioned above
+            if member.isreg() or member.issym():
+                parts = member.name.split(os.sep)[1:]
+                final_parts = []
+                for part in parts:
+                    if part != '..' and '~' not in part and '$' not in part:
+                        final_parts.append(part)
+                member.name = os.path.join(*final_parts)
+                tar_obj.extract(member, base_path)
+        logger.info(u'Ansible Container initialized from Galaxy container app %r', project)
+    else:
+        container_dir = os.path.normpath(
+            os.path.join(base_path, 'ansible'))
+        container_cfg = os.path.join(container_dir, 'container.yml')
+        if os.path.exists(container_cfg):
+            raise AnsibleContainerAlreadyInitializedException()
+        if not os.path.exists(container_dir):
+            os.mkdir(container_dir)
+        template_dir = os.path.join(jinja_template_path(), 'ansible')
+        context = {
+            u'ansible_container_version': __version__
+        }
+        for tmpl_filename in os.listdir(template_dir):
+            jinja_render_to_temp('ansible/%s' % tmpl_filename,
+                                 container_dir,
+                                 tmpl_filename.replace('.j2', ''),
+                                 **context)
+        logger.info('Ansible Container initialized.')
 
 
 def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, local_builder=False,
-                 rebuild=False, ansible_options='', **kwargs):
+                 rebuild=False, service=None, ansible_options='', save_build_container=False,
+                 roles_path=None, **kwargs):
     engine_args = kwargs.copy()
     engine_args.update(locals())
     engine_obj = load_engine(**engine_args)
     try:
-        builder_img_id = engine_obj.get_image_id_by_tag(
-            engine_obj.builder_container_img_tag)
+        builder_img_id = engine_obj.get_image_id_by_tag(engine_obj.builder_container_img_tag)
     except NameError:
         if local_builder:
             create_build_container(engine_obj, base_path)
     with make_temp_dir() as temp_dir:
         logger.info('Starting %s engine to build your images...'
                     % engine_obj.orchestrator_name)
-        touched_hosts = engine_obj.hosts_touched_by_playbook()
+        touched_hosts = set(engine_obj.hosts_touched_by_playbook())
+        if service:
+            touched_hosts &= set(service)
+            if not touched_hosts:
+                raise AnsibleContainerHostNotTouchedByPlaybook()
         engine_obj.orchestrate('build', temp_dir, context=dict(rebuild=rebuild))
         if not engine_obj.build_was_successful():
             logger.error('Ansible playbook run failed.')
-            logger.info('Cleaning up Ansible Container builder...')
-            builder_container_id = engine_obj.get_builder_container_id()
-            engine_obj.remove_container_by_id(builder_container_id)
+            if not save_build_container:
+                logger.info('Cleaning up Ansible Container builder...')
+                builder_container_id = engine_obj.get_builder_container_id()
+                engine_obj.remove_container_by_id(builder_container_id)
             raise RuntimeError(u'Ansible build failed')
         # Cool - now export those containers as images
         version = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
         logger.info('Exporting built containers as images...')
         for host in touched_hosts:
             engine_obj.post_build(host, version, flatten=flatten, purge_last=purge_last)
-        logger.info('Cleaning up Ansible Container builder...')
-        builder_container_id = engine_obj.get_builder_container_id()
-        engine_obj.remove_container_by_id(builder_container_id)
+        if not save_build_container:
+            logger.info('Cleaning up Ansible Container builder...')
+            builder_container_id = engine_obj.get_builder_container_id()
+            engine_obj.remove_container_by_id(builder_container_id)
 
 
 def cmdrun_run(base_path, engine_name, service=[], production=False, **kwargs):
@@ -315,6 +412,16 @@ def cmdrun_stop(base_path, engine_name, service=[], **kwargs):
     with make_temp_dir() as temp_dir:
         hosts = service or (engine_obj.all_hosts_in_orchestration())
         engine_obj.terminate('stop', temp_dir, hosts=hosts)
+
+
+def cmdrun_restart(base_path, engine_name, service=[], **kwargs):
+    assert_initialized(base_path)
+    engine_args = kwargs.copy()
+    engine_args.update(locals())
+    engine_obj = load_engine(**engine_args)
+    with make_temp_dir() as temp_dir:
+        hosts = service or (engine_obj.all_hosts_in_orchestration())
+        engine_obj.restart('restart', temp_dir, hosts=hosts)
 
 
 def cmdrun_push(base_path, engine_name, username=None, password=None, email=None, push_to=None, **kwargs):
@@ -398,6 +505,16 @@ def cmdrun_shipit(base_path, engine_name, pull_from=None, **kwargs):
         # generate and save the configuration templates
         config_path = shipit_engine_obj.save_config()
         logger.info('Saved configuration to %s' % config_path)
+
+def cmdrun_install(base_path, engine_name, roles=[], **kwargs):
+    assert_initialized(base_path)
+    engine_args = kwargs.copy()
+    engine_args.update(locals())
+    engine_obj = load_engine(**engine_args)
+
+    with make_temp_dir() as temp_dir:
+        engine_obj.orchestrate('install', temp_dir)
+
 
 def cmdrun_version(base_path, engine_name, debug=False, **kwargs):
     print 'Ansible Container, version', __version__

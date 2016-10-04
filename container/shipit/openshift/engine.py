@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class ShipItEngine(BaseShipItEngine):
-    name = 'openshift'
+    name = u'openshift'
 
     def add_options(self, subparser):
         super(ShipItEngine, self).add_options(subparser)

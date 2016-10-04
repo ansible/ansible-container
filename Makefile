@@ -1,5 +1,9 @@
 PYTHON ?= python
 
+.PHONY: develop 
+develop:
+	$(PYTHON) setup.py develop 
+
 .PHONY: install
 install:
 	$(PYTHON) setup.py install
@@ -10,4 +14,4 @@ clean:
 
 .PHONY: test
 test:
-	./test/utils/run_tests.sh
+	./test/run.sh

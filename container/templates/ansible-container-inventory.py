@@ -4,11 +4,18 @@ import yaml
 import json
 import sys
 import argparse
+import re
+import os
+
 
 def config_keys():
-    ifs = open('/ansible-container/ansible/container.yml', 'r')
-    config = yaml.safe_load(ifs)
-    return config['services'].keys()
+    '''
+    Get the list of hosts from env var ANSIBLE_ORCHESTRATED_HOSTS.
+
+    :return: list
+    '''
+    return os.environ.get('ANSIBLE_ORCHESTRATED_HOSTS', '').split(',')
+
 
 def cmd_list():
     hosts = config_keys()
@@ -21,6 +28,7 @@ def cmd_list():
             }
         )
     )
+
 
 def cmd_host(host):
     hosts = config_keys()

@@ -69,9 +69,9 @@ class BaseShipItEngine(object):
         Copy cloud ansible modules to role library path.
         '''
         cls_dir = os.path.dirname(os.path.realpath(__file__))
-        logger.debug("Copying modules from %s:" % cls_dir)
         modules_dir = os.path.join(cls_dir, self.name, 'modules')
         library_path = os.path.join(self.roles_path, 'library')
+        logger.debug("Copying modules from %s to %s" % (modules_dir, library_path))
         create_path(library_path)
 
         include_files = []
@@ -85,7 +85,7 @@ class BaseShipItEngine(object):
         include_files = list(set(include_files))
         for mod in glob.glob(modules_dir + '/*.py'):
             base_file = os.path.basename(mod)
-            if base_file not in include_files:
+            if base_file not in include_files and not base_file.endswith('__init__.py'):
                 with open(os.path.join(library_path, base_file), 'w') as new_file:
                     with open(mod, 'r') as mod_file:
                         for line in mod_file:
@@ -152,7 +152,7 @@ class BaseShipItEngine(object):
 
     def create_role(self, tasks):
         '''
-        Creates tasks/mainy.yml with all the deployment tasks, and copy modules into the library dir.
+        Creates tasks/main.yml with all the deployment tasks, and copy modules into the library dir.
 
         :param tasks: dict of playbook tasks to be rendered in yaml
         :return: None
@@ -187,7 +187,7 @@ class BaseShipItEngine(object):
         playbook_name = "%s-%s.yml" % (SHIPIT_PLAYBOOK_PREFIX, self.name)
         playbook_path = os.path.join(self.base_path, SHIPIT_PATH, playbook_name)
         if not os.path.exists(playbook_path):
-            logger.debug('Creating the sample plabyook')
+            logger.debug('Creating the sample playbook')
             play = OrderedDict()
             play['name'] = "Deploy %s to  %s" % (self.project_name, self.name)
             play['hosts'] = 'localhost'

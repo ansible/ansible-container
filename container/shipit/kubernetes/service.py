@@ -27,6 +27,28 @@ class Service(object):
             new_service = self._create(request_type, name, service)
             if new_service:
                 templates.append(new_service)
+            if service.get('links'):
+                templates += self._create_alias_templates(request_type, service['links'])
+        return templates
+
+    def _create_alias_templates(self, request_type, links):
+        '''
+        If a service defines aliased links, create a service template for each alias.
+
+        :param request_type: will be 'config' or 'task'
+        :param links: list of links
+        :return: list of templates
+        '''
+        templates = []
+        for link in links:
+            if not ':' in link:
+                continue
+            service_name, alias = link.split(':')
+            alias_config = self.config['services'].get(service_name)
+            if alias_config:
+                new_service = self._create(request_type, alias, alias_config)
+                if new_service:
+                    templates.append(new_service)
         return templates
 
     def _create(self, type, name, service):
