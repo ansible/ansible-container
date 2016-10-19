@@ -62,7 +62,7 @@ Assuming you already installed Ansible Container, start by creating an empty pro
 ```
 $ mkdir demo
 $ cd demo
-$ ansible-container init chouseknecht.django-gulp-nginx
+$ ansible-container init j00bar.django-gulp-nginx
 ```
 
 From the project directory, build the images:
