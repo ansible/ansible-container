@@ -92,7 +92,10 @@ class AnsibleContainerConfig(Mapping):
         j2_env.globals['lookup'] = self._lookup
         j2_env.filters.update(self.all_filters)
         j2_tmpl = j2_env.get_template(template)
-        return j2_tmpl.render(**context).encode('utf8')
+        tmpl = j2_tmpl.render(**context)
+        if isinstance(tmpl, six.binary_type):
+            tmpl = tmpl.encode('utf8')
+        return tmpl
 
     def _get_variables(self):
         '''
