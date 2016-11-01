@@ -8,6 +8,7 @@ import logging
 import re
 import shlex
 from collections import OrderedDict
+from six import string_types
 
 logger = logging.getLogger(__name__)
 
@@ -219,14 +220,14 @@ class Deployment(object):
                     if DOCKER_TO_KUBE_CAPABILITY_MAPPING[cap]:
                         container['securityContext']['Capabilities']['drop'].append(DOCKER_TO_KUBE_CAPABILITY_MAPPING[cap])
             elif key == 'command':
-                if isinstance(value, basestring):
+                if isinstance(value, string_types):
                     container['args'] = shlex.split(value)
                 else:
                     container['args'] = value
             elif key == 'container_name':
                     container['name'] = value
             elif key == 'entrypoint':
-                if isinstance(value, basestring):
+                if isinstance(value, string_types):
                     container['command'] = shlex.split(value)
                 else:
                     container['command'] = value
@@ -346,7 +347,7 @@ class Deployment(object):
         :return: None
         '''
         for port in ports:
-            if isinstance(port, basestring) and ':' in port:
+            if isinstance(port, string_types) and ':' in port:
                 parts = port.split(':')
                 if not self._port_exists(parts[1], existing_ports):
                     if type == 'config':

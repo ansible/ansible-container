@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 import re
 
 from collections import OrderedDict
+from six import string_types
 
 
 class Route(object):
@@ -109,7 +110,7 @@ class Route(object):
 
         result = []
         for port in service.get('ports', []):
-            if isinstance(port, basestring) and ':' in port:
+            if isinstance(port, string_types) and ':' in port:
                 parts = port.split(':')
                 result.append(parts[0])
             else:

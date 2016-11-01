@@ -9,6 +9,8 @@ import shlex
 import select
 import yaml
 
+from six import string_types, text_type
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,8 +33,8 @@ def run_command(args):
     :param args: Command to execute.
     '''
 
-    if isinstance(args, basestring):
-        if isinstance(args, unicode):
+    if isinstance(args, string_types):
+        if isinstance(args, text_type):
             args = args.encode('utf-8')
         args = shlex.split(args)
     else:
