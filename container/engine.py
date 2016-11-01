@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 import logging
 
@@ -517,10 +517,10 @@ def cmdrun_install(base_path, engine_name, roles=[], **kwargs):
 
 
 def cmdrun_version(base_path, engine_name, debug=False, **kwargs):
-    print 'Ansible Container, version', __version__
+    print('Ansible Container, version', __version__)
     if debug:
-        print u', '.join(os.uname())
-        print sys.version, sys.executable
+        print(u', '.join(os.uname()))
+        print(sys.version, sys.executable)
         assert_initialized(base_path)
         engine_args = kwargs.copy()
         engine_args.update(locals())

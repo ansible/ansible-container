@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 import subprocess
 import argparse
@@ -52,7 +53,7 @@ if __name__ == '__main__':
         results = wait_on_hosts(args.host, max_attempts=args.max_attempts, sleep_time=args.sleep_time)
         status = 0
         for host, running in results.iteritems():
-            print "Host {0} {1}".format(host, 'running' if running else 'failed')
+            print("Host {0} {1}".format(host, 'running' if running else 'failed'))
             if not running:
                 status = 1
         sys.exit(status)

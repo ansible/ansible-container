@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 import logging
 
@@ -34,8 +34,7 @@ while log_entries:
 user_scores = user_scores.items()
 sorted_user_scores = sorted(user_scores, key=lambda tpl: tpl[1], reverse=True)
 
-print 'Ansible Container has been contribued to by the following authors:'
-print '(This list is automatically generated - please file an issue for corrections)'
-print ''
+print("Ansible Container has been contribued to by the following authors:\n"
+      "This list is automatically generated - please file an issue for corrections)\n")
 for author, _ in sorted_user_scores:
-    print author
+    print(author)
