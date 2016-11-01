@@ -6,6 +6,9 @@
 # on Travis.
 #
 #
+
+set -o nounset -o errexit
+
 source_root=$(python -c "from os import path; print(path.abspath(path.join(path.dirname('$0'), '..')))")
 export ANSIBLE_CONTAINER_PATH=${source_root}
 
