@@ -228,7 +228,7 @@ def commandline():
         sys.exit(1)
     except Exception, e:
         if args.debug:
-            logger.exception(unicode(e))
+            logger.exception(e)
         else:
-            logger.error(unicode(e))
+            logger.error(e)
         sys.exit(1)

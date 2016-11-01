@@ -247,7 +247,7 @@ if __name__ == '__main__':
     try:
         install(args.roles)
     except Exception, e:
-        logger.error(unicode(e))
+        logger.error(repr(e))
         sys.exit(1)
 
 

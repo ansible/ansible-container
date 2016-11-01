@@ -549,7 +549,7 @@ class Engine(BaseEngine):
                           tag=version,
                           message='Built using Ansible Container',
                           changes=u'\n'.join(
-                              [u'%s %s' % (k, unicode(v))
+                              [u'%s %s' % (k, v)
                                for k, v in image_config.items()]
                           ))
         image_id, = client.images(
@@ -610,7 +610,7 @@ class Engine(BaseEngine):
         username, email = self.currently_logged_in_registry_user(url)
         if not username:
             raise AnsibleContainerNoAuthenticationProvidedException(
-                u'Please provide login credentials for registry %s.' % url)
+                u'Please provide login credentials for registry %r.' % url)
         return username
 
     DOCKER_CONFIG_FILEPATH_CASCADE = [

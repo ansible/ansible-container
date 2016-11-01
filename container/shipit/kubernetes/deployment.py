@@ -417,5 +417,5 @@ class Deployment(object):
             res_type, res_name = path.split('/')
             if res_type == 'service':
                 parts = res_name.split(':')
-                result = unicode("{{ %s_service.spec.clusterIP }}:%s" % (parts[0].replace('-', '_'), parts[1]))
+                result = u"{{ %s_service.spec.clusterIP }}:%s" % (parts[0].replace('-', '_'), parts[1])
         return result

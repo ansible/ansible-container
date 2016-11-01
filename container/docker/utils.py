@@ -91,5 +91,5 @@ def config_to_compose(config):
         if 'options' in service_config:
             del service_config['options']
     logger.debug('Compose derived from config:')
-    logger.debug(unicode(compose))
+    logger.debug(compose)
     return compose
