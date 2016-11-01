@@ -55,7 +55,8 @@ class Engine(BaseEngine):
 
         :return: list of strings
         """
-        return (self.config.get('services') or {}).keys()
+        services = self.config.get('services')
+        return list(services.keys()) if services else []
 
     def hosts_touched_by_playbook(self):
         """
