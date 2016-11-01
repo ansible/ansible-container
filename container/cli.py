@@ -193,6 +193,7 @@ def commandline():
                              u'Jinja2 templating in container.yml.', default=None)
 
     subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
+    subparsers.required = True
     for subcommand in AVAILABLE_COMMANDS:
         logger.debug('Registering subcommand %s', subcommand)
         subparser = subparsers.add_parser(subcommand, help=AVAILABLE_COMMANDS[subcommand])
