@@ -363,7 +363,10 @@ class Deployment(object):
     def _port_exists(port, ports):
         found = False
         for p in ports:
-            if p['containerPort'] == int(port):
+            if isinstance(p, dict) and p.get('containerPort') == int(port):
+                found = True
+                break
+            elif isinstance(p, int) and p == int(port):
                 found = True
                 break
         return found
