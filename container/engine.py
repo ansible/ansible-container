@@ -5,6 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+import io
 import os
 import datetime
 import re
@@ -12,7 +13,6 @@ import sys
 import urllib
 import gzip
 import tarfile
-import StringIO
 
 import requests
 
@@ -317,7 +317,7 @@ def cmdrun_init(base_path, project=None, **kwargs):
         except requests.RequestException, e:
             raise requests.RequestException(u'Could not get archive at '
                                             u'%r: %r' % (archive_url, e))
-        faux_file = StringIO.StringIO(archive.content)
+        faux_file = io.BytesIO(archive.content)
         gz_obj = gzip.GzipFile(fileobj=faux_file)
         tar_obj = tarfile.TarFile(fileobj=gz_obj)
         members = tar_obj.getmembers()

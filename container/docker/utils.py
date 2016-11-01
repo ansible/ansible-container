@@ -8,7 +8,12 @@ logger = logging.getLogger(__name__)
 import sys
 import copy
 
-from StringIO import StringIO
+import six
+if six.PY2:
+    from io import BytesIO as StringIO
+else:
+    from io import StringIO
+
 from functools import wraps
 from distutils import spawn
 
