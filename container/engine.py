@@ -293,7 +293,7 @@ def cmdrun_init(base_path, project=None, **kwargs):
                                 headers={'Accepts': 'application/json'})
         try:
             response.raise_for_status()
-        except requests.RequestException, e:
+        except requests.RequestException as e:
             raise requests.RequestException(u'Could not find %r on Galaxy '
                                             u'server %r: %r' % (project,
                                                                 galaxy_base_url,
@@ -314,7 +314,7 @@ def cmdrun_init(base_path, project=None, **kwargs):
         archive = requests.get(archive_url)
         try:
             archive.raise_for_status()
-        except requests.RequestException, e:
+        except requests.RequestException as e:
             raise requests.RequestException(u'Could not get archive at '
                                             u'%r: %r' % (archive_url, e))
         faux_file = io.BytesIO(archive.content)

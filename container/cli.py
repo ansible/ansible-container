@@ -211,15 +211,15 @@ def commandline():
 
     try:
         getattr(engine, u'cmdrun_{}'.format(args.subcommand))(**vars(args))
-    except exceptions.AnsibleContainerAlreadyInitializedException, e:
+    except exceptions.AnsibleContainerAlreadyInitializedException as e:
         logger.error('Ansible Container is already initialized')
         sys.exit(1)
-    except exceptions.AnsibleContainerNotInitializedException, e:
+    except exceptions.AnsibleContainerNotInitializedException as e:
         logger.error('No Ansible Container project data found - do you need to '
                      'run "ansible-container init"?')
         sys.exit(1)
-    except exceptions.AnsibleContainerNoAuthenticationProvidedException, e:
-        logger.error(unicode(e))
+    except exceptions.AnsibleContainerNoAuthenticationProvidedException as e:
+        logger.exception(e)
         sys.exit(1)
     except exceptions.AnsibleContainerNoMatchingHosts:
         logger.error('No matching service found in ansible/container.yml')
@@ -227,7 +227,7 @@ def commandline():
     except exceptions.AnsibleContainerHostNotTouchedByPlaybook:
         logger.error('The requested service(s) is not referenced in ansible/main.yml. Nothing to build.')
         sys.exit(1)
-    except Exception, e:
+    except Exception as e:
         if args.debug:
             logger.exception(e)
         else:

@@ -422,7 +422,7 @@ class Engine(BaseEngine):
                                             volume.replace('/', '_'))
                 try:
                     client.inspect_volume(name=volume_name)
-                except docker_errors.NotFound, e:
+                except docker_errors.NotFound as e:
                     # We need to create this volume
                     client.create_volume(name=volume_name, driver='local')
                 service_config['volumes'].remove(volume)
