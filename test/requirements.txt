@@ -2,3 +2,8 @@ coverage
 pytest-cov
 pytest-timeout
 scripttest
+pytest
+markupsafe
+tox
+tox-pyenv
+virtualenv

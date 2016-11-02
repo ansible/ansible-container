@@ -188,6 +188,7 @@ sftp-config.json
 
 venv/
 *.retry
+.python-version
 
 * Vagrant things
 .vagrant/
