@@ -4,6 +4,7 @@ from __future__ import print_function
 import subprocess
 import argparse
 import sys
+from six import iteritems
 from subprocess import CalledProcessError, STDOUT
 from time import sleep
 
@@ -52,7 +53,7 @@ if __name__ == '__main__':
     if args.host:
         results = wait_on_hosts(args.host, max_attempts=args.max_attempts, sleep_time=args.sleep_time)
         status = 0
-        for host, running in results.iteritems():
+        for host, running in iteritems(results):
             print("Host {0} {1}".format(host, 'running' if running else 'failed'))
             if not running:
                 status = 1

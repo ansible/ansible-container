@@ -167,7 +167,7 @@ class AnsibleContainerConfig(Mapping):
         '''
         logger.debug(u'Getting environment variables...')
         new_vars = {}
-        for var, value in os.environ.iteritems():
+        for var, value in six.iteritems(os.environ):
             matches = re.match(r'^AC_(.+)$', var)
             if matches:
                 new_vars[matches.group(1).lower()] = value
