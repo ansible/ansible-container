@@ -74,15 +74,14 @@ class BaseShipItEngine(object):
         logger.debug("Copying modules from %s to %s" % (modules_dir, library_path))
         create_path(library_path)
 
-        include_files = []
+        include_files = set()
         for mod in glob.glob(modules_dir + '/*.py'):
             with open(mod, 'r') as mod_file:
                 for line in mod_file:
                     match = re.search('#include--> ?(\w+.py)', line)
                     if match and match.groups():
-                        include_files += list(match.groups())
+                        include_files.update(match.groups())
 
-        include_files = list(set(include_files))
         for mod in glob.glob(modules_dir + '/*.py'):
             base_file = os.path.basename(mod)
             if base_file not in include_files and not base_file.endswith('__init__.py'):
