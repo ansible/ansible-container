@@ -62,7 +62,7 @@ class Engine(BaseEngine):
         """
         List all hosts touched by the execution of the build playbook.
 
-        :return: list of strings
+        :return: frozenset of strings
         """
         if not self._orchestrated_hosts:
             with teed_stdout() as stdout, make_temp_dir() as temp_dir:
@@ -76,10 +76,11 @@ class Engine(BaseEngine):
                 lines = stdout.getvalue().split('\r\n')
                 lines_minus_builder_host = [line.rsplit('|', 1)[1] for line
                                             in lines if '|' in line]
-                host_lines = [line for line in lines_minus_builder_host
-                              if line.startswith('       ')]
-                self._orchestrated_hosts = list(set([line.strip() for line in host_lines]))
-        return filter(None, self._orchestrated_hosts)
+                host_lines = set(line.strip() for line in lines_minus_builder_host
+                              if line.startswith('       '))
+                host_lines.discard('')
+                self._orchestrated_hosts = frozenset(host_lines)
+        return self._orchestrated_hosts
 
     def build_buildcontainer_image(self):
         """
@@ -433,12 +434,12 @@ class Engine(BaseEngine):
         orchestrated_hosts = self.hosts_touched_by_playbook()
         if self.params.get('service'):
             # only build a subset of the orchestrated hosts
-            orchestrated_hosts = list(set(orchestrated_hosts).intersection(self.params['service']))
-            for host in set(compose_config.keys()) - set(orchestrated_hosts):
+            orchestrated_hosts = orchestrated_hosts.intersection(self.params['service'])
+            for host in set(compose_config.keys()) - orchestrated_hosts:
                 del compose_config[host]
             if not compose_config:
                 raise AnsibleContainerNoMatchingHosts()
-        logger.debug('Orchestrated hosts: %s', orchestrated_hosts)
+        logger.debug('Orchestrated hosts: %s', ', '.join(orchestrated_hosts))
 
         for service, service_config in compose_config.items():
             if service in orchestrated_hosts:

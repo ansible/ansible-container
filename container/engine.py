@@ -56,7 +56,7 @@ class BaseEngine(object):
         """
         List all hosts touched by the execution of the build playbook.
 
-        :return: list of strings
+        :return: frozenset of strings
         """
         raise NotImplementedError()
 
