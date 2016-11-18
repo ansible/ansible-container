@@ -11,7 +11,7 @@ Roadmap for release 0.3.0
   - Tracked on issue `#143 <https://github.com/ansible/ansible-container/issues/143>`_.
 
 - **Docker Compose v2 Support** (House @chouseknecht)
-  - `Proposal document<https://github.com/ansible/ansible-container/blob/develop/proposals/compose-v2.md>`_.
+  - `Proposal document <https://github.com/ansible/ansible-container/blob/develop/proposals/compose-v2.md>`_.
   - Enables support of features in Docker engine such as volumes and networks
   - Allow for use of Compose v2 file format and directives
   - Tracked on issue `#67 <https://github.com/ansible/ansible-container/issues/67>`_.
