@@ -90,9 +90,10 @@ details.
 
 | Directive         | Definition                                        | Supported      |
 | ---------         | ----------                                        |      :---:     |  
-| Version           | Specify the Compose version, either 1 or 2        | &#10004;       |
+| version           | Specify the Compose version, either 1 or 2        | &#10004;       |
 | volumes           | Create named, persistent volumes                  | &#10004;       |
 | networks          | Create named, persistent networks                 |                | 
+| services          | Services included in the app                      | &#10004;       |
 
 #### Directives 
 
@@ -110,6 +111,7 @@ details.
 | dns               | Custom DNS servers                                |                |   
 | dns_search        | Custom DNS search                                 |                |
 | domainname        | Set the FQDN                                      |                |
+| enable_ipv6       | Enable IPv6 networking                            |                |
 | entrypoint        | Override the default entrypoint                   | &#10004;       |
 | env_file          | Add environment variables from a file             |                |
 | environment       | Add environment variables                         | &#10004;       |
@@ -120,8 +122,10 @@ details.
 | hostname          | Set the container hostname                        |                |
 | image             | The base image to start from                      | &#10004;       |
 | ipc               | Configure IPC settings                            |                |
+| isolation         | Specify the container's isolation technology      |                |
 | labels            | Add meta data to the container                    | &#10004;       |
 | links             | Link services                                     | &#10004;       |
+| link_local_ips    | List of special, external IPs to link to          |                |
 | logging           | Logging configuration                             |                |
 | log_driver        | Specify a log driver (V1 only)                    |                |
 | log_opt           | Specify logging options as key:value pairs (V1 only) |             |
