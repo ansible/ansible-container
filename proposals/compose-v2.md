@@ -46,7 +46,7 @@ added:
 
     - Overall, as we consider which directives to support, we need to remember that one of our stated objectives is to manage the container lifecycle from laptop 
     development to cloud deployment. For that to work, an application cannot be built with directives that only work on the laptop or provide functionality that cannot 
-    be replicated in the cloud. And so as a general rule, if a directive does not map to cloud orchestration, it cannot be supported.
+    be replicated in the cloud. And so as a general rule, if a directive does not map to cloud orchestration, it will not be supported. Of course there will be exceptions, as some directives like *depends_on* and *volumes_from* provide ncecessary conveniences in the local environment, and excluding them doesn't make sense.
 
 <h2 id="compose">Implementing Compose V2</h2>
 
@@ -107,7 +107,7 @@ details.
 | cpu_shares        | CPU shares (relative weight)                      |                |
 | cpu_quota         | Limit the CPU CFS (Completely Fair Scheduler) quota |               | 
 | devices           | Map devices                                       |                |
-| depends_on        | Express dependency between services               |                |
+| depends_on        | Express dependency between services               | &#10004;       |
 | dns               | Custom DNS servers                                |                |   
 | dns_search        | Custom DNS search                                 |                |
 | domainname        | Set the FQDN                                      |                |
@@ -147,10 +147,10 @@ details.
 | stop_signal       | Sets an alternative signal to stop the container  |                |
 | tmpfs             | Mount a temporary volume to the container         | &#10004;       |
 | ulimits           | Override the default ulimit                       |                |
-| user              | Username or UID used to execute internal container processes | &#10004;       |
+| user              | Username or UID used to execute internal container processes | &#10004; |
 | volumes           | Mounts paths or named volumes                     | &#10004;       |
 | volume_driver     | Specify a volume driver                           |                |
-| volumes_from      | Mount one or more volumes from one container into another |        |
+| volumes_from      | Mount one or more volumes from one container into another | &#10004; |
 | working_dir       | Path to set as the working directory              | &#10004;       |
 
 
@@ -166,6 +166,10 @@ of the service defined in `container.yml` are mapped to the container definition
 
 Below are some notes regarding how specific attributes are mappped to the deployment, pod and container.
 
+#### depends_on
+
+Express a dependency between services, causing services to be started in order. Supported by `build` and `run` commands, but not supported in the cloud.
+
 #### expose
 
 In development this exposes ports internally. 
@@ -173,18 +177,18 @@ In development this exposes ports internally.
 In the cloud, an exposed port translates to a service, and a service will be created for each exposed port. The cloud service will have the same name as the `container.yml` 
 service, and it will listen on the port and forward requests to the exact same port on the pod.
 
+#### extra_hosts
+
+When run in development, adds a hosts entry to the container.
+
+In the cloud, this will create an External IP service. See [Kubernetes external IPs](http://kubernetes.io/docs/user-guide/services/#external-ips for details) for details. 
+
 #### links
 
 In development links allow containers to communicate directly without having to define a network.
 
 In the cloud, *links* are not supported, so by themselves they are ignored. However, containers can communicate using services, so to enable communication between two 
 containers, add the *expose* directive. See *expose* above.
-
-#### extra_hosts
-
-When run in development, adds a hosts entry to the container.
-
-In the cloud, this will create an External IP service. See [Kubernetes external IPs](http://kubernetes.io/docs/user-guide/services/#external-ips for details) for details. 
 
 #### volumes
 
@@ -198,6 +202,10 @@ Ansible Container will follow the [Portable Configuration pattern](http://kubern
 
 - It will not create persistent volumes 
 - It will support an *options* directive (which will be defined during development) to provide a storage class name. 
+
+#### volumes_from
+
+Mount all the volumes from another service or container. Supported by `build` and `run` commands, but not supported in the cloud.
 
 <h2 id="references">References</h2>
 
