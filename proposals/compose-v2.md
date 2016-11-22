@@ -115,7 +115,7 @@ details.
 | entrypoint        | Override the default entrypoint                   | &#10004;       |
 | env_file          | Add environment variables from a file             |                |
 | environment       | Add environment variables                         | &#10004;       |
-| expose*           | Expose ports without exposing them to the host    | &#10004;       |
+| expose            | Expose ports without exposing them to the host    | &#10004;       |
 | extends           | Extend another service, in the current file or another, optionally overriding configuration |    |
 | external_links    | Link to containers started outside this project   |                |
 | extra_hosts       | Add hostname mappings                             | &#10004;       |
