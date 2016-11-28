@@ -1,0 +1,9 @@
+version: '{{ version }}'
+services:
+{% macro set_indent() %}{% include template %}{% endmacro %}
+{{ set_indent()|indent(indentfirst=true, width=2)}}
+
+{% if volumes %}
+volumes:
+{{ volumes | indent(indentfirst=true, width=2) }}
+{% endif %}

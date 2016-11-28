@@ -47,6 +47,9 @@ class AnsibleContainerConfig(Mapping):
             config = yaml.safe_load(config)
         except yaml.YAMLError as exc:
             raise AnsibleContainerConfigException(u"Parsing container.yml - %s" % str(exc))
+
+        self._validate_config(config)
+
         if config.get('defaults'):
             del config['defaults']
 
@@ -210,6 +213,33 @@ class AnsibleContainerConfig(Mapping):
             except Exception as exc:
                 raise AnsibleContainerConfigException(u"JSON exception: %s" % str(exc))
         return config
+
+
+
+
+    TOP_LEVEL_WHITELIST = [
+        'version',
+        'volumes',
+        'services',
+        'defaults',
+        'registries'
+    ]
+
+    OPTIONS_KUBE_WHITELIST = []
+
+    OPTIONS_OPENSHIFT_WHITELIST = []
+
+    SUPPORTED_COMPOSE_VERSIONS = ['1', '2']
+
+    def _validate_config(self, config):
+        for top_level in config:
+            if top_level not in self.TOP_LEVEL_WHITELIST:
+                raise AnsibleContainerConfigException("invalid key '{0}'".format(top_level))
+            if top_level == 'version':
+                if config['version'] not in self.SUPPORTED_COMPOSE_VERSIONS:
+                    raise AnsibleContainerConfigException("requested version is not supported")
+                if config['version'] == '1':
+                    logger.warning("Version '1' is deprecated. Consider upgrading to version '2'.")
 
     def __getitem__(self, item):
         return self._config.get(item)

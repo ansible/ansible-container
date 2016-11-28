@@ -10,41 +10,37 @@ import shlex
 from collections import OrderedDict
 from six import string_types
 
+from ..base_engine import BaseShipItObject
+from container.exceptions import AnsibleContainerMissingPersistentVolumeClaim
+
 logger = logging.getLogger(__name__)
 
+DOCKER_VOL_PERMISSIONS = ['rw', 'ro', 'z', 'Z']
 
-class Deployment(object):
 
-    def __init__(self, config=None, project_name=None):
-        self.project_name = project_name
-        self.config = config
+class Deployment(BaseShipItObject):
 
-    def get_template(self, service_names=None):
-        return self._get_template_or_task(request_type="config", service_names=service_names)
-
-    def get_task(self, service_names=None):
-        return self._get_template_or_task(request_type="task", service_names=service_names)
-
-    def _get_template_or_task(self, request_type="task", service_names=None):
+    def _get_template_or_task(self, request_type="task"):
         templates = []
         for name, service in self.config.get('services', {}).items():
-            new_template = self._create(request_type, name, service)
+            new_template = self._create(name, request_type, service)
             if new_template:
                 templates.append(new_template)
         return templates
 
-    def _create(self, type, name, service):
+    def _create(self, name, request_type, service):
         '''
         Creates an Openshsift deployment template or playbook task.
+        :param request_type:
         '''
         template = {}
-        container, volumes, pod = self._service_to_container(name, service, type=type)
+        container, volumes, pod = self._service_to_container(name, service, request_type)
         labels = dict(
             app=self.project_name,
             service=name
         )
 
-        if type == 'config':
+        if request_type == 'config':
             state = 'present'
             if pod.get('state'):
                 state = pod.pop('state')
@@ -99,14 +95,14 @@ class Deployment(object):
 
         return template
 
-    def _service_to_container(self, name, service, type="task"):
+    def _service_to_container(self, name, service, request_type="task"):
         '''
         Turn a service into a container and set of volumes. Maps Docker run directives
         to the Kubernetes container spec: http://kubernetes.io/docs/api-reference/v1/definitions/#_v1_container
 
         :param name:str: Name of the service
         :param service:dict: Configuration
-        :param type: 'task' or 'config'
+        :param request_type: 'task' or 'config'
         :return: (container, volumes, pod)
         '''
 
@@ -118,50 +114,50 @@ class Deployment(object):
         pod = {}
 
         IGNORE_DIRECTIVES = [
-            'aliases',
             'build',
             'labels',
             'links',
             'cgroup_parent',
+            'cpuset',
+            'cpu_shares',
+            'cpu_quota',
+            'cpuset',
             'dev_options',
             'devices',
             'depends_on',
             'dns',
             'dns_search',
-            'env_file',        # TODO: build support for this?
-            'user',            # needs to map to securityContext.runAsUser, which requires a UID
+            'domainname',
+            'enable_ipv6',
+            'env_file',
+            'user',
             'extends',
             'extrenal_links',
             'extra_hosts',
-            'ipv4_address',
-            'ipv6_address'
-            'labels',
-            'links',           # TODO: Add env vars?
+            'hostname',
+            'ipc',
+            'isolation',
+            'labels',          # TODO Map this
+            'links',
             'logging',
             'log_driver',
             'lop_opt',
-            'net',
-            'network_mode',
-            'networks',
-            'restart',         # for replication controller, should be Always
-            'pid',             # could map to pod.hostPID
-            'security_opt',
-            'stop_signal',
-            'ulimits',
-            'cpu_shares',
-            'cpu_quota',
-            'cpuset',
-            'domainname',
-            'hostname',
-            'ipc',
             'mac_address',
             'mem_limit',
             'memswap_limit',
+            'net',
+            'network_mode',
+            'networks',
+            'restart',         # TODO Map this
+            'pid',
+            'security_opt',
             'shm_size',
-            'tmpfs',
+            'stop_signal',
+            'ulimits',
+            'tmpfs',           # TODO Map this
             'options',
             'volume_driver',
-            'volumes_from',   #TODO: figure out how to map?
+            'volumes_from',
         ]
 
         DOCKER_TO_KUBE_CAPABILITY_MAPPING=dict(
@@ -233,14 +229,14 @@ class Deployment(object):
                     container['command'] = value
             elif key == 'environment':
                 expanded_vars = self._expand_env_vars(value)
-                if type == 'config':
+                if request_type == 'config':
                     container['env'] = expanded_vars
                 else:
                     container['env'] = self._env_vars_to_task(expanded_vars)
             elif key in ('ports', 'expose'):
                 if not container.get('ports'):
                     container['ports'] = []
-                self._get_ports(value, type, container['ports'])
+                self._get_ports(value, request_type, container['ports'])
             elif key == 'privileged':
                 container['securityContext']['privileged'] = value
             elif key == 'read_only':
@@ -248,7 +244,7 @@ class Deployment(object):
             elif key == 'stdin_open':
                 container['stdin'] = value
             elif key == 'volumes':
-                vols, vol_mounts = self._kube_volumes(value)
+                vols, vol_mounts = self._kube_volumes(value, service)
                 if vol_mounts:
                     container['volumeMounts'] = vol_mounts
                 if vols:
@@ -274,7 +270,7 @@ class Deployment(object):
 
         return container, volumes, pod
 
-    def _kube_volumes(self, docker_volumes):
+    def _kube_volumes(self, docker_volumes, service):
         '''
         Given an array of Docker volumes return a set of volumes and a set of volumeMounts
 
@@ -299,16 +295,14 @@ class Deployment(object):
                         source, destination = vol.split(':')
             else:
                 destination = vol
+
             logger.debug("source: %s destination: %s permissions: %s" % (source, destination, permissions))
-            named = False
-            if destination:
-                # slugify the destination to create a name
-                name = re.sub(r'\/', '-', destination)
-                name = re.sub(r'-', '', name, 1)
 
             if source:
                 if re.match(r'[~./]', source):
-                    # Source is a host path. We'll assume it exists on the host machine?
+                    name = re.sub(r'\/', '-', destination)
+                    name = re.sub(r'-', '', name, 1)
+                    # Source is a host path.
                     volumes.append(dict(
                         name=name,
                         hostPath=dict(
@@ -316,11 +310,25 @@ class Deployment(object):
                         )
                     ))
                 else:
-                    # Named volume. The volume should be defined elsewhere.
+                    # Named volume. Expects to find a PVC definition in options.
                     name = source
-                    named = True
+                    claim_name = self._get_claim(name, service)
+                    if claim_name:
+                        volumes.append(dict(
+                            name=name,
+                            persistentVolumeClaim=dict(
+                                claimName=claim_name
+                            )
+                        ))
+                    else:
+                        raise AnsibleContainerMissingPersistentVolumeClaim(
+                            "Error in container.yml. options.openshift.persistent_volume_claim not "
+                            "found for volume {0}".format(name)
+                        )
             else:
                 # Volume with no source, a.k.a emptyDir
+                name = re.sub(r'\/', '-', destination)
+                name = re.sub(r'-', '', name, 1)
                 volumes.append(dict(
                     name=name,
                     emptyDir=dict(
@@ -328,14 +336,23 @@ class Deployment(object):
                     ),
                 ))
 
-            if not named:
-                volume_mounts.append(dict(
-                    mountPath=destination,
-                    name=name,
-                    readOnly=(True if permissions == 'ro' else False)
-                ))
+            volume_mounts.append(dict(
+                mountPath=destination,
+                name=name,
+                readOnly=(True if permissions == 'ro' else False)
+            ))
 
         return volumes, volume_mounts
+
+    @staticmethod
+    def _get_claim(name, service):
+        claim_name = None
+        claims = service.get('options', {}).get('openshift', {}).get('persistent_volume_claims', [])
+        for claim in claims:
+            if claim.get('volume_name') == name:
+                claim_name = claim.get('claim_name')
+                break
+        return claim_name
 
     def _get_ports(self, ports, type, existing_ports):
         '''
@@ -385,7 +402,8 @@ class Deployment(object):
             result[var['name']] = var['value']
         return result
 
-    def _expand_env_vars(self, env_variables):
+    @staticmethod
+    def _expand_env_vars(env_variables):
         '''
         Turn container environment attribute into dictionary of name/value pairs.
 
@@ -393,20 +411,15 @@ class Deployment(object):
         :type env_variables: dict or list
         :return: dict
         '''
-        def r(x, y):
-            if re.match('shipit_', x, flags=re.I):
-                return dict(name=re.sub('^shipit_', '', x, flags=re.I), value=self._resolve_resource(y))
-            return dict(name=x, value=y)
-
         results = []
         if isinstance(env_variables, dict):
             for key, value in env_variables.items():
-                results.append(r(key, value))
+                results.append({u'name': key, u'value': value})
         elif isinstance(env_variables, list):
             for envvar in env_variables:
-                parts = envvar.split('=')
+                parts = envvar.split('=', 1)
                 if len(parts) == 1:
-                    results.append(dict(name=re.sub('^shipit_', '', parts[0], flags=re.I), value=None))
+                    results.append({u'name': parts[0], u'value': None})
                 elif len(parts) == 2:
-                    results.append(r(parts[0], parts[1]))
+                    results.append({u'name': parts[0], u'value': parts[1]})
         return results

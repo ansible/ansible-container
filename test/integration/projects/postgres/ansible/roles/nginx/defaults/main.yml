@@ -1,0 +1,3 @@
+---
+STATIC_ROOT: /static
+PIDFILE_DIR: /run

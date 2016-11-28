@@ -20,7 +20,6 @@ deployment.
 
    installation
    getting_started
-   deploy_kubernetes
    registry_auth
    reference/index
    container_yml/index
@@ -28,4 +27,5 @@ deployment.
    releases
    Roadmap<roadmaps/index>
    community/index
+   configure_openshift
 

@@ -197,6 +197,8 @@ Vagrantfile
 .v8flags*
 
 # shipit output and testing
+test/integration/projects/postgres/ansible/roles/postgres-kubernetes
+test/integration/projects/postgres/ansible/roles/postgres-openshift
 example/ansible/roles/
 shipit_config/
 shipit*.yml

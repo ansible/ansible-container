@@ -9,6 +9,7 @@ import json
 from ..base_engine import BaseShipItEngine
 from .deployment import Deployment
 from .service import Service
+from .pvc import Pvc
 from ..utils import create_path
 from ..constants import SHIPIT_PATH, SHIPIT_CONFIG_PATH
 
@@ -25,6 +26,7 @@ class ShipItEngine(BaseShipItEngine):
         tasks = []
         tasks += Service(config=self.config, project_name=self.project_name).get_task()
         tasks += Deployment(config=self.config, project_name=self.project_name).get_task()
+        tasks += Pvc(config=self.config, project_name=self.project_name).get_task()
         self.init_role()
         self.create_role(tasks)
         self.create_playbook()
@@ -42,6 +44,12 @@ class ShipItEngine(BaseShipItEngine):
         templates = Deployment(config=self.config, project_name=self.project_name).get_template()
         for template in templates:
             name = "%s-deployment.json" % template['metadata']['name']
+            with open(os.path.join(dest_path, name), 'w') as f:
+                f.write(json.dumps(template, indent=4))
+
+        templates = Pvc(config=self.config, project_name=self.project_name).get_template()
+        for template in templates:
+            name = "%s-pvc.json" % template['metadata']['name']
             with open(os.path.join(dest_path, name), 'w') as f:
                 f.write(json.dumps(template, indent=4))
 

@@ -159,6 +159,13 @@ class Engine(BaseEngine):
         except IndexError:
             raise NameError('No image with the name %s' % name)
 
+    def get_images_by_name(self, name):
+        client = self.get_client()
+        try:
+            return client.images(name=name, quiet=True)
+        except IndexError:
+            raise NameError('No image with the name %s' % name)
+
     def get_container_id_by_name(self, name):
         """
         Query the engine to get a container identifier by name
@@ -297,6 +304,11 @@ class Engine(BaseEngine):
         u'SERVICE': []
     }
 
+    DEFAULT_COMPOSE_DOWN_OPTIONS = {
+        u'--volumes': True,
+        u'--remove-orphans': False
+    }
+
     DEFAULT_COMPOSE_STOP_OPTIONS = {
         u'--timeout': None,
         u'SERVICE': []
@@ -390,16 +402,14 @@ class Engine(BaseEngine):
         return {'--no-color': True}
 
     def terminate(self, operation, temp_dir, hosts=[]):
-
         options, command_options, command = self.bootstrap_env(
             temp_dir=temp_dir,
             behavior='terminate',
             operation=operation,
             compose_option='stop'
+
         )
-
-        options.update({u'COMMAND': 'stop'})
-
+        options.update({u'COMMAND': u'stop'})
         command_options[u'SERVICE'] = hosts
 
         if self.params.get('force'):
@@ -434,38 +444,41 @@ class Engine(BaseEngine):
         compose_config = config_to_compose(self.config)
         return compose_config
 
-    def _fix_volumes(self, service_name, service_config):
+    def _fix_volumes(self, service_name, service_config, compose_version='1', top_level_volumes=dict()):
         # If there are volumes defined for this host, we need to create the
         # volume if one doesn't already exist.
         client = self.get_client()
+        project_name = os.path.basename(self.base_path).lower()
         for volume in service_config.get('volumes', []):
             if ':' not in volume:
-                # This is an unnamed volume. We have to handle making this
-                # volume with a predictable name.
-                volume_name = '%s-%s-%s' % (self.project_name,
-                                            service_name,
-                                            volume.replace('/', '_'))
-                try:
-                    client.inspect_volume(name=volume_name)
-                except docker_errors.NotFound as e:
-                    # We need to create this volume
-                    client.create_volume(name=volume_name, driver='local')
+                # This is an unnamed or anonymous volume. Create the volume with a predictable name.
+                volume_name = ('%s-%s-%s' % (project_name, service_name, volume.replace('/', '_'))).replace('-_', '_')
                 service_config['volumes'].remove(volume)
                 service_config['volumes'].append('%s:%s' % (volume_name, volume))
+                if compose_version == '1':
+                    try:
+                        client.inspect_volume(name=volume_name)
+                    except docker_errors.NotFound:
+                        # The volume does not exist
+                        client.create_volume(name=volume_name, driver='local')
+                if volume_name not in top_level_volumes.keys():
+                    top_level_volumes[volume_name] = {}
 
     def get_config_for_build(self):
         compose_config = config_to_compose(self.config)
+        version = compose_config.get('version', '1')
+        volumes = compose_config.get('volumes', {})
         orchestrated_hosts = self.hosts_touched_by_playbook()
         if self.params.get('service'):
             # only build a subset of the orchestrated hosts
             orchestrated_hosts = orchestrated_hosts.intersection(self.params['service'])
-            for host in set(compose_config.keys()) - orchestrated_hosts:
-                del compose_config[host]
-            if not compose_config:
+            for host in set(compose_config['services'].keys()) - orchestrated_hosts:
+                del compose_config['services'][host]
+            if not compose_config['services']:
                 raise AnsibleContainerNoMatchingHosts()
         logger.debug('Orchestrated hosts: %s', ', '.join(orchestrated_hosts))
 
-        for service, service_config in compose_config.items():
+        for service, service_config in compose_config['services'].items():
             if service in orchestrated_hosts:
                 logger.debug('Setting %s to sleep', service)
                 service_config.update(
@@ -500,22 +513,32 @@ class Engine(BaseEngine):
                     logger.debug('No NameError raised when searching for tag %s',
                                  '%s-%s:latest' % (self.project_name, service))
                     service_config['image'] = tag
-            self._fix_volumes(service, service_config)
+            self._fix_volumes(service, service_config, compose_version=version, top_level_volumes=volumes)
+
+        if volumes:
+            compose_config['volumes'] = volumes
+
         return compose_config
 
     def get_config_for_run(self):
         if not self.params['production']:
             self.config.set_env('dev')
         compose_config = config_to_compose(self.config)
+        version = compose_config.get('version', '1')
+        volumes = compose_config.get('volumes', {})
         orchestrated_hosts = self.hosts_touched_by_playbook()
-        for service, service_config in compose_config.items():
+        for service, service_config in compose_config['services'].items():
             if service in orchestrated_hosts:
                 service_config.update(
                     dict(
                         image='%s-%s:latest' % (self.project_name, service)
                     )
                 )
-            self._fix_volumes(service, service_config)
+            self._fix_volumes(service, service_config, compose_version=version, top_level_volumes=volumes)
+
+        if volumes:
+            compose_config['volumes'] = volumes
+
         return compose_config
 
     def get_config_for_stop(self):
@@ -524,7 +547,9 @@ class Engine(BaseEngine):
 
     def get_config_for_listhosts(self):
         compose_config = config_to_compose(self.config)
-        for service, service_config in compose_config.items():
+        version = compose_config.get('version', '1')
+        volumes = compose_config.get('volumes', {})
+        for service, service_config in compose_config['services'].items():
             service_config.update(
                 dict(
                     user='root',
@@ -533,6 +558,11 @@ class Engine(BaseEngine):
                     entrypoint=[]
                 )
             )
+            self._fix_volumes(service, service_config, compose_version=version, top_level_volumes=volumes)
+
+        if volumes:
+            compose_config['volumes'] = volumes
+
         return compose_config
 
     def get_config_for_install(self):
@@ -804,25 +834,45 @@ class Engine(BaseEngine):
                                                                 operation))()
         config = getattr(self, 'get_config_for_%s' % operation)()
         logger.debug('%s' % (config,))
-        config_yaml = yaml_dump(config) if config else ''
+        config_yaml = yaml_dump(config['services']) if config else ''
         logger.debug('Config YAML is')
         logger.debug(config_yaml)
         hosts = self.all_hosts_in_orchestration()
+        version = config.get('version', '1')
+        volumes_yaml = yaml_dump(config['volumes']) if config and config.get('volumes') else ''
         if operation == 'build' and self.params.get('service'):
             # build operation is limited to a specific list of services
             hosts = list(set(hosts).intersection(self.params['service']))
-        jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
-                             temp_dir,
-                             'docker-compose.yml',
-                             hosts=hosts,
-                             project_name=self.project_name,
-                             base_path=self.base_path,
-                             params=self.params,
-                             api_version=self.api_version,
-                             builder_img_id=builder_img_id,
-                             config=config_yaml,
-                             env=os.environ,
-                             **context)
+        if version == '1':
+            logger.debug('HERE VERSION 1')
+            jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
+                                 temp_dir,
+                                 'docker-compose.yml',
+                                 hosts=hosts,
+                                 project_name=self.project_name,
+                                 base_path=self.base_path,
+                                 params=self.params,
+                                 api_version=self.api_version,
+                                 builder_img_id=builder_img_id,
+                                 config=config_yaml,
+                                 env=os.environ,
+                                 **context)
+        else:
+            jinja_render_to_temp('compose_versioned.j2.yml',
+                                 temp_dir,
+                                 'docker-compose.yml',
+                                 template='%s-docker-compose.j2.yml' % (operation,),
+                                 hosts=hosts,
+                                 project_name=self.project_name,
+                                 base_path=self.base_path,
+                                 params=self.params,
+                                 api_version=self.api_version,
+                                 builder_img_id=builder_img_id,
+                                 config=config_yaml,
+                                 env=os.environ,
+                                 version=version,
+                                 volumes=volumes_yaml,
+                                 **context)
         options = self.DEFAULT_COMPOSE_OPTIONS.copy()
 
         options.update({

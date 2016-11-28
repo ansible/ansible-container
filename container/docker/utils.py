@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,8 @@ else:
 
 from functools import wraps
 from distutils import spawn
+
+from ..exceptions import AnsibleContainerConfigException
 
 from compose.cli import main
 from compose.cli.log_printer import LogPrinter, build_log_presenters
@@ -82,14 +85,50 @@ teed_stdout = TeedStdout
 def which_docker():
     return spawn.find_executable('docker')
 
+SERVICE_KEY_WHITELIST = [
+    'cap_add',
+    'cap_drop',
+    'command',
+    'container_name',
+    'depends_on',
+    'entrypoint',
+    'environment',
+    'expose',
+    'extra_hosts',
+    'image',
+    'labels',
+    'links',
+    'options',
+    'ports',
+    'privileged',
+    'read_only',
+    'restart',
+    'stdin_open',
+    'tmpfs',
+    'user',
+    'volumes',
+    'volumes_from',
+    'working_dir'
+]
+
+
 def config_to_compose(config):
     # This could probably be better done - include what keys are in compose vs
     # removing the ones that aren't.
-    compose = copy.deepcopy(config.get('services') or {})
-    assert compose is not config.get('services')
-    for service, service_config in compose.items():
+    compose = {
+        u'version': config.get('version', '1'),
+        u'services': copy.deepcopy(config.get('services') or {})
+    }
+    assert compose[u'services'] is not config.get('services')
+    for service, service_config in compose[u'services'].items():
         if 'options' in service_config:
             del service_config['options']
+        for key in service_config:
+            if key not in SERVICE_KEY_WHITELIST:
+                raise AnsibleContainerConfigException("service '{0}' contains invalid key '{1}'".format(
+                    service, key))
+    if config.get('volumes'):
+        compose[u'volumes'] = copy.deepcopy(config['volumes'])
     logger.debug('Compose derived from config:')
-    logger.debug(compose)
+    logger.debug(json.dumps(compose, indent=4))
     return compose

@@ -65,10 +65,9 @@ By way of an example, consider the below ``container.yml`` file:
 
 Things to note:
 
-1. We mark this schema with version 1. Future versions may deviate from this schema.
+1. In this example the schema is set to version 1. Starting with version 0.3.0, it supports 2 as well.
 2. Each of the containers you wish to orchestrate should be under the `services` key.
-3. The content of the `services` key observes all of the keys supported by the
-   Docker Compose v1 schema.
+3. For supported `service` keys, see :doc:`container_yml/reference`.
 4. The image you specify should be the base image that your containers will start from.
    Ansible Container will use your playbook to build upon this base image.
 5. You may optionally specify a `dev_overrides` section. During build and in generating
@@ -80,6 +79,8 @@ Things to note:
    for every code change. Thus that developer may wish to include `dev_overrides` that run
    a BrowserSync server for those assets, whereas in production Gulp would build those assets
    and exit.
+
+
 
 main.yml
 ````````
@@ -102,7 +103,7 @@ Ansible Container.
 
 meta.yml
 ````````
-Share your app on `Ansible Galaxy <https:\\galaxy.ansible.com>`_. Provide the requested information in ``meta.yml``, and
+Share your app on `Ansible Galaxy <https://galaxy.ansible.com>`_. Provide the requested information in ``meta.yml``, and
 then log into Galaxy and use the import feature to let the world know about your project.
 
 requirements.txt
@@ -208,8 +209,7 @@ Django container sets the database server DSN in an environment variable. In dev
 exported into the container as a volume so that changes to the code can be detected and instantly integrated into
 the development container, however in production, the full Django project's code is part of the container's
 filesystem. Note that in both development and production, `Yelp's dumb-init <https://github.com/Yelp/dumb-init>`_ is
-used for PID 1 management, which is an excellent practice. For use with the :doc:`shipit command <deploy_kubernetes>`,
-the service includes a Kubernetes specific option for the uid of the user running the container's process.
+used for PID 1 management, which is an excellent practice.
 
 The Gulp service exists to compile our static asset sources into minified and unified distributable assets, but
 in development, like with Django, we want Gulp to run a self-reloading webserver, recompiling when the developer

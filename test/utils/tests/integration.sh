@@ -16,7 +16,8 @@ export COVERAGE_FILE="${test_dir}/data/coverage"
 cd "${source_root}"
 
 PYTHONDONTWRITEBYTECODE=1 PATH="${source_root}/test/utils/coverage:$PATH" py.test \
-    --timeout=240 \
+    --capture=no \
+    --timeout=300 \
     --verbose --strict -r a --junit-xml="${test_dir}/junit.xml" "${source_root}/test/integration"
 
 coverage combine

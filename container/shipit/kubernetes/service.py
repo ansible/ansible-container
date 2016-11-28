@@ -1,30 +1,21 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
-from collections import OrderedDict
-
 
 import logging
+from collections import OrderedDict
+
+from ..base_engine import BaseShipItObject
 
 logger = logging.getLogger(__name__)
 
 
-class Service(object):
+class Service(BaseShipItObject):
 
-    def __init__(self, config=None, project_name=None):
-        self.project_name = project_name
-        self.config = config
-
-    def get_template(self):
-        return self._get_task_or_config(request_type="config")
-
-    def get_task(self):
-        return self._get_task_or_config(request_type="task")
-
-    def _get_task_or_config(self, request_type="task"):
+    def _get_template_or_task(self, request_type="task"):
         templates = []
         for name, service in self.config.get('services', {}).items():
-            new_service = self._create(request_type, name, service)
+            new_service = self._create(name, request_type, service)
             if new_service:
                 templates.append(new_service)
             if service.get('links'):
@@ -46,14 +37,15 @@ class Service(object):
             service_name, alias = link.split(':')
             alias_config = self.config['services'].get(service_name)
             if alias_config:
-                new_service = self._create(request_type, alias, alias_config)
+                new_service = self._create(alias, request_type, alias_config)
                 if new_service:
                     templates.append(new_service)
         return templates
 
-    def _create(self, type, name, service):
+    def _create(self, name, request_type, service):
         '''
         Create a Kubernetes service template or playbook task
+        :param request_type:
         '''
 
         template = {}

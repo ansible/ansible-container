@@ -6,36 +6,26 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-import re
-
 from collections import OrderedDict
 from six import string_types
+from ..base_engine import BaseShipItObject
 
 
-class Route(object):
+class Route(BaseShipItObject):
 
-    def __init__(self, config=None, project_name=None):
-        self.project_name = project_name
-        self.config = config
-
-    def get_template(self):
-        return self._get_task_or_config(request_type="config")
-
-    def get_task(self):
-        return self._get_task_or_config(request_type="task")
-
-    def _get_task_or_config(self, request_type="task"):
+    def _get_template_or_task(self, request_type="task"):
         templates = []
         for name, service in self.config.get('services', {}).items():
-            new_routes = self._create(request_type, name, service)
+            new_routes = self._create(name, request_type, service)
             if new_routes:
                 templates += new_routes
         return templates
 
-    def _create(self, type, name, service):
+    def _create(self, name, request_type, service):
         '''
         Generate Openshift route templates or playbook tasks. Each port on a service definition
         represents an externally exposed port.
+        :param request_type:
         '''
 
         templates = []
@@ -57,7 +47,7 @@ class Route(object):
                     service=name
                 )
 
-                if type == 'config' and state != 'absent':
+                if request_type == 'config' and state != 'absent':
                     template = dict(
                         apiVersion="v1",
                         kind="Route",

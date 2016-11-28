@@ -1,4 +1,4 @@
-version: "1"
+version: "2"
 services:
   # Add your containers here, specifying the base image you want to build from
   # For example:

@@ -227,6 +227,8 @@ def commandline():
     except exceptions.AnsibleContainerHostNotTouchedByPlaybook:
         logger.error('The requested service(s) is not referenced in ansible/main.yml. Nothing to build.')
         sys.exit(1)
+    except exceptions.AnsibleContainerConfigException as e:
+        logger.error('Invalid containery.yml: {}'.format(e.message))
     except Exception as e:
         if args.debug:
             logger.exception(e)

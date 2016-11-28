@@ -11,6 +11,7 @@ export COVERAGE_FILE="${test_dir}/data/coverage"
 cd "${source_root}"
 
 PYTHONDONTWRITEBYTECODE=1 py.test \
+    --capture=no \
     --timeout=5 \
     --verbose --strict -r a --cov --junit-xml="${test_dir}/junit.xml" "${source_root}/test/unit"
 
