@@ -16,7 +16,7 @@ Prerequisites
 
 Access to ports 80 and 443
 ``````````````````````````
-Make sure there are no processes listening on ports 80 and 443.. If you're running a local web server that happens to listen on these ports, you'll need to temporarly stop the server, or move it to a different port. The registry that comes installed with OpenShift by default listens on ports 80 and 443.
+Make sure there are no processes listening on ports 80 and 443. If you're running a local web server that happens to listen on these ports, you'll need to temporarily stop the server, or configure it to listen on different ports. We'll be using ports 80 and 443 to access the local OpenShift registry.
 
 Software packages
 `````````````````
