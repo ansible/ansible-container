@@ -2,7 +2,7 @@ Install and Configure OpenShift
 ===============================
 
 Prior to running any of the examples that deploy an application to OpenShift, you'll need access to an OpenShift instance, and this guide
-will help you install and configure an OpenShift cluster in your environment.
+will help you install and configure an OpenShift cluster in your local environment.
 
 The installation and configuration process is fairly simple, as the OpenShift instance you'll install runs in containers. In fact, if you
 already have Docker installed and working, you're halfway there!
@@ -14,7 +14,14 @@ already have Docker installed and working, you're halfway there!
 Prerequisites
 -------------
 
-Before creating a local OpenShift cluster, you'll need the following:
+Access to port 80
+`````````````````
+Make sure there are no processes listening on port 80. If you're running a local web server that happens to listen on port 80, you'll need to temporarly stop the server, or move it to a different port. The registry that comes installed with OpenShift by default listens on port 80.
+
+Software packages
+`````````````````
+
+Before creating a local OpenShift cluster, you'll need the following installed:
 
 + `Docker Engine <https://docs.docker.com/engine/installation/>`_ or `Docker for Mac <https://docs.docker.com/docker-for-mac/>`_ (This guide was created using Docker for Mac 1.12.3-beta30.1 (13946)).
 + Install *socat*, if you're using Docker for Mac
