@@ -14,9 +14,9 @@ already have Docker installed and working, you're halfway there!
 Prerequisites
 -------------
 
-Access to port 80
-`````````````````
-Make sure there are no processes listening on port 80. If you're running a local web server that happens to listen on port 80, you'll need to temporarly stop the server, or move it to a different port. The registry that comes installed with OpenShift by default listens on port 80.
+Access to ports 80 and 443
+``````````````````````````
+Make sure there are no processes listening on ports 80 and 443.. If you're running a local web server that happens to listen on these ports, you'll need to temporarly stop the server, or move it to a different port. The registry that comes installed with OpenShift by default listens on ports 80 and 443.
 
 Software packages
 `````````````````
