@@ -3,19 +3,19 @@
 
 # Ansible Container
 
-Ansible Container is a tool to build Docker images and orchestrate containers using only Ansible playbooks.
+Ansible Container is a tool for building Docker images and orchestrating containers using Ansible playbooks.
 
 ## How it works
 
-Use Ansible Container to manage container lifecycle from development, through testing, to production:
+Use Ansible Container to manage the container lifecycle from development, through testing, to production:
 
 * `ansible-container init`
 
-  Creates a directory *ansible* with files to get you started. Read the comments and edit to suit your needs.
+  Creates a directory *ansible* with files to get you started. Read the comments, and edit to suit your needs.
 
 * `ansible-container install`
 
-  Downloads Ansible-Container-ready roles from Ansible Galaxy and installs them in your project.
+  Downloads Ansible-Container-ready roles from [Ansible Galaxy](https://galaxy.ansible.com), and installs them in your project.
 
 * `ansible-container build`
 
@@ -28,11 +28,11 @@ Use Ansible Container to manage container lifecycle from development, through te
 
 * `ansible-container push`
 
-  Pushes the project's images to a container registry of your choice.
+  Pushes the project's container images to a registry of your choice.
 
 * `ansible-container shipit`
 
-  Generates the necessary playbook and role to deploy your containers on a supported cloud provider.
+  Generates a playbook and role capable of deploying the project on a supported cloud provider.
 
 ## Installing
 
@@ -55,9 +55,9 @@ For more details, prerequisite, and instructions on installing the latest develo
 
 For examples and a tour of Ansible Container [visit our docs site](https://docs.ansible.com/ansible-container/).
 
-If you just can't wait, the following provides a quick install and run of the demo app.
+If you just can't wait, the following provides a quick install and run of our [demo project](https://galaxy.ansible.com/chouseknecht/django-gulp-nginx).
 
-After you install Ansible Container, you can run the demo app by creating an empty project folder, and then initializing it with a copy of the demo project [Ansible Galaxy](https://galaxy.ansible.com/chouseknecht/django-gulp-nginx) by running the following:
+After you install Ansible Container, start by running the following commands to create an empty directory named *demo*, and initialize it with a copy of the project:
 
 ```
 # Create a directory named 'demo'
@@ -70,21 +70,21 @@ $ cd demo
 $ ansible-container init chouseknecht.django-gulp-nginx
 ```
 
-You now have a copy of the project in your local *demo* directory. From *demo* directory, run the following to build the images:
+Now that you have a copy of the project, you can build the container images by running the following command from within the *demo* directory:
 
 ```
-# Start the build process 
+# Start the image build 
 $ ansible-container build
 ```
 
-Once the build completes, you will have a local copy of the project's conatiner images, and you're ready to launch the application by running the following:
+The build will run for serveral minutes, and playbook task names will be displayed as they execute. Once the build completes, you'll have a local copy of the images, and you're ready to launch the application by running the following:
 
 ```
-# Run the project containers
+# Launch the application
 $ ansible-container run
 ```
 
-The application containers are now running, and the demo web server is available at port 8080. You can access it from a web browser at [http://localhost:8080](http://localhost:8080).
+With the containers running, the demo web server is now accessible from a web browser at [http://localhost:8080](http://localhost:8080). For more details about the application, please visit the [project repo]((https://github.com/chouseknecht/django-gulp-nginx).
 
 ## Get Involved
 
