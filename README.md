@@ -77,9 +77,7 @@ Now that you have a copy of the project, you can build the container images by r
 $ ansible-container build
 ```
 
-The build will run for serveral minutes, and playbook task names will be displayed as the build progresses
-
-Once the build completes, you'll have a local copy of the images, and you're ready to launch the application by running the following:
+The build will run for serveral minutes, and playbook task names will be displayed as the build progresses. Once the build completes, you'll have a local copy of the images, and you'll be ready to launch the application by running the following:
 
 ```
 # Launch the application
