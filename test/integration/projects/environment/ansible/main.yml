@@ -1,4 +1,5 @@
 - hosts: all
+  gather_facts: yes
   tasks:
     - name: Debug when environment defined 
       debug: msg="{{ inventory_hostname }} MYVAR={{ ansible_env.MYVAR }} ANSIBLE_CONTAINER={{ ansible_env.ANSIBLE_CONTAINER }}" 

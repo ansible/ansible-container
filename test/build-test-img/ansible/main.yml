@@ -10,13 +10,10 @@
       name: epel-release
       state: present
 
-  - name: Install docker 1.11.2
+  - name: Install docker
     yum:
-      name: "{{ item }}"
+      name: docker-latest
       state: present
-    with_items:
-    - https://yum.dockerproject.org/repo/main/centos/7/Packages/docker-engine-selinux-1.11.2-1.el7.centos.noarch.rpm
-    - https://yum.dockerproject.org/repo/main/centos/7/Packages/docker-engine-1.11.2-1.el7.centos.x86_64.rpm
 
   - name: Install yum packages
     yum:

@@ -5,7 +5,7 @@ FROM centos:7
 #   ansible + some deps
 RUN yum update -y                 && \
     yum install -y epel-release   && \
-    yum install -y docker-latest && \
+    yum install -y docker-latest  && \
     yum install -y "@Development Tools" git python-setuptools python-devel python-pip rsync libffi-devel openssl-devel && \
     yum clean all
 
