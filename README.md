@@ -53,38 +53,9 @@ For more details, prerequisite, and instructions on installing the latest develo
 
 ## Getting started
 
-For examples and a tour of Ansible Container [visit our docs site](https://docs.ansible.com/ansible-container/).
+For examples and a quick tour of Ansible Container visit [Getting Started](http://docs.ansible.com/ansible-container/getting_started.html) at our docs site.
 
-If you just can't wait, the following provides a quick install and run of our [demo project](https://galaxy.ansible.com/chouseknecht/django-gulp-nginx). But before continuing, you *must* [install from source](http://docs.ansible.com/ansible-container/installation.html#running-from-source), so that you have the latest code.
-
-Setup the demo locally by running the following commands to create an empty directory named *demo*, and initialize it with a copy of the project:
-
-```
-# Create a directory named 'demo'
-$ mkdir demo
-
-# Set the working directory to 'demo'
-$ cd demo
-
-# Initialize the project
-$ ansible-container init chouseknecht.django-gulp-nginx
-```
-
-Now that you have a copy of the project, you can build the container images by running the following command from within the *demo* directory:
-
-```
-# Start the image build 
-$ ansible-container build
-```
-
-The build will run for serveral minutes, and playbook task names will be displayed as the build progresses. Once the build completes, you'll have a local copy of the images, and you'll be ready to launch the application by running the following:
-
-```
-# Launch the application
-$ ansible-container run
-```
-
-With the containers running, the demo web server is now accessible from a web browser at [http://localhost:8080](http://localhost:8080). For more details about the application, please visit the [project repo](https://github.com/chouseknecht/django-gulp-nginx).
+Visit the [Ansible Container Demo](https://ansible.github.io/ansible-container-demo/) for a complete walk-through of managing an application from development through cloud deployment.
 
 ## Get Involved
 
