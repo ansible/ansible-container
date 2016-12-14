@@ -139,7 +139,7 @@ Gulp and Node.js. To pull the skeleton from Ansible Galaxy and bootstrap a new a
 
 .. code-block:: bash
 
-  ansible-container init j00bar.django-gulp-nginx
+  ansible-container init ansible.django-gulp-nginx
 
 From here, you can even build and run this app, even though it doesn't do a whole lot.
 
@@ -299,13 +299,13 @@ each container:
         - gulp-static
     - hosts: nginx
       roles:
-        - role: j00bar.nginx-container
+        - role: ansible.nginx-container
           ASSET_PATHS:
             - /tmp/django/static/
             - /tmp/gulp/node/dist/
 
 The first two of these roles come bundled with the app and can be found in the ``ansible/roles/`` directory.
-The third one, `j00bar.nginx-container`, is a reference to a role hosted on Ansible Galaxy, and we make that
+The third one, `ansible.nginx-container`, is a reference to a role hosted on Ansible Galaxy, and we make that
 role a dependency for build in ``requirements.yml``. Because the containers described by the included roles
 are so closely tied to the source code in the project, it's appropriate that they're bundled with this app
 skeleton whereas the `j00bar.nginx-container` role is independent of the source code in the project, making
@@ -349,4 +349,9 @@ Now, you can run:
    $ ansible-container build
 
 ... to recreate your app, and this time, you'll find a newly built Redis container image all ready to go.
+
+Managing the Application Lifecycle
+----------------------------------
+
+Ansible Container can manage the lifecycle of an application from development through cloud deployment. For a hands-on walk through of creating, testing, and deploying a sample application, visit our `demo site <https://ansible.github.io/ansible-container-demo/>`_.
 
