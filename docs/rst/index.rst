@@ -27,5 +27,5 @@ deployment.
    releases
    Roadmap<roadmaps/index>
    community/index
-   configure_openshift
+   openshift/index
 

@@ -151,6 +151,10 @@ From here, you can even build and run this app, even though it doesn't do a whol
 To take a deeper dive into what the skeleton app offers, it requires looking into the ``ansible/``
 directory, where we find the application orchestration and build instructions.
 
+.. note::
+
+    The most recent version of `ansible.django-gulp-nginx <https://galaxy.ansible.com/ansible/django-gulp-nginx>`_ requires Ansible Container version 0.3.0+. Depending on the version of Ansible Container available from `PyPi <https://pypi.python.org/>`_, you may need to clone the Ansible Container repo, and run from source. For help, view the :doc:`Installation Guide </installation>`.  
+
 container.yml
 `````````````
 

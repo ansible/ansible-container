@@ -1,11 +1,7 @@
-Install and Configure OpenShift
-===============================
+Using Containers
+================
 
-Prior to running any of the examples that deploy an application to OpenShift, you'll need access to an OpenShift instance, and this guide
-will help you create one in your local environment.
-
-The installation and configuration process is fairly simple, as the OpenShift instance you'll install runs in containers. In fact, if you
-already have Docker installed and working, you're halfway there!
+This guide will help you create an OpenShift instance using containers. It relies on Docker to pull images and create the containers, so if you already have Docker installed, you're halfway there!
 
 .. contents:: Topics
 
@@ -35,14 +31,12 @@ Before creating a local OpenShift cluster, you'll need the following installed:
 
 .. _ansible_role:
 
-Install using an Ansible role
------------------------------
+The cluster-up role
+-------------------
 
-But wait, there's a role for this! There actually is, and it attempts to automate installing the ``oc`` client, and creating and configuring a cluster. In fact, it was created specifically for automating the tasks described in this document. You can find te role with instructions here: `chouseknecht.cluster-up-role <https://galaxy.ansible.com/chouseknecht/cluster-up-role/>`_
+The `cluster-up-role <https://galaxy.ansible.com/chouseknecht/cluster-up-role>`_ automates installing the ``oc`` client, and creating and configuring a cluster. It performs all of the tasks outlines in this document.   
 
-To use the role, you'll need Ansible installed. Also, note in the video that the playbook is copied from the installed role's file structure. You'll find the playbook, *cluster-up.yml*, in the *files* subfolder.
-
-The following video demonstrates using the role:
+To use the role, you'll need Ansible installed. Also note, as demonstrated in the following video, that the playbook used to execute the role is copied from the installed role's file structure. You'll find the playbook, *cluster-up.yml*, in the *files* subfolder.
 
 .. image:: _static/doc_images/cluster.png
    :target: https://youtu.be/iY4bkHDaxCc
