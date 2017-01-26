@@ -22,10 +22,12 @@ def load_engine(self, engine_name):
 
 def resolve_role_to_path(role_name):
     # FIXME - How do I programatically resolve the role name into a path?
+    pass
 
 
 def get_role_fingerprint(role_name):
     # FIXME - How do I programatically resolve the role name into a path?
+    pass
 
 def get_metadata_from_role(role_name):
     role_path = resolve_role_to_path(role_name)
@@ -101,7 +103,7 @@ def build(engine_name, project_name, services, cache=True):
 
                 if not cache_busted:
                     logger.debug('%s: Still trying to keep cache.', name)
-                    cached_image_id = engine.get_image_with_fingerprint(
+                    cached_image_id = engine.get_image_id_by_fingerprint(
                         fingerprint_hash.hexdigest())
                     if cached_image_id:
                         # We can reuse the cached image
@@ -138,6 +140,7 @@ def build(engine_name, project_name, services, cache=True):
                 image_id = engine.commit_role_as_layer(container_id,
                                                        project_name,
                                                        name,
+                                                       fingerprint_hash.hexdigest(),
                                                        metadata)
                 logger.info('%s: Committed layer as image ID %s', name, image_id)
                 engine.delete_container(container_id)
