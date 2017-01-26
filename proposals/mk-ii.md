@@ -4,9 +4,9 @@
 ### Refactor plan
 
 * The "builder container" will now be referred to as the "conductor".
-* Outside of the container on the host OS should be three and precisely three bits
+* Outside of the container on the host OS should be four and precisely four bits
   of functionality: Building the conductor container, launching the conductor
-  container, and `init`.
+  container, `init`, and Project Starbuck (see below).
 * The global `setup.py` should specify an `entry_points['console_script']` that
   invokes a super thin wrapper. All it should do is:
     1. Parse arguments
@@ -40,6 +40,8 @@
     * `conductor_base` - the name of a base image from which to build your
       conductor. The idea here is that if you're building images against a Debian
       base, needing `python-apt` for instance, you want a Debian conductor.
+    * `vault_file` - the relative path to a vault file that should be used by
+      runs of Ansible Container in the conductor.
 
 ### Changes to `engine.py`
 
@@ -51,9 +53,11 @@
   * Per service in `container.yml`
     * Start a container based on the `from` image.
     * Sequentially for each role in `roles`, generate an Ansible playbook in 
-      `/tmp` that applies the role and runs `ansible-playbook`.
-    * Commits the container as an image layer, stops the running container, and
-      instantiates a container from the newly committed image.
+      `/tmp` that runs as tasks any `OnBuild` directives from the parent image, 
+      applies the role, and runs `ansible-playbook`.
+    * Stops the running container and commits the container as an image layer.
+      As part of that commit, any data in `container/meta.yml` is included as
+      part of the commit.
   * Caching becomes a question of calculating role checksums, and skipping role
     application if unnecessary. No execution strategy needed.
 * The `run` process:
@@ -66,3 +70,29 @@
     built images, however instead of writing to `/tmp` space, it writes it to a
     mounted volume, referencing the registry names of the images instead of the
     local ones.
+
+### Project Starbuck
+
+An additional `console_script` will be included that digests a Dockerfile and
+outputs a container-enabled role and `container.yml`
+
+A Dockerfile has a limited number of directives. They will be translated into
+a container-enabled role as follows:
+
+* `RUN`: translate to a task with the `command` module; break up `&&` commands
+  best you can into separate `command`s
+* `ADD`/`COPY`: translate into `copy` or `synchronize` tasks
+* Every other directive except `FROM` will be added to `container/meta.yml`
+
+Any comments in the Dockerfile should be preserved in the appropriate places in
+the `tasks/main.yml` of the outputted role.
+
+Additionally, a `container.yml` will be generated simply containing the one
+service, with the contents of the `FROM` directive as the `from` key and the
+role name as the only entry in the `roles` array.
+
+### Misc. things that would just make jag happy
+
+* Let's not organize the templates and other files for each engine in the 
+  clusterfuck way we're doing now.
+
