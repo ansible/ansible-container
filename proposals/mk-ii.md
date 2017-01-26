@@ -65,7 +65,7 @@
   * Generate an Ansible artifact that orchestrates the built images in `/tmp`
     and run `ansible-playbook` on it.
 * There is no `push` command anymore.
-* The `shipit` process:
+* The `deploy` process (previously called `shipit`):
   * Pushes the built images to the configured registry.
   * Re-uses the same code to generate the Ansible artifact that orchestrates the
     built images, however instead of writing to `/tmp` space, it writes it to a
