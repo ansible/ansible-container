@@ -20,8 +20,22 @@ def load_engine(self, engine_name):
     mod = importlib.import_module('%s.engine' % engine_name, package='.')
     return mod.Engine()
 
+def resolve_role_to_path(role_name):
+    # FIXME - How do I programatically resolve the role name into a path?
+
+
 def get_role_fingerprint(role_name):
     # FIXME - How do I programatically resolve the role name into a path?
+
+def get_metadata_from_role(role_name):
+    role_path = resolve_role_to_path(role_name)
+    metadata_file = os.path.join(role_path, 'meta', 'container.yml')
+    if os.path.exists(metadata_file):
+        with open(metadata_file) as ifs:
+            metadata = yaml.safe_load(ifs)
+            # TODO: Decide what we want this metadata file to look like now
+        return metadata
+    return {}
 
 def get_conductor_name(project_name):
     return u'conductor_%s' % (project_name,)
@@ -114,4 +128,21 @@ def build(engine_name, project_name, services, cache=True):
                     entrypoint=[],
                     volumes_from=[get_conductor_name(project_name)])
 
-                apply_role_to_container(role, container_id, service, engine)
+                rc = apply_role_to_container(role, container_id, service, engine)
+                if rc:
+                    raise RuntimeError('Build failed.')
+                logger.info('%s: Applied role %s', name, role)
+
+                engine.stop_container(container_id)
+                metadata = get_metadata_from_role(role)
+                image_id = engine.commit_role_as_layer(container_id,
+                                                       project_name,
+                                                       name,
+                                                       metadata)
+                logger.info('%s: Committed layer as image ID %s', name, image_id)
+                engine.delete_container(container_id)
+                cur_image_id = image_id
+            logger.info('%s: Build complete.', name)
+        else:
+            logger.info('%s: No roles specified. Nothing to do.', name)
+    logger.info('All images successfully built.')
