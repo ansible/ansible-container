@@ -8,9 +8,10 @@
   of functionality: Building the conductor container, launching the conductor
   container, `init`, and Project Starbuck (see below).
 * The global `setup.py` should specify an `entry_points['console_script']` that
-  invokes a super thin wrapper. All it should do is:
+  invokes a super thin wrapper. All the wrapper should do is:
     1. Parse arguments
     2. Build the conductor container.
+      * Does this mean we need Docker for every install?
     3. Launch the conductor container using the specified command.
 * The vast majority of all of the Ansible Container logic goes into the conductor. 
   Like, everything. The global `setup.py` file installs this code as
