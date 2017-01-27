@@ -42,24 +42,16 @@ def get_metadata_from_role(role_name):
 def get_conductor_name(project_name):
     return u'conductor_%s' % (project_name,)
 
-def apply_role_to_container(role, container_id, service, engine):
-    playbook = [
-        {'hosts': service,
-         'roles': [role]}
-    ]
-
-    container_metadata = engine.inspect_container(container_id)
-    onbuild = container_metadata['Config']['OnBuild']
-    # FIXME: Actually do stuff if onbuild is not null
-
+def run_playbook(playbook, engine, services):
     try:
         tmpdir = tempfile.mkdtemp()
-        playbook_path = os.path.join(tmpdir, 'apply_%s.yml' % service)
+        playbook_path = os.path.join(tmpdir, 'playbook.yml')
         with open(playbook_path, 'w') as ofs:
             yaml.safe_dump(playbook, ofs)
-        inventory_path = os.path.join(tmpdir, 'apply_%s_hosts' % service)
+        inventory_path = os.path.join(tmpdir, 'hosts')
         with open(inventory_path, 'w') as ofs:
-            ofs.write('%s\n' % service)
+            for service in services:
+                ofs.write('%s\n' % service)
 
         ansible_args = dict(inventory=inventory_path,
                             playbook=playbook_path,
@@ -75,12 +67,26 @@ def apply_role_to_container(role, container_id, service, engine):
             for line in iter(result.std_out.readline, ''):
                 sys.stdout.write(line)
 
-        if result.return_code:
-            logger.error('Error applying role!')
-            logger.error(result.err)
-        return result.return_code
+        return result.return_code, result.err
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def apply_role_to_container(role, container_id, service, engine):
+    playbook = [
+        {'hosts': service,
+         'roles': [role]}
+    ]
+
+    container_metadata = engine.inspect_container(container_id)
+    onbuild = container_metadata['Config']['OnBuild']
+    # FIXME: Actually do stuff if onbuild is not null
+
+    rc, stderr = run_playbook(playbook, engine, [service])
+    if rc:
+        logger.error('Error applying role!')
+        logger.error(stderr)
+    return rc
 
 def build(engine_name, project_name, services, cache=True):
     engine = load_engine(engine_name, project_name, services)
@@ -162,7 +168,8 @@ def run(engine_name, project_name, services):
                          'to (re)create it.', service_name)
             raise RuntimeError('Run failed.')
 
-    engine.orchestrate()
+    playbook = engine.generate_orchestration_playbook()
+    run_playbook(playbook, engine, services)
 
 def restart(engine_name, project_name, services):
     engine = load_engine(engine_name, project_name, services)
@@ -182,4 +189,37 @@ def stop(engine_name, project_name, services):
             engine.stop_container(container_id)
     logger.info('All services stopped.')
 
+def deploy(engine_name, project_name, services, repository_data, playbook_dest):
+    engine = load_engine(engine_name, project_name, services)
+    logger.info('%s integration engine loaded. Preparing deploy.',
+                engine.display_name())
+
+    # Verify all images are built
+    for service_name in services:
+        logger.info('Verifying image for %s', service_name)
+        image_id = engine.get_latest_image_id_for_service(service_name)
+        if not image_id:
+            logger.error('Missing image for %s. Run "ansible-container build" '
+                         'to (re)create it.', service_name)
+            raise RuntimeError('Run failed.')
+
+    for service_name in services:
+        logger.info('Pushing %s to %s...', service_name, repository_data['name'])
+        image_id = engine.get_latest_image_id_for_service(service_name)
+        engine.push_image(image_id, service_name, repository_data)
+
+    logger.info('All images pushed.')
+
+    playbook = engine.generate_orchestration_playbook(repository=repository_data)
+
+    try:
+        with open(os.path.join(playbook_dest, '%s.yml' % project_name), 'w') as ofs:
+            yaml.safe_dump(playbook, ofs)
+    except OSError, e:
+        logger.error('Failure writing deployment playbook: %s', e)
+        raise
+
+def install(role):
+    # FIXME: Port me from ac_galaxy.py
+    pass
 
