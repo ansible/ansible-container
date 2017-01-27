@@ -1,0 +1,20 @@
+FROM {{ conductor_base }}
+
+{% set distro = conductor_base.split(':')[0] %}
+{% if distro in ["fedora", "centos"] %}
+RUN yum update -y && \
+    yum install -y epel-release   && \
+    yum install -y "@Development Tools" git rsync libffi-devel openssl-devel && \
+    yum clean all && \{% elif distro in ["debian", "ubuntu"] %}
+RUN apt-get update -y && \
+    apt-get install -y python2.7 git python rsync libffi-dev libssl-dev && \
+    apt-get clean && \{% else %}
+RUN true && \{% endif %}
+    python /build/get-pip.py && \
+    pip install -q --no-cache-dir virtualenv && \
+    virtualenv /venv && \
+    /venv/bin/pip install -q --no-cache-dir paramiko PyYAML Jinja2 httplib2 six ruamel.yaml && \
+    /venv/bin/pip install -q --no-cache-dir -e git+https://github.com/ansible/ansible.git@devel#egg=ansible && \
+    /venv/bin/pip install -q --no-cache-dir -r /build/requirements.txt && \
+    mkdir -p /etc/ansible/roles
+

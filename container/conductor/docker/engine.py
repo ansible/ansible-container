@@ -136,9 +136,12 @@ class Engine(BaseEngine):
     def generate_orchestration_playbook(self, repository_data=None):
         """If repository_data is specified, presume to pull images from that
         repository. If not, presume the images are already present."""
+        # FIXME: Implement me.
         raise NotImplementedError()
 
     def push_image(self, image_id, service_name, repository_data):
+        # FIXME: Implement me.
         raise NotImplementedError()
 
+    def build_conductor_image(self):
 
