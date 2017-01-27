@@ -11,13 +11,19 @@ class BaseEngine(object):
     into Ansible Container.
     """
 
+    # Capabilities of engine implementations
+    CAP_BUILD_CONDUCTOR = False
+    CAP_BUILD = False
+    CAP_RUN = False
+    CAP_DEPLOY = False
+
     def __init__(self, project_name, services):
         self.project_name = project_name
         self.services = services
 
     @property
     def display_name(self):
-        return __name__.split('.')[-2]
+        return __name__.split('.')[-2].capitalize()
 
     @property
     def ansible_args(self):

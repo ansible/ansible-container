@@ -90,15 +90,15 @@ def apply_role_to_container(role, container_id, service, engine):
 
 def build(engine_name, project_name, services, cache=True):
     engine = load_engine(engine_name, project_name, services)
-    logger.info('%s integration engine loaded. Build starting.',
+    logger.info(u'%s integration engine loaded. Build starting.',
                 engine.display_name())
 
     for name, service in services.iteritems():
-        logger.info('Building service %s.', name)
+        logger.info(u'Building service %s.', name)
         cur_image_id = engine.get_image_id_by_tag(service['from'])
         # the fingerprint hash tracks cacheability
         fingerprint_hash = hashlib.sha256('%s::' % cur_image_id)
-        logger.debug('%s: Base fingerprint hash = %s', name,
+        logger.debug(u'%s: Base fingerprint hash = %s', name,
                      fingerprint_hash.hexdigest())
         cache_busted = not cache
 
@@ -108,21 +108,21 @@ def build(engine_name, project_name, services, cache=True):
                 fingerprint_hash.update(role_fingerprint)
 
                 if not cache_busted:
-                    logger.debug('%s: Still trying to keep cache.', name)
+                    logger.debug(u'%s: Still trying to keep cache.', name)
                     cached_image_id = engine.get_image_id_by_fingerprint(
                         fingerprint_hash.hexdigest())
                     if cached_image_id:
                         # We can reuse the cached image
-                        logger.debug('%s: Cached layer found with fingerprint %s',
+                        logger.debug(u'%s: Cached layer found with fingerprint %s',
                                      name, fingerprint_hash.hexdigest())
                         cur_image_id = cached_image_id
-                        logger.info('%s: Applied role %s (from cache)', name,
+                        logger.info(u'%s: Applied role %s (from cache)', name,
                                     role)
                         continue
                     else:
                         cache_busted = True
-                        logger.debug('%s: Cache busted! No layer found for '
-                                     'fingerprint %s', name,
+                        logger.debug(u'%s: Cache busted! No layer found for '
+                                     u'fingerprint %s', name,
                                      fingerprint_hash.hexdigest())
 
                 container_id = engine.run_container(
@@ -138,7 +138,7 @@ def build(engine_name, project_name, services, cache=True):
                 rc = apply_role_to_container(role, container_id, service, engine)
                 if rc:
                     raise RuntimeError('Build failed.')
-                logger.info('%s: Applied role %s', name, role)
+                logger.info(u'%s: Applied role %s', name, role)
 
                 engine.stop_container(container_id)
                 metadata = get_metadata_from_role(role)
@@ -146,26 +146,26 @@ def build(engine_name, project_name, services, cache=True):
                                                        name,
                                                        fingerprint_hash.hexdigest(),
                                                        metadata)
-                logger.info('%s: Committed layer as image ID %s', name, image_id)
+                logger.info(u'%s: Committed layer as image ID %s', name, image_id)
                 engine.delete_container(container_id)
                 cur_image_id = image_id
-            logger.info('%s: Build complete.', name)
+            logger.info(u'%s: Build complete.', name)
         else:
-            logger.info('%s: No roles specified. Nothing to do.', name)
-    logger.info('All images successfully built.')
+            logger.info(u'%s: No roles specified. Nothing to do.', name)
+    logger.info(u'All images successfully built.')
 
 def run(engine_name, project_name, services):
     engine = load_engine(engine_name, project_name, services)
-    logger.info('%s integration engine loaded. Preparing run.',
+    logger.info(u'%s integration engine loaded. Preparing run.',
                 engine.display_name())
 
     # Verify all images are built
     for service_name in services:
-        logger.info('Verifying image for %s', service_name)
+        logger.info(u'Verifying image for %s', service_name)
         image_id = engine.get_latest_image_id_for_service(service_name)
         if not image_id:
-            logger.error('Missing image for %s. Run "ansible-container build" '
-                         'to (re)create it.', service_name)
+            logger.error(u'Missing image for %s. Run "ansible-container build" '
+                         u'to (re)create it.', service_name)
             raise RuntimeError('Run failed.')
 
     playbook = engine.generate_orchestration_playbook()
@@ -173,42 +173,42 @@ def run(engine_name, project_name, services):
 
 def restart(engine_name, project_name, services):
     engine = load_engine(engine_name, project_name, services)
-    logger.info('%s integration engine loaded. Preparing to restart containers.',
+    logger.info(u'%s integration engine loaded. Preparing to restart containers.',
                 engine.display_name())
     engine.restart_all_containers()
-    logger.info('All services restarted.')
+    logger.info(u'All services restarted.')
 
 def stop(engine_name, project_name, services):
     engine = load_engine(engine_name, project_name, services)
-    logger.info('%s integration engine loaded. Preparing to stop all containers.',
+    logger.info(u'%s integration engine loaded. Preparing to stop all containers.',
                 engine.display_name())
     for service_name in services:
         container_id = engine.get_container_id_for_service(service_name)
         if container_id:
-            logger.debug('Stopping %s...', service_name)
+            logger.debug(u'Stopping %s...', service_name)
             engine.stop_container(container_id)
-    logger.info('All services stopped.')
+    logger.info(u'All services stopped.')
 
 def deploy(engine_name, project_name, services, repository_data, playbook_dest):
     engine = load_engine(engine_name, project_name, services)
-    logger.info('%s integration engine loaded. Preparing deploy.',
+    logger.info(u'%s integration engine loaded. Preparing deploy.',
                 engine.display_name())
 
     # Verify all images are built
     for service_name in services:
-        logger.info('Verifying image for %s', service_name)
+        logger.info(u'Verifying image for %s', service_name)
         image_id = engine.get_latest_image_id_for_service(service_name)
         if not image_id:
-            logger.error('Missing image for %s. Run "ansible-container build" '
-                         'to (re)create it.', service_name)
-            raise RuntimeError('Run failed.')
+            logger.error(u'Missing image for %s. Run "ansible-container build" '
+                         u'to (re)create it.', service_name)
+            raise RuntimeError(u'Run failed.')
 
     for service_name in services:
-        logger.info('Pushing %s to %s...', service_name, repository_data['name'])
+        logger.info(u'Pushing %s to %s...', service_name, repository_data['name'])
         image_id = engine.get_latest_image_id_for_service(service_name)
         engine.push_image(image_id, service_name, repository_data)
 
-    logger.info('All images pushed.')
+    logger.info(u'All images pushed.')
 
     playbook = engine.generate_orchestration_playbook(repository=repository_data)
 
@@ -216,7 +216,7 @@ def deploy(engine_name, project_name, services, repository_data, playbook_dest):
         with open(os.path.join(playbook_dest, '%s.yml' % project_name), 'w') as ofs:
             yaml.safe_dump(playbook, ofs)
     except OSError, e:
-        logger.error('Failure writing deployment playbook: %s', e)
+        logger.error(u'Failure writing deployment playbook: %s', e)
         raise
 
 def install(role):
