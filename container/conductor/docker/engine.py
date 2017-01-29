@@ -6,6 +6,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 import datetime
+import os
+import tarfile
 
 from ..engine import BaseEngine
 from .. import utils
@@ -15,6 +17,11 @@ try:
     from docker import errors as docker_errors
 except ImportError:
     raise ImportError(u'Use of the Docker\u2122 engine requires the docker-py module.')
+
+TEMPLATES_PATH = os.path.normpath(
+    os.path.join(
+        os.path.dirname(__file__),
+        'templates'))
 
 class Engine(BaseEngine):
 
@@ -83,7 +90,7 @@ class Engine(BaseEngine):
 
     def get_container_id_for_service(self, service_name):
         try:
-            container = self.client.contaienrs.get(self.container_name_for_service(service_name))
+            container = self.client.containers.get(self.container_name_for_service(service_name))
         except docker_errors.NotFound:
             return None
         else:
@@ -143,5 +150,35 @@ class Engine(BaseEngine):
         # FIXME: Implement me.
         raise NotImplementedError()
 
-    def build_conductor_image(self):
+    def build_conductor_image(self, base_path, base_image):
+        with utils.make_temp_dir() as temp_dir:
+            logger.info('Building Docker Engine context...')
+            tarball_path = os.path.join(temp_dir, 'context.tar')
+            tarball_file = open(tarball_path, 'wb')
+            tarball = tarfile.TarFile(fileobj=tarball_file,
+                                      mode='w')
+            source_dir = os.path.normpath(base_path)
+            tarball.add(source_dir, arcname='build')
+
+            tarball.add(utils.conductor_dir, arcname='conductor')
+
+            utils.jinja_render_to_temp(TEMPLATES_PATH,
+                                       'conductor-dockerfile.j2', temp_dir,
+                                       'Dockerfile')
+            tarball.add(os.path.join(temp_dir, 'Dockerfile'),
+                        arcname='Dockerfile')
+
+            #for context_file in ['builder.sh', 'ansible-container-inventory.py',
+            #                     'ansible.cfg', 'wait_on_host.py', 'ac_galaxy.py']:
+            #    tarball.add(os.path.join(TEMPLATES_PATH, context_file),
+            #                arcname=context_file)
+
+            tarball.close()
+            tarball_file.close()
+            tarball_file = open(tarball_path, 'rb')
+            logger.info('Starting Docker build of Ansible Container Conductor image (please be patient)...')
+            return self.client.build(fileobj=tarball_file,
+                                     custom_context=True,
+                                     tag=self.image_name_for_service('conductor'),
+                                     rm=True)
 
