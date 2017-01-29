@@ -10,20 +10,9 @@ import select
 import yaml
 
 from six import string_types, text_type
-
-logger = logging.getLogger(__name__)
-
-
 from ..exceptions import AnsibleContainerShipItException
 
-
-def create_path(path):
-    try:
-        os.makedirs(path)
-    except OSError:
-        pass
-    except Exception as exc:
-        raise AnsibleContainerShipItException("Error creating %s - %s" % (path, str(exc)))
+logger = logging.getLogger(__name__)
 
 
 def run_command(args):

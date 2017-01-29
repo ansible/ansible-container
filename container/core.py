@@ -12,6 +12,7 @@ import re
 import sys
 import gzip
 import tarfile
+import json
 
 import requests
 from six.moves.urllib.parse import urljoin
@@ -19,6 +20,7 @@ from six.moves.urllib.parse import urljoin
 from .exceptions import AnsibleContainerAlreadyInitializedException, \
                         AnsibleContainerRegistryAttributeException, \
                         AnsibleContainerHostNotTouchedByPlaybook
+from .dockerfile_import import DockerfileImport
 from .utils import *
 from . import __version__
 from .conductor.loader import load_engine
@@ -525,6 +527,20 @@ def cmdrun_version(base_path, engine_name, debug=False, **kwargs):
         engine_args.update(locals())
         engine_obj = load_engine(**engine_args)
         engine_obj.print_version_info()
+
+def cmdrun_import(base_path, dockerfile_name=None, project_name=None, **kwargs):
+    if not project_name:
+        project_name = os.path.basename(base_path).lower()
+
+    dfimport = DockerfileImport(base_path,
+                                project_name,
+                                dockerfile_name)
+    dfimport.assert_dockerfile_exists()
+    dfimport.create_role_template()
+    dfimport.add_role_tasks()
+
+    # TODO
+    # dfimport.create_container_yaml()
 
 def create_build_container(container_engine_obj, base_path):
     assert_initialized(base_path)

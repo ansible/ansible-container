@@ -5,44 +5,47 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class AnsibleContainerNotInitializedException(Exception):
+
+class AnsibleContainerException(Exception):
     pass
 
-
-class AnsibleContainerAlreadyInitializedException(Exception):
+class AnsibleContainerNotInitializedException(AnsibleContainerException):
     pass
 
-class AnsibleContainerNoAuthenticationProvidedException(Exception):
+class AnsibleContainerAlreadyInitializedException(AnsibleContainerException):
     pass
 
-class AnsibleContainrRolesPathCreationException(Exception):
+class AnsibleContainerNoAuthenticationProvidedException(AnsibleContainerException):
     pass
 
-class AnsibleContainerDockerConfigFileException(Exception):
+class AnsibleContainrRolesPathCreationException(AnsibleContainerException):
     pass
 
-class AnsibleContainerDockerLoginException(Exception):
+class AnsibleContainerDockerConfigFileException(AnsibleContainerException):
     pass
 
-class AnsibleContainerConfigException(Exception):
+class AnsibleContainerDockerLoginException(AnsibleContainerException):
     pass
 
-class AnsibleContainerRegistryNotFoundException(Exception):
+class AnsibleContainerConfigException(AnsibleContainerException):
     pass
 
-class AnsibleContainerRegistryAttributeException(Exception):
+class AnsibleContainerRegistryNotFoundException(AnsibleContainerException):
     pass
 
-class AnsibleContainerMissingRegistryName(Exception):
+class AnsibleContainerRegistryAttributeException(AnsibleContainerException):
     pass
 
-class AnsibleContainerNoMatchingHosts(Exception):
+class AnsibleContainerMissingRegistryName(AnsibleContainerException):
     pass
 
-class AnsibleContainerHostNotTouchedByPlaybook(Exception):
+class AnsibleContainerNoMatchingHosts(AnsibleContainerException):
     pass
 
-class AnsibleContainerShipItException(Exception):
+class AnsibleContainerHostNotTouchedByPlaybook(AnsibleContainerException):
+    pass
+
+class AnsibleContainerShipItException(AnsibleContainerException):
 
     def __init__(self, msg, stdout=None, stderr=None):
         self.stderr = stderr
@@ -50,16 +53,13 @@ class AnsibleContainerShipItException(Exception):
 
         Exception.__init__(self, msg)
 
-class AnsibleContainerFilterException(Exception):
+class AnsibleContainerFilterException(AnsibleContainerException):
     pass
 
-class AnsibleContainerConfigException(Exception):
+class AnsibleContainerMissingPersistentVolumeClaim(AnsibleContainerException):
     pass
 
-class AnsibleContainerMissingPersistentVolumeClaim(Exception):
-    pass
-
-class AnsibleContainerListHostsException(Exception):
+class AnsibleContainerListHostsException(AnsibleContainerException):
     pass
 
 

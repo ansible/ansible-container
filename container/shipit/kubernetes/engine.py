@@ -6,11 +6,11 @@ import logging
 import os.path
 import json
 
+from container.utils import create_path
 from ..base_engine import BaseShipItEngine
 from .deployment import Deployment
 from .service import Service
 from .pvc import Pvc
-from ..utils import create_path
 from ..constants import SHIPIT_PATH, SHIPIT_CONFIG_PATH
 
 logger = logging.getLogger(__name__)

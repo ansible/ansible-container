@@ -1,6 +1,6 @@
 galaxy_info:
   author: your name
-  description: Automate the deployment of {{ project_name }} to {{ shipit_engine_name }} 
+  description: {{ role_description }}
   company: your company (optional)
 
   # If the issue tracker for your role is not on github, uncomment the

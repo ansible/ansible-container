@@ -9,12 +9,10 @@ import yaml
 import re
 import glob
 
-from datetime import datetime
-
 from .constants import SHIPIT_PATH, SHIPIT_PLAYBOOK_PREFIX, SHIPIT_ROLES_DIR
 from collections import OrderedDict
-from .utils import create_path, represent_odict
-from ..utils import jinja_render_to_temp
+from .utils import represent_odict
+from ..utils import create_path, create_role_from_templates
 
 
 class BaseShipItObject(object):
@@ -130,6 +128,7 @@ class BaseShipItEngine(object):
                             else:
                                 new_file.write(line)
 
+
     def init_role(self):
         '''
         If it does not exist, create the role directory and template in the initial files.
@@ -139,49 +138,12 @@ class BaseShipItEngine(object):
         '''
         # Init the role directory without overwriting any existing files.
         logger.debug("Creating role path %s" % self.roles_path)
-        create_path(self.roles_path)
-
-        shipit_role_paths = {
-            u'base': [u'README.j2', u'travis.j2.yml'],
-            u'defaults': [u'defaults.j2.yml'],
-            u'meta': [u'meta.j2.yml'],
-            u'test': [u'test.j2.yml', u'travis.j2.yml'],
-            u'tasks': [],
-        }
-
-        context = {
-            u'role_name': self.role_name,
-            u'project_name': self.project_name,
-            u'shipit_engine_name': self.name
-        }
-
-        for path, templates in shipit_role_paths.items():
-            role_dir = os.path.join(self.roles_path, path if path != 'base' else '')
-            if path != 'base':
-                create_path(role_dir)
-            for template in templates:
-                target_name = template.replace('.j2', '')
-                if target_name.startswith('travis'):
-                    target_name = '.' + target_name
-                if target_name.startswith('defaults') or target_name.startswith('meta'):
-                    target_name = 'main.yml'
-                if not os.path.exists(os.path.join(role_dir, target_name)):
-                    logger.debug("Rendering template for %s/%s" % (path, template))
-                    jinja_render_to_temp('shipit_role/%s' % template,
-                                         role_dir,
-                                         target_name,
-                                         **context)
-
-        # if tasks/main.yml exists, back it up
-        now = datetime.today().strftime('%y%m%d%H%M%S')
-        tasks_file = os.path.join(self.roles_path, 'tasks', 'main.yml')
-        new_tasks_file = os.path.join(self.roles_path, 'tasks', 'main_%s.yml' % now)
-
-        if os.path.exists(tasks_file):
-            logger.debug("Backing up tasks/main.yml to main_%s.yml" % now)
-            os.rename(tasks_file, new_tasks_file)
-
-        #TODO: limit the number of backups?
+        description = "Automates the deployment of {0} to {1}.".format(self.project_name,
+                                                                       self.name.capitalize())
+        create_role_from_templates(role_name=self.role_name,
+                                   role_path=self.roles_path,
+                                   project_name=self.project_name,
+                                   description=description)
 
     def create_role(self, tasks):
         '''
