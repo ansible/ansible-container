@@ -23,6 +23,12 @@ TEMPLATES_PATH = os.path.normpath(
         os.path.dirname(__file__),
         'templates'))
 
+FILES_PATH = os.path.normpath(
+    os.path.join(
+        os.path.dirname(__file__),
+        'files'))
+
+
 class Engine(BaseEngine):
 
     # Capabilities of engine implementations
@@ -158,13 +164,32 @@ class Engine(BaseEngine):
             tarball = tarfile.TarFile(fileobj=tarball_file,
                                       mode='w')
             source_dir = os.path.normpath(base_path)
-            tarball.add(source_dir, arcname='build')
 
-            tarball.add(utils.conductor_dir, arcname='conductor')
+            for filename in ['ansible.cfg', 'ansible-requirements.txt',
+                             'requirements.yml']:
+                file_path = os.path.join(source_dir, filename)
+                if os.path.exists(filename):
+                    tarball.add(file_path,
+                                arcname=os.path.join('build-src', filename))
+            # Make an empty file just to make sure the build-src dir has something
+            open(os.path.join(temp_dir, '.touch'), 'w')
+            tarball.add(os.path.join(temp_dir, '.touch'), arcname='build-src/.touch')
+
+            tarball.add(os.path.join(FILES_PATH, 'get-pip.py'),
+                        arcname='contrib/get-pip.py')
+
+            tarball.add(utils.conductor_dir, arcname='conductor-src/conductor')
+            tarball.add(os.path.join(os.path.dirname(utils.conductor_dir),
+                                     'conductor-setup.py'),
+                        arcname='conductor-src/setup.py')
+            tarball.add(os.path.join(os.path.dirname(utils.conductor_dir),
+                                     'conductor-requirements.txt'),
+                        arcname='conductor-src/requirements.txt')
 
             utils.jinja_render_to_temp(TEMPLATES_PATH,
                                        'conductor-dockerfile.j2', temp_dir,
-                                       'Dockerfile')
+                                       'Dockerfile',
+                                       conductor_base=base_image)
             tarball.add(os.path.join(temp_dir, 'Dockerfile'),
                         arcname='Dockerfile')
 
@@ -173,12 +198,45 @@ class Engine(BaseEngine):
             #    tarball.add(os.path.join(TEMPLATES_PATH, context_file),
             #                arcname=context_file)
 
+            logger.debug('Context manifest:')
+            for tarinfo_obj in tarball.getmembers():
+                logger.debug(' - %s (%s bytes)', tarinfo_obj.name, tarinfo_obj.size)
             tarball.close()
             tarball_file.close()
             tarball_file = open(tarball_path, 'rb')
             logger.info('Starting Docker build of Ansible Container Conductor image (please be patient)...')
-            return self.client.build(fileobj=tarball_file,
-                                     custom_context=True,
-                                     tag=self.image_name_for_service('conductor'),
-                                     rm=True)
+            for line in self.client.api.build(fileobj=tarball_file,
+                                              custom_context=True,
+                                              tag=self.image_name_for_service('conductor'),
+                                              rm=True):
+                print line
 
+"""
+from logging import config
+LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': True,
+        'handlers': {
+            'console': {
+                'level': 'DEBUG',
+                'class': 'logging.StreamHandler',
+            },
+        },
+        'loggers': {
+            'container': {
+                'handlers': ['console'],
+                'level': 'DEBUG',
+                'propagate': False
+            }
+        },
+        'root': {
+            'handlers': ['console'],
+            'level': 'ERROR'
+        }
+    }
+
+config.dictConfig(LOGGING)
+from container.conductor import core
+e = core.load_engine('docker', 'test', {})
+obj = e.build_conductor_image('/Users/jginsberg/Development/ansible/ansible-container/test/layer-caching', 'centos:7')
+"""

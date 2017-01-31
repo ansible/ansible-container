@@ -16,8 +16,10 @@ import psutil
 
 import delegator
 
-def load_engine(self, engine_name, project_name, services):
-    mod = importlib.import_module('%s.engine' % engine_name, package='.')
+def load_engine(engine_name, project_name, services):
+    conductor_module_name = __name__.rsplit('.', 1)[0]
+    mod = importlib.import_module('.%s.engine' % engine_name,
+                                  package=conductor_module_name)
     return mod.Engine(project_name, services)
 
 def resolve_role_to_path(role_name):

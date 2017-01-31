@@ -1,23 +1,34 @@
 FROM {{ conductor_base }}
 
-COPY /conductor-src /conductor
 {% set distro = conductor_base.split(':')[0] %}
 {% if distro in ["fedora", "centos"] %}
 RUN yum update -y && \
     yum install -y epel-release   && \
-    yum install -y "@Development Tools" git rsync libffi-devel openssl-devel && \
-    yum clean all && \{% elif distro in ["debian", "ubuntu"] %}
+    yum install -y "@Development Tools" git python-devel rsync libffi-devel openssl-devel && \
+    yum clean all
+{% elif distro in ["debian", "ubuntu"] %}
 RUN apt-get update -y && \
     apt-get install -y python2.7 git python rsync libffi-dev libssl-dev && \
     ln -s /usr/bin/python2.7 /usr/bin/python && \
-    apt-get clean && \{% else %}
-RUN true && \{% endif %}
-    python /build/get-pip.py && \
+    apt-get clean
+{% endif %}
+
+COPY /contrib/get-pip.py /get-pip.py
+RUN python /get-pip.py && \
     pip install -q --no-cache-dir virtualenv && \
     virtualenv /venv && \
-    /venv/bin/pip install -q --no-cache-dir paramiko PyYAML Jinja2 httplib2 six ruamel.yaml && \
+    /venv/bin/pip install -q --no-cache-dir paramiko PyYAML Jinja2 httplib2 six ruamel.yaml cffi && \
     /venv/bin/pip install -q --no-cache-dir -e git+https://github.com/ansible/ansible.git@devel#egg=ansible && \
-    /venv/bin/pip install -q --no-cache-dir -r /build/requirements.txt && \
-    mkdir -p /etc/ansible/roles && \
-    cd /conductor && /venv/bin/pip python setup.py install
+    mkdir -p /etc/ansible/roles
+
+# The COPY here will break cache if the requirements or ansible.cfg has changed
+COPY /build-src /build
+RUN ( test -f /build/ansible-requirements.txt && /venv/bin/pip install -q --no-cache-dir -r /build/requirements.txt || true ) && \
+    ( test -f /build/requirements.yml && /venv/bin/ansible-galaxy install -r /build/requirements.yml || true ) && \
+    ( test -f /build/ansible.cfg && cp /build/ansible.cfg /etc/ansible/ansible.cfg || true)
+
+# The COPY here will break cache if the version of conductor changed
+COPY /conductor-src /conductor
+RUN cd /conductor && /venv/bin/python setup.py develop
+
 
