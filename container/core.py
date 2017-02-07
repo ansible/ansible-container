@@ -21,8 +21,10 @@ from .exceptions import AnsibleContainerAlreadyInitializedException, \
                         AnsibleContainerHostNotTouchedByPlaybook
 from .utils import *
 from . import __version__
+from .conductor.loader import load_engine
 
 REMOVE_HTTP = re.compile('^https?://')
+DEFAULT_CONDUCTOR_BASE = 'centos:7'
 
 class BaseEngine(object):
     engine_name = None
@@ -354,42 +356,20 @@ def cmdrun_init(base_path, project=None, **kwargs):
         logger.info('Ansible Container initialized.')
 
 
-def cmdrun_build(base_path, engine_name, flatten=True, purge_last=True, local_builder=False,
-                 rebuild=False, service=None, ansible_options='', save_build_container=False,
-                 roles_path=None, **kwargs):
-    engine_args = kwargs.copy()
-    engine_args.update(locals())
-    engine_obj = load_engine(**engine_args)
-    try:
-        builder_img_id = engine_obj.get_image_id_by_tag(engine_obj.builder_container_img_tag)
-    except NameError:
-        if local_builder:
-            create_build_container(engine_obj, base_path)
-    with make_temp_dir() as temp_dir:
-        logger.info('Starting %s engine to build your images...'
-                    % engine_obj.orchestrator_name)
-        touched_hosts = set(engine_obj.hosts_touched_by_playbook())
-        if service:
-            touched_hosts &= set(service)
-            if not touched_hosts:
-                raise AnsibleContainerHostNotTouchedByPlaybook()
-        engine_obj.orchestrate('build', temp_dir, context=dict(rebuild=rebuild))
-        if not engine_obj.build_was_successful():
-            logger.error('Ansible playbook run failed.')
-            if not save_build_container:
-                logger.info('Cleaning up Ansible Container builder...')
-                builder_container_id = engine_obj.get_builder_container_id()
-                engine_obj.remove_container_by_id(builder_container_id)
-            raise RuntimeError(u'Ansible build failed')
-        # Cool - now export those containers as images
-        version = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
-        logger.info('Exporting built containers as images...')
-        for host in touched_hosts:
-            engine_obj.post_build(host, version, flatten=flatten, purge_last=purge_last)
-        if not save_build_container:
-            logger.info('Cleaning up Ansible Container builder...')
-            builder_container_id = engine_obj.get_builder_container_id()
-            engine_obj.remove_container_by_id(builder_container_id)
+def cmdrun_build(base_path, project_name, engine_name, **kwargs):
+    config = get_config(base_path, var_file=kwargs['var_file'])
+
+    engine_obj = load_engine(engine_name, project_name or os.path.basename(base_path),
+                             config['services'], **kwargs)
+
+    if engine_obj.CAP_BUILD_CONDUCTOR:
+        conductor_img_id = engine_obj.build_conductor_image(
+            base_path,
+            config['settings'].get('conductor_base', DEFAULT_CONDUCTOR_BASE),
+            cache=kwargs['cache']
+        )
+
+    engine_obj.run_conductor('build', config, base_path, kwargs)
 
 
 def cmdrun_run(base_path, engine_name, service=[], production=False, **kwargs):

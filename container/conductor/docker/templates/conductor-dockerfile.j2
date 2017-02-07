@@ -19,7 +19,10 @@ RUN python /get-pip.py && \
     virtualenv /venv && \
     /venv/bin/pip install -q --no-cache-dir paramiko PyYAML Jinja2 httplib2 six ruamel.yaml cffi && \
     /venv/bin/pip install -q --no-cache-dir -e git+https://github.com/ansible/ansible.git@devel#egg=ansible && \
-    mkdir -p /etc/ansible/roles
+    mkdir -p /etc/ansible/roles /conductor /src && \
+    useradd -d /venv -s /bin/bash -U ansible && \
+    chown -R ansible:ansible /venv /conductor /etc/ansible /src
+USER ansible
 
 # The COPY here will break cache if the requirements or ansible.cfg has changed
 COPY /build-src /build

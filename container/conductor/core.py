@@ -7,7 +7,6 @@ logger = logging.getLogger(__name__)
 
 import os
 import sys
-import importlib
 import hashlib
 import tempfile
 import shutil
@@ -16,11 +15,7 @@ import psutil
 
 import delegator
 
-def load_engine(engine_name, project_name, services):
-    conductor_module_name = __name__.rsplit('.', 1)[0]
-    mod = importlib.import_module('.%s.engine' % engine_name,
-                                  package=conductor_module_name)
-    return mod.Engine(project_name, services)
+from .loader import load_engine
 
 def resolve_role_to_path(role_name):
     # FIXME - How do I programatically resolve the role name into a path?
@@ -90,7 +85,7 @@ def apply_role_to_container(role, container_id, service, engine):
         logger.error(stderr)
     return rc
 
-def build(engine_name, project_name, services, cache=True):
+def build(engine_name, project_name, services, cache=True, **kwargs):
     engine = load_engine(engine_name, project_name, services)
     logger.info(u'%s integration engine loaded. Build starting.',
                 engine.display_name())
@@ -156,7 +151,7 @@ def build(engine_name, project_name, services, cache=True):
             logger.info(u'%s: No roles specified. Nothing to do.', name)
     logger.info(u'All images successfully built.')
 
-def run(engine_name, project_name, services):
+def run(engine_name, project_name, services, **kwargs):
     engine = load_engine(engine_name, project_name, services)
     logger.info(u'%s integration engine loaded. Preparing run.',
                 engine.display_name())
@@ -173,14 +168,14 @@ def run(engine_name, project_name, services):
     playbook = engine.generate_orchestration_playbook()
     run_playbook(playbook, engine, services)
 
-def restart(engine_name, project_name, services):
+def restart(engine_name, project_name, services, **kwargs):
     engine = load_engine(engine_name, project_name, services)
     logger.info(u'%s integration engine loaded. Preparing to restart containers.',
                 engine.display_name())
     engine.restart_all_containers()
     logger.info(u'All services restarted.')
 
-def stop(engine_name, project_name, services):
+def stop(engine_name, project_name, services, **kwargs):
     engine = load_engine(engine_name, project_name, services)
     logger.info(u'%s integration engine loaded. Preparing to stop all containers.',
                 engine.display_name())
@@ -191,7 +186,7 @@ def stop(engine_name, project_name, services):
             engine.stop_container(container_id)
     logger.info(u'All services stopped.')
 
-def deploy(engine_name, project_name, services, repository_data, playbook_dest):
+def deploy(engine_name, project_name, services, repository_data, playbook_dest, **kwargs):
     engine = load_engine(engine_name, project_name, services)
     logger.info(u'%s integration engine loaded. Preparing deploy.',
                 engine.display_name())
@@ -221,7 +216,7 @@ def deploy(engine_name, project_name, services, repository_data, playbook_dest):
         logger.error(u'Failure writing deployment playbook: %s', e)
         raise
 
-def install(role):
+def install(engine_name, project_name, services, role, **kwargs):
     # FIXME: Port me from ac_galaxy.py
     pass
 

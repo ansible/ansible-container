@@ -9,7 +9,8 @@ import os
 import sys
 import argparse
 
-from . import engine
+from . import core
+from . import config
 from . import exceptions
 from .utils import load_shipit_engine, AVAILABLE_SHIPIT_ENGINES
 
@@ -29,16 +30,6 @@ LOGGING = {
                 'level': 'INFO',
                 'propagate': False
             },
-            'compose': {
-                'handlers': ['console'],
-                'level': 'WARNING',
-                'propagate': False
-            },
-            'docker': {
-                'handlers': ['console'],
-                'level': 'WARNING',
-                'propagate': False
-            }
         },
         'root': {
             'handlers': ['console'],
@@ -55,22 +46,23 @@ AVAILABLE_COMMANDS = {'help': 'Display this help message',
                       'run': 'Run and orchestrate built images based on container.yml',
                       'stop': 'Stop the services defined in container.yml, if deployed',
                       'restart': 'Restart the services defined in container.yml',
+                      # TODO: v----- replace with deploy
                       'push': 'Push your built images to a Docker Hub compatible registry',
                       'shipit': 'Generate a deployment playbook to your cloud of choice.'}
 
 def subcmd_common_parsers(parser, subparser, cmd):
     if cmd in ('build', 'run', 'shipit', 'push'):
         subparser.add_argument('--with-volumes', '-v', action='store', nargs='+',
-                               help=u'Mount one or more volumes to the Ansible Builder Container. '
+                               help=u'Mount one or more volumes to the Conductor. '
                                     u'Specify volumes as strings using the Docker volume format.',
                                default=[])
         subparser.add_argument('--with-variables', '-e', action='store', nargs='+',
                                help=u'Define one or more environment variables in the Ansible '
-                                    u'Builder Container. Format each variable as a key=value string.',
+                                    u'Conductor. Format each variable as a key=value string.',
                                default=[])
         subparser.add_argument('--roles-path', action='store', default=None,
                                help=u'Specify a local path containing roles you want to '
-                                    u'use in the builder container.')
+                                    u'use in the Conductor.')
 
 def subcmd_init_parser(parser, subparser):
     subparser.add_argument('--server', '-s', action='store',
@@ -92,21 +84,15 @@ def subcmd_build_parser(parser, subparser):
                                 u'previously built image for your hosts. Disable '
                                 u'that with this flag.',
                            dest='purge_last', default=True)
-    subparser.add_argument('--from-scratch', action='store_true',
-                           help=u'Instead of running the Ansible playbook against '
-                                u'the existing copies of your containers, run the '
-                                u'playbook against the base image, rebuilding them '
-                                u'from scratch.',
-                           dest='rebuild', default=False)
-    subparser.add_argument('--local-builder', action='store_true',
-                           help=u'Instead of using the Ansible Builder Container '
-                                u'image from Docker Hub, generate one locally.')
-    subparser.add_argument('--save-build-container', action='store_true',
-                           help=u'Leave the Ansible Builder Container intact upon build completion. '
-                                u'Use for debugging and testing.', default=False)
+    subparser.add_argument('--no-cache', action='store_false',
+                           help=u'Ansible Container caches image layers during builds '
+                                u'and reuses existing layers if it determines no '
+                                u'changes have been made necessitating rebuild. '
+                                u'You may disable layer caching with this flag.',
+                           dest='cache', default=True)
     subparser.add_argument('--services', action='store',
-                           help=u'Rather than perform an orchestrated build, only build specific services.',
-                           nargs='+', dest='service', default=None)
+                           help=u'Rather than build all services, only build specific services.',
+                           nargs='+', dest='services_to_build', default=None)
     subparser.add_argument('ansible_options', action='store',
                            help=u'Provide additional commandline arguments to '
                                 u'Ansible in executing your playbook. If you '
@@ -186,16 +172,18 @@ def commandline():
     parser.add_argument('--engine', action='store', dest='engine_name',
                         help=u'Select your container engine and orchestrator',
                         default='docker')
-    parser.add_argument('--project', '-p', action='store', dest='base_path',
+    parser.add_argument('--project-path', '-p', action='store', dest='base_path',
                         help=u'Specify a path to your project. Defaults to '
                              u'current working directory.', default=os.getcwd())
+    parser.add_argument('--project-name', '-n', action='store', dest='project_name',
+                        help=u'Specify an alternate name for your project. Defaults '
+                             u'to the directory it lives in.', default=None)
     parser.add_argument('--var-file', action='store',
                         help=u'Path to a YAML or JSON formatted file providing variables for '
                              u'Jinja2 templating in container.yml.', default=None)
     parser.add_argument('--no-selinux', action='store_false', dest='selinux',
                         help=u"Disables the 'Z' option from being set on volumes automatically "
                              u"mounted to the build container.", default=True)
-
 
     subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
     subparsers.required = True
@@ -215,7 +203,7 @@ def commandline():
     config.dictConfig(LOGGING)
 
     try:
-        getattr(engine, u'cmdrun_{}'.format(args.subcommand))(**vars(args))
+        getattr(core, u'cmdrun_{}'.format(args.subcommand))(**vars(args))
     except exceptions.AnsibleContainerAlreadyInitializedException as e:
         logger.error('Ansible Container is already initialized')
         sys.exit(1)

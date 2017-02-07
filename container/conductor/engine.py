@@ -17,9 +17,12 @@ class BaseEngine(object):
     CAP_RUN = False
     CAP_DEPLOY = False
 
-    def __init__(self, project_name, services):
+    def __init__(self, project_name, services, debug=False, selinux=True,
+                 **kwargs):
         self.project_name = project_name
         self.services = services
+        self.debug = debug
+        self.selinux = selinux
 
     @property
     def display_name(self):
@@ -36,6 +39,9 @@ class BaseEngine(object):
                       **kwargs):
         """Run a particular container. The kwargs argument contains individual
         parameter overrides from the service definition."""
+        raise NotImplementedError()
+
+    def run_conductor(self, command, config, base_path, params):
         raise NotImplementedError()
 
     def stop_container(self, container_id):
@@ -75,4 +81,7 @@ class BaseEngine(object):
         raise NotImplementedError()
 
     def push_image(self, image_id, service_name, repository_data):
+        raise NotImplementedError()
+
+    def build_conductor_image(self, base_path, base_image, cache=True):
         raise NotImplementedError()

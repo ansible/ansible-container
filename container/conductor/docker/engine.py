@@ -8,6 +8,8 @@ logger = logging.getLogger(__name__)
 import datetime
 import os
 import tarfile
+import json
+import base64
 
 from ..engine import BaseEngine
 from .. import utils
@@ -68,6 +70,25 @@ class Engine(BaseEngine):
         """Run a particular container. The kwargs argument contains individual
         parameter overrides from the service definition."""
 
+
+    def run_conductor(self, command, config, base_path, params):
+        image_id = self.get_latest_image_id_for_service('conductor')
+        serialized_params = base64.encodestring(json.dumps(params))
+        serialized_config = base64.encodestring(json.dumps(config))
+        self.client.containers.run(
+            image_id,
+            name=self.container_name_for_service('conductor'),
+            command=['/venv/bin/conductor',
+                     command,
+                     '--project-name', self.project_name,
+                     '--engine', __name__.rsplit('.', 1)[-1],
+                     '--params', serialized_params,
+                     '--config', serialized_config,
+                     '--encoding', 'b64json'],
+            detach=False,
+            user='ansible',
+            volumes={base_path: {'bind': '/src', 'mode': 'ro'}}
+        )
 
     def stop_container(self, container_id):
         try:
@@ -156,7 +177,7 @@ class Engine(BaseEngine):
         # FIXME: Implement me.
         raise NotImplementedError()
 
-    def build_conductor_image(self, base_path, base_image):
+    def build_conductor_image(self, base_path, base_image, cache=True):
         with utils.make_temp_dir() as temp_dir:
             logger.info('Building Docker Engine context...')
             tarball_path = os.path.join(temp_dir, 'context.tar')
@@ -205,38 +226,21 @@ class Engine(BaseEngine):
             tarball_file.close()
             tarball_file = open(tarball_path, 'rb')
             logger.info('Starting Docker build of Ansible Container Conductor image (please be patient)...')
-            for line in self.client.api.build(fileobj=tarball_file,
-                                              custom_context=True,
-                                              tag=self.image_name_for_service('conductor'),
-                                              rm=True):
-                print line
+            if self.debug:
+                for line in self.client.api.build(fileobj=tarball_file,
+                                                  custom_context=True,
+                                                  tag=self.image_name_for_service('conductor'),
+                                                  rm=True,
+                                                  nocache=not cache):
+                    line_json = json.loads(line)
+                    if 'stream' in line_json:
+                        logger.debug(line_json['stream'])
+                return self.get_latest_image_id_for_service('conductor')
+            else:
+                image = self.client.images.build(fileobj=tarball_file,
+                                                 custom_context=True,
+                                                 tag=self.image_name_for_service('conductor'),
+                                                 rm=True,
+                                                 nocache=not cache)
+                return image.id
 
-"""
-from logging import config
-LOGGING = {
-        'version': 1,
-        'disable_existing_loggers': True,
-        'handlers': {
-            'console': {
-                'level': 'DEBUG',
-                'class': 'logging.StreamHandler',
-            },
-        },
-        'loggers': {
-            'container': {
-                'handlers': ['console'],
-                'level': 'DEBUG',
-                'propagate': False
-            }
-        },
-        'root': {
-            'handlers': ['console'],
-            'level': 'ERROR'
-        }
-    }
-
-config.dictConfig(LOGGING)
-from container.conductor import core
-e = core.load_engine('docker', 'test', {})
-obj = e.build_conductor_image('/Users/jginsberg/Development/ansible/ansible-container/test/layer-caching', 'centos:7')
-"""
