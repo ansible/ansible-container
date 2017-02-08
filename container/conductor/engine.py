@@ -33,6 +33,10 @@ class BaseEngine(object):
         """Additional commandline arguments necessary for ansible-playbook runs."""
         raise NotImplementedError()
 
+    @property
+    def ansible_exec_path(self):
+        raise NotImplementedError
+
     def run_container(self,
                       image_id,
                       service_name,
@@ -42,6 +46,9 @@ class BaseEngine(object):
         raise NotImplementedError()
 
     def run_conductor(self, command, config, base_path, params):
+        raise NotImplementedError()
+
+    def service_is_running(self, service):
         raise NotImplementedError()
 
     def stop_container(self, container_id):

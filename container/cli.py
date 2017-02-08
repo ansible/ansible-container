@@ -84,6 +84,9 @@ def subcmd_build_parser(parser, subparser):
                                 u'previously built image for your hosts. Disable '
                                 u'that with this flag.',
                            dest='purge_last', default=True)
+    subparser.add_argument('--save-build-container', action='store_true',
+                           help=u'Leave the Ansible Builder Container intact upon build completion. '
+                                u'Use for debugging and testing.', default=False)
     subparser.add_argument('--no-cache', action='store_false',
                            help=u'Ansible Container caches image layers during builds '
                                 u'and reuses existing layers if it determines no '
@@ -169,6 +172,9 @@ def commandline():
                                                  u'Ansible playbooks')
     parser.add_argument('--debug', action='store_true', dest='debug',
                         help=u'Enable debug output', default=False)
+    parser.add_argument('--devel', action='store_true', dest='devel',
+                        help=u'Enable developer-mode to aid in iterative '
+                             u'development on Ansible Container.', default=False)
     parser.add_argument('--engine', action='store', dest='engine_name',
                         help=u'Select your container engine and orchestrator',
                         default='docker')

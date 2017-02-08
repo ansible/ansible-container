@@ -14,17 +14,61 @@ import yaml
 import psutil
 
 import delegator
+from ansible.playbook.role.include import RoleInclude
+from ansible.vars import VariableManager
+from ansible.parsing.dataloader import DataLoader
 
 from .loader import load_engine
 
-def resolve_role_to_path(role_name):
-    # FIXME - How do I programatically resolve the role name into a path?
-    pass
 
+def resolve_role_to_path(role_name):
+    loader, variable_manager = DataLoader(), VariableManager()
+    logger.debug('Loader is %s', loader)
+    role_obj = RoleInclude.load(data=role_name, play=None,
+                                variable_manager=variable_manager,
+                                loader=loader)
+    role_path = role_obj._role_path
+    return role_path
 
 def get_role_fingerprint(role_name):
-    # FIXME - How do I programatically resolve the role name into a path?
-    pass
+
+    def hash_file(hash_obj, file_path):
+        blocksize = 64 * 1024
+        with open(file_path, 'rb') as ifs:
+            while True:
+                data = ifs.read(blocksize)
+                if not data:
+                    break
+                hash_obj.update(data)
+                hash_obj.update('::')
+
+    def hash_dir(hash_obj, dir_path):
+        for root, dirs, files in os.walk(dir_path, topdown=True):
+            for file_path in files:
+                abs_file_path = os.path.join(root, file_path)
+                hash_obj.update(abs_file_path)
+                hash_obj.update('::')
+                hash_file(hash_obj, abs_file_path)
+
+    def hash_role(hash_obj, role_path):
+        # A role is easy to hash - the hash of the role content with the
+        # hash of any role dependencies it has
+        hash_dir(hash_obj, role_path)
+        for dependency in get_dependencies_for_role(role_path):
+            if dependency:
+                dependency_path = resolve_role_to_path(dependency)
+                hash_role(hash_obj, dependency_path)
+
+    def get_dependencies_for_role(role_path):
+        meta_main_path = os.path.join(role_path, 'meta', 'main.yml')
+        meta_main = yaml.safe_load(open(meta_main_path))
+        for dependency in meta_main.get('dependencies', []):
+            yield dependency.get('role', None)
+
+    hash_obj = hashlib.sha256()
+    hash_role(hash_obj, resolve_role_to_path(role_name))
+    return hash_obj.hexdigest()
+
 
 def get_metadata_from_role(role_name):
     role_path = resolve_role_to_path(role_name)
@@ -35,9 +79,6 @@ def get_metadata_from_role(role_name):
             # TODO: Decide what we want this metadata file to look like now
         return metadata
     return {}
-
-def get_conductor_name(project_name):
-    return u'conductor_%s' % (project_name,)
 
 def run_playbook(playbook, engine, services):
     try:
@@ -52,13 +93,13 @@ def run_playbook(playbook, engine, services):
 
         ansible_args = dict(inventory=inventory_path,
                             playbook=playbook_path,
-                            engine_args=engine.ansible_args)
+                            engine_args=engine.ansible_args,
+                            ansible_playbook=engine.ansible_exec_path)
 
-        result = delegator.run('ansible-playbook '
+        result = delegator.run('{ansible_playbook} '
                                '-i {inventory} '
-                               '-c {conn_plugin} '
                                '{engine_args} '
-                               '{playbook}'.format(ansible_args),
+                               '{playbook}'.format(**ansible_args),
                                block=False)
         while psutil.pid_exists(result.pid):
             for line in iter(result.std_out.readline, ''):
@@ -88,7 +129,7 @@ def apply_role_to_container(role, container_id, service, engine):
 def build(engine_name, project_name, services, cache=True, **kwargs):
     engine = load_engine(engine_name, project_name, services)
     logger.info(u'%s integration engine loaded. Build starting.',
-                engine.display_name())
+                engine.display_name)
 
     for name, service in services.iteritems():
         logger.info(u'Building service %s.', name)
@@ -122,7 +163,7 @@ def build(engine_name, project_name, services, cache=True, **kwargs):
                                      u'fingerprint %s', name,
                                      fingerprint_hash.hexdigest())
 
-                container_id = engine.run_container(
+                container_obj = engine.run_container(
                     image_id=cur_image_id,
                     service_name=name,
                     user='root',
@@ -130,7 +171,11 @@ def build(engine_name, project_name, services, cache=True, **kwargs):
                     command='sh -c "while true; do sleep 1; '
                             'done"',
                     entrypoint=[],
-                    volumes_from=[get_conductor_name(project_name)])
+                    volumes_from=[engine.container_name_for_service('conductor')],
+                    detach=True)
+                container_id = container_obj.id
+
+                logger.debug('Container running as: %s', container_id)
 
                 rc = apply_role_to_container(role, container_id, service, engine)
                 if rc:

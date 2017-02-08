@@ -29,7 +29,7 @@ class AnsibleContainerConfig(Mapping):
     def __init__(self, base_path, var_file=None):
         self.base_path = base_path
         self.var_file = var_file
-        self.config_path = os.path.join(self.base_path, 'ansible/container.yml')
+        self.config_path = os.path.join(self.base_path, 'container.yml')
         self.all_filters = self.filter_loader.all()
         self.set_env('prod')
 
@@ -90,7 +90,7 @@ class AnsibleContainerConfig(Mapping):
         if not context:
             context = dict()
         if not path:
-            path = os.path.join(self.base_path, 'ansible')
+            path = self.base_path
         j2_env = Environment(loader=FileSystemLoader(path))
         j2_env.globals['lookup'] = self._lookup
         j2_env.filters.update(self.all_filters)

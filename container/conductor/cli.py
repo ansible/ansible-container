@@ -46,6 +46,7 @@ def decode_b64json(encoded_params):
     return json.loads(base64.decodestring(encoded_params))
 
 def commandline():
+    sys.stderr.write('Parsing args.')
     parser = argparse.ArgumentParser(description=u'This should not be invoked '
                                                  u'except in a container by '
                                                  u'Ansible Container.')
@@ -64,14 +65,19 @@ def commandline():
     args = parser.parse_args()
 
     decoding_fn = globals()['decode_%s' % args.encoding]
-    config = decoding_fn(args.config)
+    containers_config = decoding_fn(args.config)
     if args.params:
         params = decoding_fn(args.params)
     else:
         params = {}
 
+    if params.get('debug'):
+        LOGGING['loggers']['conductor']['level'] = 'DEBUG'
+    config.dictConfig(LOGGING)
+
+    logger.debug('Starting Ansible Container Conductor: %s', args.command)
     getattr(core, args.command)(args.engine, args.project_name,
-                                config.get('services', []), **params)
+                                containers_config.get('services', []), **params)
 
 
 

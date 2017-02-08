@@ -362,14 +362,21 @@ def cmdrun_build(base_path, project_name, engine_name, **kwargs):
     engine_obj = load_engine(engine_name, project_name or os.path.basename(base_path),
                              config['services'], **kwargs)
 
-    if engine_obj.CAP_BUILD_CONDUCTOR:
+    conductor_container_id = engine_obj.get_container_id_for_service('conductor')
+    if engine_obj.service_is_running('conductor'):
+        engine_obj.stop_container(conductor_container_id)
+
+    if engine_obj.CAP_BUILD_CONDUCTOR and not kwargs['devel']:
         conductor_img_id = engine_obj.build_conductor_image(
             base_path,
-            config['settings'].get('conductor_base', DEFAULT_CONDUCTOR_BASE),
+            (config['settings'] or {}).get('conductor_base', DEFAULT_CONDUCTOR_BASE),
             cache=kwargs['cache']
         )
 
-    engine_obj.run_conductor('build', config, base_path, kwargs)
+    if conductor_container_id:
+        engine_obj.delete_container(conductor_container_id)
+
+    engine_obj.run_conductor('build', dict(config), base_path, kwargs)
 
 
 def cmdrun_run(base_path, engine_name, service=[], production=False, **kwargs):

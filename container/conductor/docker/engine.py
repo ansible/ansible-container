@@ -10,6 +10,7 @@ import os
 import tarfile
 import json
 import base64
+import functools
 
 from ..engine import BaseEngine
 from .. import utils
@@ -30,6 +31,16 @@ FILES_PATH = os.path.normpath(
         os.path.dirname(__file__),
         'files'))
 
+def log_runs(fn):
+    @functools.wraps(fn)
+    def __wrapped__(self, *args, **kwargs):
+        logger.debug(u'Call: %s.%s(args=%s, kwargs=%s)',
+                     type(self).__name__,
+                     fn.__name__,
+                     unicode(args),
+                     unicode(kwargs))
+        return fn(self, *args, **kwargs)
+    return __wrapped__
 
 class Engine(BaseEngine):
 
@@ -57,38 +68,93 @@ class Engine(BaseEngine):
         """Additional commandline arguments necessary for ansible-playbook runs."""
         return u'-c docker'
 
+    @property
+    def ansible_exec_path(self):
+        return u'/venv/bin/ansible-playbook'
+
     def container_name_for_service(self, service_name):
         return u'%s_%s' % (self.project_name, service_name)
 
     def image_name_for_service(self, service_name):
         return u'%s-%s' % (self.project_name, service_name)
 
+    def run_kwargs_for_service(self, service_name):
+        to_return = self.services[service_name].copy()
+        # to_return['name'] = self.container_name_for_service(service_name)
+        for key in ['from', 'roles']:
+            to_return.pop(key)
+        return to_return
+
+    @log_runs
     def run_container(self,
                       image_id,
                       service_name,
                       **kwargs):
         """Run a particular container. The kwargs argument contains individual
         parameter overrides from the service definition."""
+        run_kwargs = self.run_kwargs_for_service(service_name)
+        run_kwargs.update(kwargs)
+        logger.debug('Docker run: image=%s, params=%s', image_id, run_kwargs)
 
+        return self.client.containers.run(
+            image=image_id,
+            **run_kwargs
+        )
 
+    @log_runs
     def run_conductor(self, command, config, base_path, params):
         image_id = self.get_latest_image_id_for_service('conductor')
         serialized_params = base64.encodestring(json.dumps(params))
         serialized_config = base64.encodestring(json.dumps(config))
-        self.client.containers.run(
-            image_id,
+        volumes = {base_path: {'bind': '/src', 'mode': 'ro'}}
+        environ = {}
+        if os.environ.get('DOCKER_HOST'):
+            environ['DOCKER_HOST'] = os.environ['DOCKER_HOST']
+            if os.environ.get('DOCKER_CERT_PATH'):
+                environ['DOCKER_CERT_PATH'] = '/etc/docker'
+                volumes[os.environ['DOCKER_CERT_PATH']] = {'bind': '/etc/docker',
+                                                           'mode': 'ro'}
+            if os.environ.get('DOCKER_TLS_VERIFY'):
+                environ['DOCKER_TLS_VERIFY'] = os.environ['DOCKER_TLS_VERIFY']
+        else:
+            environ['DOCKER_HOST'] = 'unix:///var/run/docker.sock'
+            volumes['/var/run/docker.sock'] = {'bind': '/var/run/docker.sock',
+                                               'mode': 'rw'}
+
+        if params.get('devel'):
+            from container import conductor
+            conductor_path = os.path.dirname(conductor.__file__)
+            volumes[conductor_path] = {'bind': '/conductor/conductor', 'mode': 'rw'}
+
+        run_kwargs = dict(
             name=self.container_name_for_service('conductor'),
             command=['/venv/bin/conductor',
                      command,
                      '--project-name', self.project_name,
-                     '--engine', __name__.rsplit('.', 1)[-1],
+                     '--engine', __name__.rsplit('.', 2)[-2],
                      '--params', serialized_params,
                      '--config', serialized_config,
                      '--encoding', 'b64json'],
             detach=False,
-            user='ansible',
-            volumes={base_path: {'bind': '/src', 'mode': 'ro'}}
+            user='root',
+            volumes=volumes,
+            environment=environ,
+            remove=not params.get('save_build_container')
         )
+
+        logger.debug('Docker run: image=%s, params=%s', image_id, run_kwargs)
+
+        self.client.containers.run(
+            image_id,
+            **run_kwargs
+        )
+
+    def service_is_running(self, service):
+        try:
+            container = self.client.containers.get(self.container_name_for_service(service))
+            return container.status == 'running' and container.id
+        except docker_errors.NotFound:
+            return False
 
     def stop_container(self, container_id):
         try:
@@ -103,7 +169,7 @@ class Engine(BaseEngine):
 
     def inspect_container(self, container_id):
         try:
-            return self.client.inspect_container(container_id)
+            return self.client.api.inspect_container(container_id)
         except docker_errors.APIError:
             return None
 
@@ -125,14 +191,14 @@ class Engine(BaseEngine):
 
     def get_image_id_by_fingerprint(self, fingerprint):
         try:
-            image_id, = self.client.images.list(
-                all=True, quiet=True,
+            image, = self.client.images.list(
+                all=True,
                 filters=dict(label='%s=%s' % (self.FINGERPRINT_LABEL_KEY,
                                               fingerprint)))
         except ValueError:
             return None
         else:
-            return image_id
+            return image.id
 
     def get_image_id_by_tag(self, tag):
         try:
@@ -150,6 +216,7 @@ class Engine(BaseEngine):
         else:
             return image.id
 
+    @log_runs
     def commit_role_as_layer(self,
                              container_id,
                              service_name,
@@ -177,6 +244,7 @@ class Engine(BaseEngine):
         # FIXME: Implement me.
         raise NotImplementedError()
 
+    @log_runs
     def build_conductor_image(self, base_path, base_image, cache=True):
         with utils.make_temp_dir() as temp_dir:
             logger.info('Building Docker Engine context...')
@@ -232,9 +300,13 @@ class Engine(BaseEngine):
                                                   tag=self.image_name_for_service('conductor'),
                                                   rm=True,
                                                   nocache=not cache):
-                    line_json = json.loads(line)
-                    if 'stream' in line_json:
-                        logger.debug(line_json['stream'])
+                    try:
+                        line_json = json.loads(line)
+                        if 'stream' in line_json:
+                            line = line_json['stream']
+                    except ValueError:
+                        pass
+                    logger.debug(line)
                 return self.get_latest_image_id_for_service('conductor')
             else:
                 image = self.client.images.build(fileobj=tarball_file,

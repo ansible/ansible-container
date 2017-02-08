@@ -20,7 +20,7 @@ RUN python /get-pip.py && \
     /venv/bin/pip install -q --no-cache-dir paramiko PyYAML Jinja2 httplib2 six ruamel.yaml cffi && \
     /venv/bin/pip install -q --no-cache-dir -e git+https://github.com/ansible/ansible.git@devel#egg=ansible && \
     mkdir -p /etc/ansible/roles /conductor /src && \
-    useradd -d /venv -s /bin/bash -U ansible && \
+    useradd -d /venv -s /bin/bash -M -U ansible && \
     chown -R ansible:ansible /venv /conductor /etc/ansible /src
 USER ansible
 
@@ -32,6 +32,7 @@ RUN ( test -f /build/ansible-requirements.txt && /venv/bin/pip install -q --no-c
 
 # The COPY here will break cache if the version of conductor changed
 COPY /conductor-src /conductor
-RUN cd /conductor && /venv/bin/python setup.py develop
+RUN cd /conductor && \
+    /venv/bin/python setup.py develop
 
 
