@@ -11,6 +11,7 @@ import tarfile
 import json
 import base64
 import functools
+import threading
 
 from ..engine import BaseEngine
 from .. import utils
@@ -96,10 +97,17 @@ class Engine(BaseEngine):
         run_kwargs.update(kwargs)
         logger.debug('Docker run: image=%s, params=%s', image_id, run_kwargs)
 
-        return self.client.containers.run(
-            image=image_id,
-            **run_kwargs
-        )
+        try:
+            output = self.client.containers.run(
+                image=image_id,
+                **run_kwargs
+            )
+        except docker_errors.ContainerError, e:
+            logger.warning(str(e))
+        try:
+            return output
+        except UnboundLocalError, e:
+            return None
 
     @log_runs
     def run_conductor(self, command, config, base_path, params):
@@ -135,19 +143,27 @@ class Engine(BaseEngine):
                      '--params', serialized_params,
                      '--config', serialized_config,
                      '--encoding', 'b64json'],
-            detach=False,
+            detach=True,
             user='root',
             volumes=volumes,
             environment=environ,
-            remove=not params.get('save_build_container')
         )
 
         logger.debug('Docker run: image=%s, params=%s', image_id, run_kwargs)
 
-        self.client.containers.run(
+        container_obj = self.client.containers.run(
             image_id,
             **run_kwargs
         )
+        log_iter = container_obj.logs(stdout=True, stream=True, follow=True)
+        def continuous_logging(logger, log_iter):
+            for line in log_iter:
+                logger.info(line.rstrip())
+        logging_thread = threading.Thread(target=continuous_logging,
+                         args=(logger, log_iter))
+        logging_thread.daemon = True
+        logging_thread.start()
+        return container_obj.id
 
     def service_is_running(self, service):
         try:
@@ -156,13 +172,16 @@ class Engine(BaseEngine):
         except docker_errors.NotFound:
             return False
 
-    def stop_container(self, container_id):
+    def stop_container(self, container_id, forcefully=False):
         try:
             container = self.client.containers.get(container_id)
         except docker_errors.APIError:
             pass
         else:
-            container.stop()
+            if forcefully:
+                container.kill()
+            else:
+                container.stop(timeout=60)
 
     def restart_all_containers(self):
         raise NotImplementedError()
@@ -225,14 +244,14 @@ class Engine(BaseEngine):
         container = self.client.containers.get(container_id)
         image_name = self.image_name_for_service(service_name)
         image_version = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
-
         image_config = utils.metadata_to_image_config(metadata)
-        return container.commit(
-            repository=image_name,
+        image_config['Labels'][self.FINGERPRINT_LABEL_KEY] = fingerprint
+        commit_data = dict(repository=image_name,
             tag=image_version,
             message=self.LAYER_COMMENT,
-            conf=image_config
-        )
+            conf=image_config)
+        logger.debug('Committing data: %s', commit_data)
+        return container.commit(**commit_data)
 
     def generate_orchestration_playbook(self, repository_data=None):
         """If repository_data is specified, presume to pull images from that

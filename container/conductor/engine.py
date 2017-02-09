@@ -51,7 +51,7 @@ class BaseEngine(object):
     def service_is_running(self, service):
         raise NotImplementedError()
 
-    def stop_container(self, container_id):
+    def stop_container(self, container_id, forcefully=False):
         raise NotImplementedError()
 
     def restart_all_containers(self):

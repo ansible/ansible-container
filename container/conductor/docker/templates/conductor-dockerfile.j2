@@ -13,6 +13,7 @@ RUN apt-get update -y && \
     apt-get clean
 {% endif %}
 
+ADD https://get.docker.com/builds/Linux/x86_64/docker-1.13.1.tgz /tmp/docker-1.13.1.tgz
 COPY /contrib/get-pip.py /get-pip.py
 RUN python /get-pip.py && \
     pip install -q --no-cache-dir virtualenv && \
@@ -21,7 +22,9 @@ RUN python /get-pip.py && \
     /venv/bin/pip install -q --no-cache-dir -e git+https://github.com/ansible/ansible.git@devel#egg=ansible && \
     mkdir -p /etc/ansible/roles /conductor /src && \
     useradd -d /venv -s /bin/bash -M -U ansible && \
-    chown -R ansible:ansible /venv /conductor /etc/ansible /src
+    chown -R ansible:ansible /venv /conductor /etc/ansible /src && \
+    cd /usr/local/bin && \
+    tar -xz --strip-components=1 -f /tmp/docker-1.13.1.tgz
 USER ansible
 
 # The COPY here will break cache if the requirements or ansible.cfg has changed

@@ -93,7 +93,7 @@ def metadata_to_image_config(metadata):
         WorkingDir='',
         Entrypoint=None,
         Volumes={},
-        Labels=[],
+        Labels={},
         OnBuild=[]
     )
 

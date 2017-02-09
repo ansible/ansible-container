@@ -6,14 +6,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 import os
-import sys
+import time
 import hashlib
 import tempfile
 import shutil
-import yaml
-import psutil
+import subprocess
+import threading
 
-import delegator
+import yaml
 from ansible.playbook.role.include import RoleInclude
 from ansible.vars import VariableManager
 from ansible.parsing.dataloader import DataLoader
@@ -23,7 +23,6 @@ from .loader import load_engine
 
 def resolve_role_to_path(role_name):
     loader, variable_manager = DataLoader(), VariableManager()
-    logger.debug('Loader is %s', loader)
     role_obj = RoleInclude.load(data=role_name, play=None,
                                 variable_manager=variable_manager,
                                 loader=loader)
@@ -80,7 +79,8 @@ def get_metadata_from_role(role_name):
         return metadata
     return {}
 
-def run_playbook(playbook, engine, services):
+def run_playbook(playbook, engine, service_map, ansible_options='',
+                 debug=False):
     try:
         tmpdir = tempfile.mkdtemp()
         playbook_path = os.path.join(tmpdir, 'playbook.yml')
@@ -88,31 +88,48 @@ def run_playbook(playbook, engine, services):
             yaml.safe_dump(playbook, ofs)
         inventory_path = os.path.join(tmpdir, 'hosts')
         with open(inventory_path, 'w') as ofs:
-            for service in services:
-                ofs.write('%s\n' % service)
+            for service_name, container_id in service_map.iteritems():
+                ofs.write('%s ansible_host=%s\n' % (
+                    service_name, container_id))
 
         ansible_args = dict(inventory=inventory_path,
                             playbook=playbook_path,
+                            debug_maybe='-vvv' if debug else '',
                             engine_args=engine.ansible_args,
-                            ansible_playbook=engine.ansible_exec_path)
+                            ansible_playbook=engine.ansible_exec_path,
+                            ansible_options=ansible_options)
 
-        result = delegator.run('{ansible_playbook} '
-                               '-i {inventory} '
-                               '{engine_args} '
-                               '{playbook}'.format(**ansible_args),
-                               block=False)
-        while psutil.pid_exists(result.pid):
-            for line in iter(result.std_out.readline, ''):
-                sys.stdout.write(line)
+        ansible_cmd = ('{ansible_playbook} '
+                       '{debug_maybe} '
+                       '{ansible_options} '
+                       '-i {inventory} '
+                       '{engine_args} '
+                       '{playbook}').format(**ansible_args)
+        logger.debug('Running Ansible Playbook: %s', ansible_cmd)
+        process = subprocess.Popen(ansible_cmd,
+                                   shell=True,
+                                   bufsize=1,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT)
 
-        return result.return_code, result.err
+        log_iter = iter(process.stdout.readline, '')
+        while process.returncode is None:
+            try:
+                logger.info(log_iter.next().rstrip())
+            except StopIteration:
+                break
+            finally:
+                process.poll()
+
+        return process.returncode
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 
-def apply_role_to_container(role, container_id, service, engine):
+def apply_role_to_container(role, container_id, service_name, engine,
+                            ansible_options='', debug=False):
     playbook = [
-        {'hosts': service,
+        {'hosts': service_name,
          'roles': [role]}
     ]
 
@@ -120,10 +137,10 @@ def apply_role_to_container(role, container_id, service, engine):
     onbuild = container_metadata['Config']['OnBuild']
     # FIXME: Actually do stuff if onbuild is not null
 
-    rc, stderr = run_playbook(playbook, engine, [service])
+    rc = run_playbook(playbook, engine, {service_name: container_id},
+                      ansible_options, debug)
     if rc:
         logger.error('Error applying role!')
-        logger.error(stderr)
     return rc
 
 def build(engine_name, project_name, services, cache=True, **kwargs):
@@ -131,14 +148,20 @@ def build(engine_name, project_name, services, cache=True, **kwargs):
     logger.info(u'%s integration engine loaded. Build starting.',
                 engine.display_name)
 
-    for name, service in services.iteritems():
-        logger.info(u'Building service %s.', name)
+    for service_name, service in services.iteritems():
+        logger.info(u'Building service %s.', service_name)
         cur_image_id = engine.get_image_id_by_tag(service['from'])
         # the fingerprint hash tracks cacheability
         fingerprint_hash = hashlib.sha256('%s::' % cur_image_id)
-        logger.debug(u'%s: Base fingerprint hash = %s', name,
+        logger.debug(u'%s: Base fingerprint hash = %s', service_name,
                      fingerprint_hash.hexdigest())
         cache_busted = not cache
+
+        cur_container_id = engine.get_container_id_for_service(service_name)
+        if cur_container_id:
+            if engine.service_is_running(service_name):
+                engine.stop_container(cur_container_id, forcefully=True)
+            engine.delete_container(cur_container_id)
 
         if service['roles']:
             for role in service['roles']:
@@ -146,54 +169,63 @@ def build(engine_name, project_name, services, cache=True, **kwargs):
                 fingerprint_hash.update(role_fingerprint)
 
                 if not cache_busted:
-                    logger.debug(u'%s: Still trying to keep cache.', name)
+                    logger.debug(u'%s: Still trying to keep cache.', service_name)
                     cached_image_id = engine.get_image_id_by_fingerprint(
                         fingerprint_hash.hexdigest())
                     if cached_image_id:
                         # We can reuse the cached image
                         logger.debug(u'%s: Cached layer found with fingerprint %s',
-                                     name, fingerprint_hash.hexdigest())
+                                     service_name, fingerprint_hash.hexdigest())
                         cur_image_id = cached_image_id
-                        logger.info(u'%s: Applied role %s (from cache)', name,
+                        logger.info(u'%s: Applied role %s (from cache)', service_name,
                                     role)
                         continue
                     else:
                         cache_busted = True
                         logger.debug(u'%s: Cache busted! No layer found for '
-                                     u'fingerprint %s', name,
+                                     u'fingerprint %s', service_name,
                                      fingerprint_hash.hexdigest())
 
-                container_obj = engine.run_container(
-                    image_id=cur_image_id,
-                    service_name=name,
-                    user='root',
-                    working_dir='/',
-                    command='sh -c "while true; do sleep 1; '
-                            'done"',
-                    entrypoint=[],
-                    volumes_from=[engine.container_name_for_service('conductor')],
-                    detach=True)
-                container_id = container_obj.id
-
+                target_thread = threading.Thread(
+                    target=engine.run_container,
+                    kwargs=dict(image_id=cur_image_id,
+                                name=engine.container_name_for_service(service_name),
+                                service_name=service_name,
+                                user='root',
+                                working_dir='/',
+                                command='sh -c "while true; do sleep 1; '
+                                        'done"',
+                                entrypoint=[],
+                                volumes_from=[engine.container_name_for_service('conductor')]))
+                target_thread.daemon = True
+                target_thread.start()
+                container_id = None
+                while container_id is None:
+                    time.sleep(0.1)
+                    container_id = engine.get_container_id_for_service(service_name)
                 logger.debug('Container running as: %s', container_id)
 
-                rc = apply_role_to_container(role, container_id, service, engine)
+                rc = apply_role_to_container(role, container_id, service_name,
+                                             engine,
+                                             ansible_options=kwargs['ansible_options'],
+                                             debug=kwargs['debug'])
                 if rc:
                     raise RuntimeError('Build failed.')
-                logger.info(u'%s: Applied role %s', name, role)
+                logger.info(u'%s: Applied role %s', service_name, role)
 
-                engine.stop_container(container_id)
+                engine.stop_container(container_id, forcefully=True)
+                target_thread.join()
                 metadata = get_metadata_from_role(role)
                 image_id = engine.commit_role_as_layer(container_id,
-                                                       name,
+                                                       service_name,
                                                        fingerprint_hash.hexdigest(),
                                                        metadata)
-                logger.info(u'%s: Committed layer as image ID %s', name, image_id)
+                logger.info(u'%s: Committed layer as image ID %s', service_name, image_id)
                 engine.delete_container(container_id)
                 cur_image_id = image_id
-            logger.info(u'%s: Build complete.', name)
+            logger.info(u'%s: Build complete.', service_name)
         else:
-            logger.info(u'%s: No roles specified. Nothing to do.', name)
+            logger.info(u'%s: No roles specified. Nothing to do.', service_name)
     logger.info(u'All images successfully built.')
 
 def run(engine_name, project_name, services, **kwargs):
@@ -211,7 +243,7 @@ def run(engine_name, project_name, services, **kwargs):
             raise RuntimeError('Run failed.')
 
     playbook = engine.generate_orchestration_playbook()
-    run_playbook(playbook, engine, services)
+    rc = run_playbook(playbook, engine, services)
 
 def restart(engine_name, project_name, services, **kwargs):
     engine = load_engine(engine_name, project_name, services)
