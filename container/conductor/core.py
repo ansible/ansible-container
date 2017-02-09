@@ -186,23 +186,16 @@ def build(engine_name, project_name, services, cache=True, **kwargs):
                                      u'fingerprint %s', service_name,
                                      fingerprint_hash.hexdigest())
 
-                target_thread = threading.Thread(
-                    target=engine.run_container,
-                    kwargs=dict(image_id=cur_image_id,
-                                name=engine.container_name_for_service(service_name),
-                                service_name=service_name,
-                                user='root',
-                                working_dir='/',
-                                command='sh -c "while true; do sleep 1; '
-                                        'done"',
-                                entrypoint=[],
-                                volumes_from=[engine.container_name_for_service('conductor')]))
-                target_thread.daemon = True
-                target_thread.start()
-                container_id = None
-                while container_id is None:
-                    time.sleep(0.1)
-                    container_id = engine.get_container_id_for_service(service_name)
+                container_id = engine.run_container(
+                    image_id=cur_image_id,
+                    name=engine.container_name_for_service(service_name),
+                    service_name=service_name,
+                    user='root',
+                    working_dir='/',
+                    command='sh -c "while true; do sleep 1; '
+                            'done"',
+                    entrypoint=[],
+                    volumes_from=[engine.container_name_for_service('conductor')])
                 logger.debug('Container running as: %s', container_id)
 
                 rc = apply_role_to_container(role, container_id, service_name,
@@ -214,7 +207,6 @@ def build(engine_name, project_name, services, cache=True, **kwargs):
                 logger.info(u'%s: Applied role %s', service_name, role)
 
                 engine.stop_container(container_id, forcefully=True)
-                target_thread.join()
                 metadata = get_metadata_from_role(role)
                 image_id = engine.commit_role_as_layer(container_id,
                                                        service_name,

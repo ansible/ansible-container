@@ -15,6 +15,7 @@ import threading
 
 from ..engine import BaseEngine
 from .. import utils
+from .. import logmux
 
 try:
     import docker
@@ -97,17 +98,16 @@ class Engine(BaseEngine):
         run_kwargs.update(kwargs)
         logger.debug('Docker run: image=%s, params=%s', image_id, run_kwargs)
 
-        try:
-            output = self.client.containers.run(
-                image=image_id,
-                **run_kwargs
-            )
-        except docker_errors.ContainerError, e:
-            logger.warning(str(e))
-        try:
-            return output
-        except UnboundLocalError, e:
-            return None
+        container_obj = self.client.containers.run(
+            image=image_id,
+            detach=True,
+            **run_kwargs
+        )
+
+        log_iter = container_obj.logs(stdout=True, stderr=True, stream=True)
+        mux = logmux.LogMultiplexer()
+        mux.add_iterator(log_iter, logger)
+        return container_obj.id
 
     @log_runs
     def run_conductor(self, command, config, base_path, params):
@@ -155,14 +155,9 @@ class Engine(BaseEngine):
             image_id,
             **run_kwargs
         )
-        log_iter = container_obj.logs(stdout=True, stream=True, follow=True)
-        def continuous_logging(logger, log_iter):
-            for line in log_iter:
-                logger.info(line.rstrip())
-        logging_thread = threading.Thread(target=continuous_logging,
-                         args=(logger, log_iter))
-        logging_thread.daemon = True
-        logging_thread.start()
+        log_iter = container_obj.logs(stdout=True, stderr=True, stream=True)
+        mux = logmux.LogMultiplexer()
+        mux.add_iterator(log_iter, logger)
         return container_obj.id
 
     def service_is_running(self, service):

@@ -378,13 +378,17 @@ def cmdrun_build(base_path, project_name, engine_name, **kwargs):
 
     conductor_container_id = engine_obj.run_conductor('build', dict(config),
                                                       base_path, kwargs)
-    while engine_obj.service_is_running('conductor'):
-        time.sleep(0.1)
-    if not kwargs['save_build_container']:
-        logger.info('Conductor terminated. Cleaning up.')
-        engine_obj.delete_container(conductor_container_id)
-    else:
-        logger.info('Conductor terminated. Preserving as requested.')
+    try:
+        while engine_obj.service_is_running('conductor'):
+            time.sleep(0.1)
+    finally:
+        if not kwargs['save_build_container']:
+            logger.info('Conductor terminated. Cleaning up.')
+            if engine_obj.service_is_running('conductor'):
+                engine_obj.stop_container(conductor_container_id, forcefully=True)
+            engine_obj.delete_container(conductor_container_id)
+        else:
+            logger.info('Conductor terminated. Preserving as requested.')
 
 def cmdrun_run(base_path, engine_name, service=[], production=False, **kwargs):
     assert_initialized(base_path)
