@@ -72,7 +72,7 @@ class DockerfileImport(object):
 
         command_re = re.compile(ur'^\s*(\w+)\s+(.*)$')  # line contains an instructions (.e.g. RUN, CMD, ADD, etc.)
         continues_re = re.compile(ur'^.*\\\s*$')        # contains a continuation char
-        inline_comment_re = re.compile(ur'#(.*)')   # comment appears inline with the instruction
+        inline_comment_re = re.compile(ur'#(.*)')       # comment appears inline with the instruction
         comment_re = re.compile(ur'^\s*#')              # line starts with a comment
         array_re = re.compile(ur'^\[(.*)\]$')           # contains an array []
         quote_re = re.compile(ur'^\"(.*)\"$')           # contains ""
@@ -137,6 +137,23 @@ class DockerfileImport(object):
                 instructions.append(instruction)
         self.cached_instructions = instructions
         return instructions
+
+    def _get_workdir(self):
+        workdir = ''
+        for instruction in self.instructions:
+            if instruction['command'] == 'WORDIR':
+                if not workdir:
+                    workdir = instruction['value']
+                elif workdir:
+                    if re.match(r'^/', instruction['value']):
+                        # This subsequent workdir is not relative to the prior wordir
+                        workdir = instruction['value']
+                    else:
+                        os.path.join(workdir, instruction['value'])
+
+
+    def _resolve_env_var(self, env_var):
+        pass
 
     def create_role_template(self):
         '''
@@ -269,6 +286,67 @@ class DockerfileImport(object):
 
     def create_container_yaml(self):
         pass
+        # def get_directives(instruction):
+        #     '''
+        #     Transforms Dockerfile commands into container.yml directives.
+        #
+        #     :param instruction: dict containing RUN command attributes
+        #     :return: list of dicts, where each represents a task
+        #     '''
+        #
+        #     def create_task(cmd, preceding_comments):
+        #         task = CommentedMap()
+        #         name = ''
+        #         if preceding_comments:
+        #             # If there are preceding comment lines, use the first as the task name.
+        #             name = preceding_comments[0]
+        #         if re.search(ur'[><|]', cmd):
+        #             # If the command includes a pipe, it's *generally* better to use the shell module
+        #             task[u'name'] = u'Shell command' if not name else name
+        #             task[u'shell'] = cmd
+        #         else:
+        #             # Otherwise, the command module *should* work
+        #             task[u'name'] = u'Command command' if not name else name
+        #             task[u'command'] = cmd
+        #         if preceding_comments and len(preceding_comments) > 1:
+        #             # When multiple preceding comment lines, place them before the task name
+        #             task.yaml_set_comment_before_after_key('name', before=u'\n'.join(preceding_comments), indent=2)
+        #         return task
+        #
+        #     run_tasks = []
+        #
+        #     if isinstance(instruction[u'value'], list):
+        #         count = 0
+        #         for value in instruction[u'value']:
+        #             if count == 0:
+        #                 # Pass all preceding comments on first instruction
+        #                 comments = instruction[u'preceding_comments']
+        #             else:
+        #                 # Only pass the first comment to use as 'name' value on subsequent instructions
+        #                 comments = [instruction[u'preceding_comments'][0]] if instruction[u'preceding_comments'] else []
+        #             run_tasks.append(create_task(value, comments))
+        #             count += 1
+        #     else:
+        #         run_tasks.append(create_task(instruction[u'value'], instruction[u'preceding_comments']))
+        #     return run_tasks
+        #
+        # tasks = []
+        # logger.debug(json.dumps(self.instructions, indent=4))
+        # for instruction in self.instructions:
+        #     if instruction[u'command'] not in [u'RUN', u'ADD']:
+        #         tasks += get_run_tasks(instruction)
+        #
+        # main_yml = os.path.normpath(os.path.join(self.role_path, u'tasks', u'main.yml'))
+        # try:
+        #     task_yaml = ruamel.yaml.dump(tasks,
+        #                                  Dumper=ruamel.yaml.RoundTripDumper,
+        #                                  default_flow_style=False,
+        #                                  )
+        # except Exception:
+        #     raise AnsibleContainerException(u'Error: Failed to write {}'.format(main_yml))
+        #
+        # with open(main_yml, u'w') as f:
+        #     f.write(re.sub(ur'^-', u'\n-', task_yaml, flags=re.M))
 
 
 def yscbak(self, key, before=None, indent=0, after=None, after_indent=None):
