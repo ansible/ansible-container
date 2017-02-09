@@ -247,7 +247,7 @@ class Engine(BaseEngine):
         exit_status = build_container_info['Status']
         return '(0)' in exit_status
 
-    def get_config_for_shipit(self, pull_from=None, url=None, namespace=None):
+    def get_config_for_shipit(self, pull_from=None, url=None, namespace=None, tag=None):
         '''
         Retrieve the configuration needed to run the shipit command
 
@@ -275,7 +275,7 @@ class Engine(BaseEngine):
         for host, service_config in config.get('services', {}).items():
             if host in orchestrated_hosts:
                 image_id, image_buildstamp = get_latest_image_for(self.project_name, host, client)
-                image = '{0}-{1}:{2}'.format(self.project_name, host, image_buildstamp)
+                image = '{0}-{1}:{2}'.format(self.project_name, host, tag or image_buildstamp)
                 if image_path:
                     image = '{0}/{1}'.format(image_path, image)
                 service_config.update({u'image':  image})
@@ -768,7 +768,7 @@ class Engine(BaseEngine):
             raise AnsibleContainerDockerConfigFileException("Failed to write docker registry config to %s - %s" %
                                                             (path, str(exc)))
 
-    def push_latest_image(self, host, url=None, namespace=None):
+    def push_latest_image(self, host, url=None, namespace=None, tag=None):
         '''
         :param host: The host in the container.yml to push
         :parm url: URL of the registry to which images will be pushed
@@ -778,6 +778,7 @@ class Engine(BaseEngine):
         client = self.get_client()
         image_id, image_buildstamp = get_latest_image_for(self.project_name,
                                                           host, client)
+        tag = tag or image_buildstamp
 
         repository = "%s/%s-%s" % (namespace, self.project_name, host)
         if url != self.default_registry_url:
@@ -785,11 +786,11 @@ class Engine(BaseEngine):
             repository = "%s/%s" % (re.sub('/$', '', url), repository)
 
         logger.info('Tagging %s' % repository)
-        client.tag(image_id, repository, tag=image_buildstamp)
+        client.tag(image_id, repository, tag=tag)
 
-        logger.info('Pushing %s:%s...' % (repository, image_buildstamp))
+        logger.info('Pushing %s:%s...' % (repository, tag))
         stream = client.push(repository,
-                             tag=image_buildstamp,
+                             tag=tag,
                              stream=True)
         last_status = None
         for data in stream:
