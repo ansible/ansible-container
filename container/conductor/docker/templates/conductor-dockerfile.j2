@@ -17,25 +17,23 @@ ADD https://get.docker.com/builds/Linux/x86_64/docker-1.13.1.tgz /tmp/docker-1.1
 COPY /contrib/get-pip.py /get-pip.py
 RUN python /get-pip.py && \
     pip install -q --no-cache-dir virtualenv && \
-    virtualenv /venv && \
-    /venv/bin/pip install -q --no-cache-dir paramiko PyYAML Jinja2 httplib2 six ruamel.yaml cffi && \
-    /venv/bin/pip install -q --no-cache-dir -e git+https://github.com/ansible/ansible.git@devel#egg=ansible && \
-    mkdir -p /etc/ansible/roles /conductor /src && \
-    useradd -d /venv -s /bin/bash -M -U ansible && \
-    chown -R ansible:ansible /venv /conductor /etc/ansible /src && \
+    virtualenv /_ansible/venv && \
+    /_ansible/venv/bin/pip install --no-cache-dir paramiko PyYAML Jinja2 httplib2 six ruamel.yaml cffi && \
+    /_ansible/venv/bin/pip install --no-cache-dir -e git+https://github.com/ansible/ansible.git@devel#egg=ansible && \
+    mkdir -p /etc/ansible/roles /_ansible/src && \
     cd /usr/local/bin && \
     tar -xz --strip-components=1 -f /tmp/docker-1.13.1.tgz
-USER ansible
 
 # The COPY here will break cache if the requirements or ansible.cfg has changed
-COPY /build-src /build
-RUN ( test -f /build/ansible-requirements.txt && /venv/bin/pip install -q --no-cache-dir -r /build/requirements.txt || true ) && \
-    ( test -f /build/requirements.yml && /venv/bin/ansible-galaxy install -r /build/requirements.yml || true ) && \
-    ( test -f /build/ansible.cfg && cp /build/ansible.cfg /etc/ansible/ansible.cfg || true)
+COPY /build-src /_ansible/build
+RUN ( test -f /_ansible/build/ansible-requirements.txt && /_ansible/venv/bin/pip install --no-cache-dir -r /_ansible/build/requirements.txt || true ) && \
+    ( test -f /_ansible/build/requirements.yml && /_ansible/venv/bin/ansible-galaxy install -r /_ansible/build/requirements.yml || true ) && \
+    ( test -f /_ansible/build/ansible.cfg && cp /_ansible/build/ansible.cfg /etc/ansible/ansible.cfg || true)
 
 # The COPY here will break cache if the version of conductor changed
-COPY /conductor-src /conductor
-RUN cd /conductor && \
-    /venv/bin/python setup.py develop
+COPY /conductor-src /_ansible/conductor
+RUN cd /_ansible/conductor && \
+    /_ansible/venv/bin/python setup.py develop
+VOLUME /_ansible/venv
 
 

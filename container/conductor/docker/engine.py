@@ -71,8 +71,12 @@ class Engine(BaseEngine):
         return u'-c docker'
 
     @property
+    def python_interpreter_path(self):
+        return u'/_ansible/venv/bin/python'
+
+    @property
     def ansible_exec_path(self):
-        return u'/venv/bin/ansible-playbook'
+        return u'/_ansible/venv/bin/ansible-playbook'
 
     def container_name_for_service(self, service_name):
         return u'%s_%s' % (self.project_name, service_name)
@@ -132,11 +136,11 @@ class Engine(BaseEngine):
         if params.get('devel'):
             from container import conductor
             conductor_path = os.path.dirname(conductor.__file__)
-            volumes[conductor_path] = {'bind': '/conductor/conductor', 'mode': 'rw'}
+            volumes[conductor_path] = {'bind': '/_ansible/conductor/conductor', 'mode': 'rw'}
 
         run_kwargs = dict(
             name=self.container_name_for_service('conductor'),
-            command=['/venv/bin/conductor',
+            command=['/_ansible/venv/bin/conductor',
                      command,
                      '--project-name', self.project_name,
                      '--engine', __name__.rsplit('.', 2)[-2],

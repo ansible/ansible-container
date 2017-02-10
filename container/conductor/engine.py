@@ -35,7 +35,11 @@ class BaseEngine(object):
 
     @property
     def ansible_exec_path(self):
-        raise NotImplementedError
+        raise NotImplementedError()
+
+    @property
+    def python_interpreter_path(self):
+        raise NotImplementedError()
 
     def run_container(self,
                       image_id,

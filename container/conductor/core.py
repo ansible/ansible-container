@@ -89,8 +89,8 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
         inventory_path = os.path.join(tmpdir, 'hosts')
         with open(inventory_path, 'w') as ofs:
             for service_name, container_id in service_map.iteritems():
-                ofs.write('%s ansible_host=%s\n' % (
-                    service_name, container_id))
+                ofs.write('%s ansible_host=%s ansible_python_interpreter=%s\n' % (
+                    service_name, container_id, engine.python_interpreter_path))
 
         ansible_args = dict(inventory=inventory_path,
                             playbook=playbook_path,
@@ -196,12 +196,16 @@ def build(engine_name, project_name, services, cache=True, **kwargs):
                             'done"',
                     entrypoint=[],
                     volumes_from=[engine.container_name_for_service('conductor')])
+                while not engine.service_is_running(service_name):
+                    time.sleep(0.2)
+
                 logger.debug('Container running as: %s', container_id)
 
                 rc = apply_role_to_container(role, container_id, service_name,
                                              engine,
                                              ansible_options=kwargs['ansible_options'],
                                              debug=kwargs['debug'])
+                logger.debug('Playbook run finished. Return code was %s', rc)
                 if rc:
                     raise RuntimeError('Build failed.')
                 logger.info(u'%s: Applied role %s', service_name, role)
