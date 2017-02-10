@@ -532,15 +532,18 @@ def cmdrun_import(base_path, dockerfile_name=None, project_name=None, **kwargs):
     if not project_name:
         project_name = os.path.basename(base_path).lower()
 
-    dfimport = DockerfileImport(base_path,
+    dfi = DockerfileImport(base_path,
                                 project_name,
                                 dockerfile_name)
-    dfimport.assert_dockerfile_exists()
-    dfimport.create_role_template()
-    dfimport.add_role_tasks()
+    dfi.assert_dockerfile_exists()
+    dfi.create_role_template()
+    dfi.add_role_tasks()
+
+    logger.debug(json.dumps(dfi.environment_vars))
+    logger.debug("workdir: {}".format(dfi.workdir))
 
     # TODO
-    # dfimport.create_container_yaml()
+    # dfi.create_container_yaml()
 
 def create_build_container(container_engine_obj, base_path):
     assert_initialized(base_path)

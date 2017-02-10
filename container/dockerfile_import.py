@@ -138,7 +138,44 @@ class DockerfileImport(object):
         self.cached_instructions = instructions
         return instructions
 
-    def _get_workdir(self):
+    @property
+    def environment_vars(self):
+        '''
+        Find the ENV instructions, and parse all environment variables. The ENV command can take on
+        the following forms:
+            ENV foo=bar myName=John\ Doe yourName="Berry Small"
+            ENV foo bar
+        Attempts to parse both styles, accounting for quotes and escaped spaces in the value.
+
+        :return: dict of key:value pairs
+        '''
+        envs = []
+        var_dict = {}
+        quoted_vars = re.compile(r'\w+=[\'\"][\w \\]+[\'\"]')        # myName="John Doe"
+        escaped_vars = re.compile(r'(\w+=(?:\w+\\ )+(?:\w+[$ ]))')   # myName=John\ Doe
+        regular_vars = re.compile(r'(\w+=\w+(?: |$))')               # myName=john_doe
+        single_var = re.compile(r'(\w+)\s([\w+ ]*$)')                # myName John Doe
+        for instruction in self.instructions:
+            if instruction['command'] == 'ENV':
+                if '=' in instruction['value']:
+                    # Style is: ENV foo=bar myName=John\ Doe yourName="Berry Small"
+                    envs += quoted_vars.findall(instruction['value'])
+                    envs += escaped_vars.findall(instruction['value'])
+                    envs += regular_vars.findall(instruction['value'])
+                else:
+                    # Style is: myName John Doe
+                    # Find the key and value, and append to the list as "key=value"
+                    key, value = single_var.findall(instruction['value'])[0]
+                    envs.append("{0}={1}".format(key, value))
+        for env in envs:
+            key, value = env.split('=')
+            var_dict[key.strip()] = re.sub(r'[\'\"\\]', '', value.strip())
+        return var_dict
+
+    @property
+    def workdir(self):
+        # TODO  Test that this returns expecting workdir 
+        # TODO  Perform environment variable substitution when workdir contains one or more $VAR or ${VAR} 
         workdir = ''
         for instruction in self.instructions:
             if instruction['command'] == 'WORDIR':
@@ -150,10 +187,6 @@ class DockerfileImport(object):
                         workdir = instruction['value']
                     else:
                         os.path.join(workdir, instruction['value'])
-
-
-    def _resolve_env_var(self, env_var):
-        pass
 
     def create_role_template(self):
         '''
@@ -237,6 +270,11 @@ class DockerfileImport(object):
             task = CommentedMap()
             src, dest = instruction[u'value'].split(' ')
             src_path = os.path.normpath(os.path.join(u'../../', src))
+
+            # TODO: The dest directory may contain environment vars, and it may also be relavant to WORKDIR.
+            #       Modify the following to use environment_vars and workdir properties to resolve the full
+            #       dest path.
+
             if os.path.isdir(os.path.join(self.base_path, src)):
                 task[u'name'] = name if name else u'Synch {}'.format(src)
                 task[u'synchronize'] = CommentedMap()
