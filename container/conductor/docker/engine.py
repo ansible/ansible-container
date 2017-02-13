@@ -21,7 +21,7 @@ try:
     import docker
     from docker import errors as docker_errors
 except ImportError:
-    raise ImportError(u'Use of the Docker\u2122 engine requires the docker-py module.')
+    raise ImportError('Use of the Docker™ engine requires the docker-py module.')
 
 TEMPLATES_PATH = os.path.normpath(
     os.path.join(
