@@ -33,6 +33,8 @@ FILES_PATH = os.path.normpath(
         os.path.dirname(__file__),
         'files'))
 
+DOCKER_VERSION = '1.13.1'
+
 def log_runs(fn):
     @functools.wraps(fn)
     def __wrapped__(self, *args, **kwargs):
@@ -69,14 +71,6 @@ class Engine(BaseEngine):
     def ansible_args(self):
         """Additional commandline arguments necessary for ansible-playbook runs."""
         return u'-c docker'
-
-    @property
-    def python_interpreter_path(self):
-        return u'/_ansible/venv/bin/python'
-
-    @property
-    def ansible_exec_path(self):
-        return u'/_ansible/venv/bin/ansible-playbook'
 
     def container_name_for_service(self, service_name):
         return u'%s_%s' % (self.project_name, service_name)
@@ -140,7 +134,7 @@ class Engine(BaseEngine):
 
         run_kwargs = dict(
             name=self.container_name_for_service('conductor'),
-            command=['/_ansible/venv/bin/conductor',
+            command=['conductor',
                      command,
                      '--project-name', self.project_name,
                      '--engine', __name__.rsplit('.', 2)[-2],
@@ -296,7 +290,8 @@ class Engine(BaseEngine):
             utils.jinja_render_to_temp(TEMPLATES_PATH,
                                        'conductor-dockerfile.j2', temp_dir,
                                        'Dockerfile',
-                                       conductor_base=base_image)
+                                       conductor_base=base_image,
+                                       docker_version=DOCKER_VERSION)
             tarball.add(os.path.join(temp_dir, 'Dockerfile'),
                         arcname='Dockerfile')
 
@@ -333,4 +328,18 @@ class Engine(BaseEngine):
                                                  rm=True,
                                                  nocache=not cache)
                 return image.id
+
+    def get_runtime_volume_id(self):
+        try:
+            container_data = self.client.api.inspect_container(
+                self.container_name_for_service('conductor')
+            )
+        except docker_errors.APIError:
+            raise ValueError('Conductor container not found.')
+        mounts = container_data['Mounts']
+        try:
+            usr_mount, = [mount for mount in mounts if mount['Destination'] == '/usr']
+        except ValueError:
+            raise ValueError('Runtime volume not found on Conductor')
+        return usr_mount['Name']
 

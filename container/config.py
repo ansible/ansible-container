@@ -219,6 +219,7 @@ class AnsibleContainerConfig(Mapping):
 
     TOP_LEVEL_WHITELIST = [
         'version',
+        'settings',
         'volumes',
         'services',
         'defaults',

@@ -35,11 +35,11 @@ class BaseEngine(object):
 
     @property
     def ansible_exec_path(self):
-        raise NotImplementedError()
+        return u'ansible-playbook'
 
     @property
     def python_interpreter_path(self):
-        raise NotImplementedError()
+        return u'/_usr/bin/python'
 
     def run_container(self,
                       image_id,
@@ -95,4 +95,7 @@ class BaseEngine(object):
         raise NotImplementedError()
 
     def build_conductor_image(self, base_path, base_image, cache=True):
+        raise NotImplementedError()
+
+    def get_runtime_volume_id(self):
         raise NotImplementedError()

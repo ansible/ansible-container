@@ -1,10 +1,7 @@
-from pip.req import parse_requirements
 from setuptools import setup, find_packages
 
 import conductor
 
-install_reqs = parse_requirements('requirements.txt', session=False)
-reqs = [str(ir.req) for ir in install_reqs]
 
 setup(
     name='ansible-container-conductor',
@@ -19,6 +16,5 @@ setup(
                  'Docker images built from Ansible playbooks.'),
     entry_points={
         'console_scripts': ['conductor = conductor.cli:commandline']
-    },
-    install_requires=reqs
+    }
 )

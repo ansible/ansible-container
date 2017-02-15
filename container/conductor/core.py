@@ -80,7 +80,7 @@ def get_metadata_from_role(role_name):
     return {}
 
 def run_playbook(playbook, engine, service_map, ansible_options='',
-                 debug=False):
+                 python_interpreter=None, debug=False):
     try:
         tmpdir = tempfile.mkdtemp()
         playbook_path = os.path.join(tmpdir, 'playbook.yml')
@@ -89,15 +89,16 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
         inventory_path = os.path.join(tmpdir, 'hosts')
         with open(inventory_path, 'w') as ofs:
             for service_name, container_id in service_map.iteritems():
-                ofs.write('%s ansible_host=%s ansible_python_interpreter=%s\n' % (
-                    service_name, container_id, engine.python_interpreter_path))
+                ofs.write('%s ansible_host="%s" ansible_python_interpreter="%s"\n' % (
+                    service_name, container_id,
+                    python_interpreter or engine.python_interpreter_path))
 
         ansible_args = dict(inventory=inventory_path,
                             playbook=playbook_path,
                             debug_maybe='-vvv' if debug else '',
                             engine_args=engine.ansible_args,
                             ansible_playbook=engine.ansible_exec_path,
-                            ansible_options=ansible_options)
+                            ansible_options=ansible_options or '')
 
         ansible_cmd = ('{ansible_playbook} '
                        '{debug_maybe} '
@@ -127,7 +128,8 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
 
 
 def apply_role_to_container(role, container_id, service_name, engine,
-                            ansible_options='', debug=False):
+                            python_interpreter=None, ansible_options='',
+                            debug=False):
     playbook = [
         {'hosts': service_name,
          'roles': [role]}
@@ -138,12 +140,13 @@ def apply_role_to_container(role, container_id, service_name, engine,
     # FIXME: Actually do stuff if onbuild is not null
 
     rc = run_playbook(playbook, engine, {service_name: container_id},
-                      ansible_options, debug)
+                      python_interpreter, ansible_options, debug)
     if rc:
         logger.error('Error applying role!')
     return rc
 
-def build(engine_name, project_name, services, cache=True, **kwargs):
+def build(engine_name, project_name, services, cache=True,
+          python_interpreter=None, ansible_options='', debug=False, **kwargs):
     engine = load_engine(engine_name, project_name, services)
     logger.info(u'%s integration engine loaded. Build starting.',
                 engine.display_name)
@@ -195,16 +198,25 @@ def build(engine_name, project_name, services, cache=True, **kwargs):
                     command='sh -c "while true; do sleep 1; '
                             'done"',
                     entrypoint=[],
-                    volumes_from=[engine.container_name_for_service('conductor')])
+                    environment=dict(LD_LIBRARY_PATH='/_usr/lib:/_usr/local/lib',
+                                     CPATH='/_usr/include:/_usr/local/include',
+                                     PATH='/usr/local/sbin:/usr/local/bin:'
+                                          '/usr/sbin:/usr/bin:/sbin:/bin:'
+                                          '/_usr/sbin:/_usr/bin:'
+                                          '/_usr/local/sbin:/_usr/local/bin',
+                                     PYTHONPATH='/_usr/lib/python2.7'),
+                    volumes={engine.get_runtime_volume_id(): {'bind': '/_usr',
+                                                              'mode': 'ro'}})
                 while not engine.service_is_running(service_name):
                     time.sleep(0.2)
-
+                time.sleep(1000)
                 logger.debug('Container running as: %s', container_id)
 
                 rc = apply_role_to_container(role, container_id, service_name,
                                              engine,
-                                             ansible_options=kwargs['ansible_options'],
-                                             debug=kwargs['debug'])
+                                             python_interpreter=python_interpreter,
+                                             ansible_options=ansible_options,
+                                             debug=debug)
                 logger.debug('Playbook run finished. Return code was %s', rc)
                 if rc:
                     raise RuntimeError('Build failed.')

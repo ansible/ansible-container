@@ -8,32 +8,34 @@ RUN yum update -y && \
     yum clean all
 {% elif distro in ["debian", "ubuntu"] %}
 RUN apt-get update -y && \
-    apt-get install -y python2.7 git python rsync libffi-dev libssl-dev && \
-    ln -s /usr/bin/python2.7 /usr/bin/python && \
+    apt-get install -y python2.7 git python-dev rsync libffi-dev libssl-dev python-apt && \
+    cd /usr/bin && \
+    ln -fs python2.7 python && \
     apt-get clean
+{% elif distro in ["alpine"] %}
+RUN apk add --no-cache -U python2-dev git rsync libffi libffi-dev openssl openssl-dev gcc musl-dev
 {% endif %}
 
-ADD https://get.docker.com/builds/Linux/x86_64/docker-1.13.1.tgz /tmp/docker-1.13.1.tgz
+ADD https://get.docker.com/builds/Linux/x86_64/docker-{{ docker_version }}.tgz /tmp/docker.tgz
 COPY /contrib/get-pip.py /get-pip.py
 RUN python /get-pip.py && \
-    pip install -q --no-cache-dir virtualenv && \
-    virtualenv /_ansible/venv && \
-    /_ansible/venv/bin/pip install --no-cache-dir paramiko PyYAML Jinja2 httplib2 six ruamel.yaml cffi && \
-    /_ansible/venv/bin/pip install --no-cache-dir -e git+https://github.com/ansible/ansible.git@devel#egg=ansible && \
+    pip install --no-cache-dir paramiko PyYAML Jinja2 httplib2 six ruamel.yaml cffi && \
+    pip install --no-cache-dir git+https://github.com/ansible/ansible.git@devel#egg=ansible && \
     mkdir -p /etc/ansible/roles /_ansible/src && \
     cd /usr/local/bin && \
-    tar -xz --strip-components=1 -f /tmp/docker-1.13.1.tgz
+    tar -xz --strip-components=1 -f /tmp/docker.tgz
 
 # The COPY here will break cache if the requirements or ansible.cfg has changed
 COPY /build-src /_ansible/build
-RUN ( test -f /_ansible/build/ansible-requirements.txt && /_ansible/venv/bin/pip install --no-cache-dir -r /_ansible/build/requirements.txt || true ) && \
-    ( test -f /_ansible/build/requirements.yml && /_ansible/venv/bin/ansible-galaxy install -r /_ansible/build/requirements.yml || true ) && \
+RUN ( test -f /_ansible/build/ansible-requirements.txt && pip install --no-cache-dir -r /_ansible/build/requirements.txt || true ) && \
+    ( test -f /_ansible/build/requirements.yml && ansible-galaxy install -r /_ansible/build/requirements.yml || true ) && \
     ( test -f /_ansible/build/ansible.cfg && cp /_ansible/build/ansible.cfg /etc/ansible/ansible.cfg || true)
 
 # The COPY here will break cache if the version of conductor changed
 COPY /conductor-src /_ansible/conductor
 RUN cd /_ansible/conductor && \
-    /_ansible/venv/bin/python setup.py develop
-VOLUME /_ansible/venv
+    pip install --no-cache-dir -r requirements.txt && \
+    python setup.py develop
+VOLUME /usr
 
 

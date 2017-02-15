@@ -93,6 +93,12 @@ def subcmd_build_parser(parser, subparser):
                                 u'changes have been made necessitating rebuild. '
                                 u'You may disable layer caching with this flag.',
                            dest='cache', default=True)
+    subparser.add_argument('--python-interpreter', action='store',
+                           help=u'Ansible Container brings its own Python runtime '
+                                u'into your target containers for Ansible to use. '
+                                u'If you would like to bring your own Python runtime '
+                                u'instead, use this to specify the path to that '
+                                u'runtime.', dest='python_interpreter', default=None)
     subparser.add_argument('--services', action='store',
                            help=u'Rather than build all services, only build specific services.',
                            nargs='+', dest='services_to_build', default=None)
