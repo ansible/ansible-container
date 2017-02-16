@@ -209,7 +209,6 @@ def build(engine_name, project_name, services, cache=True,
                                                               'mode': 'ro'}})
                 while not engine.service_is_running(service_name):
                     time.sleep(0.2)
-                time.sleep(1000)
                 logger.debug('Container running as: %s', container_id)
 
                 rc = apply_role_to_container(role, container_id, service_name,
