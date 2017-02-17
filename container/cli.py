@@ -48,7 +48,8 @@ AVAILABLE_COMMANDS = {'help': 'Display this help message',
                       'restart': 'Restart the services defined in container.yml',
                       # TODO: v----- replace with deploy
                       'push': 'Push your built images to a Docker Hub compatible registry',
-                      'shipit': 'Generate a deployment playbook to your cloud of choice.'}
+                      'shipit': 'Generate a deployment playbook to your cloud of choice.',
+                      'import': 'Convert a Dockerfile to a container.yml and role.'}
 
 def subcmd_common_parsers(parser, subparser, cmd):
     if cmd in ('build', 'run', 'shipit', 'push'):
@@ -171,6 +172,14 @@ def subcmd_shipit_parser(parser, subparser):
 
 def subcmd_install_parser(parser, subparser):
     subparser.add_argument('roles', nargs='+', action='store')
+
+def subcmd_import_parser(parser, subparser):
+    subparser.add_argument('--dockerfile', action='store',
+                           help=u"Name of the file to import. Defaults to 'Dockerfile'.",
+                           dest='dockerfile_name', default='Dockerfile')
+    subparser.add_argument('--project-name', action='store',
+                           help=u"Provide a project name. Defaults to the base name of project path.",
+                           dest='project_name', default=None)
 
 def commandline():
     parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '
