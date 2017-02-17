@@ -1,10 +1,17 @@
 version: "2"
-services:
+settings: {}
+  # The Conductor container does the heavy lifting and provides a portable
+  # Python runtime for building your target containers. It should be derived
+  # from the same distribution as you're building your target containers with.
+  # conductor_base: centos:7
+services: {}
   # Add your containers here, specifying the base image you want to build from
   # For example:
   #
   # web:
-  #   image: ubuntu:trusty
+  #   from: centos:7
+  #   roles:
+  #     - apache-container
   #   ports:
   #     - "80:80"
   #   command: ['/usr/bin/dumb-init', '/usr/sbin/apache2ctl', '-D', 'FOREGROUND']

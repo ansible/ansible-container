@@ -2,9 +2,6 @@
 from __future__ import absolute_import
 
 import logging
-from datetime import datetime
-
-from container.utils import create_path, logger, jinja_render_to_temp
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +9,7 @@ import os
 import importlib
 import tempfile
 import shutil
+from datetime import datetime
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -136,7 +134,7 @@ def create_role_from_templates(role_name=None, role_path=None, project_name=None
     for p, templates in role_paths.items():
         target_dir = os.path.join(role_path, p) if p != 'base' else role_path
         if p != 'base':
-            create_path(target_dir)
+            os.makedirs(target_dir, exist_ok=True)
         for template in templates:
             target_name = template.replace('.j2', '')
             if target_name.startswith('travis'):

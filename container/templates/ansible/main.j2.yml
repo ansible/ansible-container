@@ -1,9 +1,0 @@
-# This should be your Ansible playbooks to provision your containers.
-# An inventory will be automatically created using the names of the services
-# from your container.yml file.
-# Add any roles or other modules you'll need to this directory too.
-# For many examples of roles, check out Ansible Galaxy: https://galaxy.ansible.com/
-#
----
-- hosts: all
-  gather_facts: false

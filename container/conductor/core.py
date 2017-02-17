@@ -147,7 +147,7 @@ def apply_role_to_container(role, container_id, service_name, engine,
 
 def build(engine_name, project_name, services, cache=True,
           python_interpreter=None, ansible_options='', debug=False, **kwargs):
-    engine = load_engine(engine_name, project_name, services)
+    engine = load_engine(['BUILD'], engine_name, project_name, services)
     logger.info(u'%s integration engine loaded. Build starting.',
                 engine.display_name)
 

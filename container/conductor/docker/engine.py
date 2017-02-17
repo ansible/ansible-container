@@ -15,7 +15,6 @@ import functools
 from ..engine import BaseEngine
 from .. import utils
 from .. import logmux
-from .importer import DockerfileImport
 
 try:
     import docker
@@ -345,6 +344,8 @@ class Engine(BaseEngine):
         return usr_mount['Name']
 
     def import_project(self, base_path):
+        from .importer import DockerfileImport
+
         dfi = DockerfileImport(base_path,
                                self.project_name)
         dfi.assert_dockerfile_exists()

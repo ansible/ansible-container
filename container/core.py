@@ -339,20 +339,20 @@ def cmdrun_init(base_path, project=None, **kwargs):
                 tar_obj.extract(member, base_path)
         logger.info(u'Ansible Container initialized from Galaxy container app %r', project)
     else:
-        container_dir = os.path.normpath(
-            os.path.join(base_path, 'ansible'))
-        container_cfg = os.path.join(container_dir, 'container.yml')
+        container_cfg = os.path.join(base_path, 'container.yml')
         if os.path.exists(container_cfg):
             raise AnsibleContainerAlreadyInitializedException()
-        if not os.path.exists(container_dir):
-            os.mkdir(container_dir)
-        template_dir = os.path.join(jinja_template_path(), 'ansible')
+        if not os.path.exists(base_path):
+            os.mkdir(base_path)
+        template_dir = os.path.join(jinja_template_path(), 'init')
         context = {
-            u'ansible_container_version': __version__
+            u'ansible_container_version': __version__,
+            u'project_name': kwargs.get('project_name',
+                                        os.path.basename(base_path))
         }
         for tmpl_filename in os.listdir(template_dir):
-            jinja_render_to_temp('ansible/%s' % tmpl_filename,
-                                 container_dir,
+            jinja_render_to_temp(os.path.join('init', tmpl_filename),
+                                 base_path,
                                  tmpl_filename.replace('.j2', ''),
                                  **context)
         logger.info('Ansible Container initialized.')
@@ -535,7 +535,8 @@ def cmdrun_version(base_path, engine_name, debug=False, **kwargs):
 
 def cmdrun_import(base_path, project_name, engine_name, **kwargs):
     engine_obj = load_engine(['IMPORT'],
-                             engine_name, project_name or os.path.basename(base_path),
+                             engine_name,
+                             project_name or os.path.basename(base_path),
                              {}, **kwargs)
 
     engine_obj.import_project(base_path, **kwargs)
