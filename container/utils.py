@@ -77,11 +77,9 @@ def config_format_version(base_path, config_data=None):
 def assert_initialized(base_path):
     ansible_dir = os.path.normpath(base_path)
     container_file = os.path.join(ansible_dir, 'container.yml')
-    requirements_file = os.path.join(ansible_dir, 'requirements.yml')
     if not all((
         os.path.exists(ansible_dir), os.path.isdir(ansible_dir),
         os.path.exists(container_file), os.path.isfile(container_file),
-        os.path.exists(requirements_file), os.path.isfile(requirements_file)
     )):
         raise AnsibleContainerNotInitializedException()
 
