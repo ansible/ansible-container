@@ -5,6 +5,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+CAPABILITIES = dict(
+    BUILD='building container images',
+    BUILD_CONDUCTOR='building the Conductor image',
+    RUN='orchestrating containers locally',
+    DEPLOY='pushing and orchestrating containers remotely',
+    IMPORT='importing as Ansible Container project'
+)
+
 class BaseEngine(object):
     """
     Interface class for implementations of various container engine integrations
@@ -16,6 +24,7 @@ class BaseEngine(object):
     CAP_BUILD = False
     CAP_RUN = False
     CAP_DEPLOY = False
+    CAP_IMPORT = False
 
     def __init__(self, project_name, services, debug=False, selinux=True,
                  **kwargs):
@@ -98,4 +107,8 @@ class BaseEngine(object):
         raise NotImplementedError()
 
     def get_runtime_volume_id(self):
+        """Get the volume ID for the portable python runtime."""
+        raise NotImplementedError()
+
+    def import_project(self, base_path):
         raise NotImplementedError()

@@ -2,6 +2,9 @@
 from __future__ import absolute_import
 
 import logging
+from datetime import datetime
+
+from container.utils import create_path, logger, jinja_render_to_temp
 
 logger = logging.getLogger(__name__)
 
@@ -104,3 +107,53 @@ def metadata_to_image_config(metadata):
     return config
 
 
+def create_role_from_templates(role_name=None, role_path=None, project_name=None, description=None):
+    '''
+    Create a new role with initial files from templates.
+    :param role_name: Name of the role
+    :param role_path: Full path to the role
+    :param project_name: Name of the project, or the base path name.
+    :param description: One line description of the role.
+    :return: None
+    '''
+
+    role_paths = {
+        u'base': [u'README.j2', u'travis.j2.yml'],
+        u'defaults': [u'defaults.j2.yml'],
+        u'meta': [u'meta.j2.yml'],
+        u'test': [u'test.j2.yml', u'travis.j2.yml'],
+        u'tasks': [],
+    }
+
+    context = {
+        u'role_name': role_name,
+        u'project_name': project_name,
+        u'role_description': description
+    }
+
+    create_path(role_path)
+
+    for p, templates in role_paths.items():
+        target_dir = os.path.join(role_path, p) if p != 'base' else role_path
+        if p != 'base':
+            create_path(target_dir)
+        for template in templates:
+            target_name = template.replace('.j2', '')
+            if target_name.startswith('travis'):
+                target_name = '.' + target_name
+            if target_name.startswith('defaults') or target_name.startswith('meta'):
+                target_name = 'main.yml'
+            if not os.path.exists(os.path.join(target_dir, target_name)):
+                logger.debug("Rendering template for %s/%s" % (target_dir, template))
+                jinja_render_to_temp('role/%s' % template,
+                                     target_dir,
+                                     target_name,
+                                     **context)
+
+    new_file_name = "main_{}.yml".format(datetime.today().strftime('%y%m%d%H%M%S'))
+    new_tasks_file = os.path.join(role_path, 'tasks', new_file_name)
+    tasks_file = os.path.join(role_path, 'tasks', 'main.yml')
+
+    if os.path.exists(tasks_file):
+        logger.debug("Backing up tasks/main.yml to {}".format(new_file_name))
+        os.rename(tasks_file, new_tasks_file)

@@ -174,12 +174,11 @@ def subcmd_install_parser(parser, subparser):
     subparser.add_argument('roles', nargs='+', action='store')
 
 def subcmd_import_parser(parser, subparser):
-    subparser.add_argument('--dockerfile', action='store',
-                           help=u"Name of the file to import. Defaults to 'Dockerfile'.",
-                           dest='dockerfile_name', default='Dockerfile')
-    subparser.add_argument('--project-name', action='store',
-                           help=u"Provide a project name. Defaults to the base name of project path.",
-                           dest='project_name', default=None)
+    # Commenting out until we can solidify the "import" interface
+    #subparser.add_argument('--dockerfile', action='store',
+    #                       help=u"Name of the file to import. Defaults to 'Dockerfile'.",
+    #                       dest='dockerfile_name', default='Dockerfile')
+    pass
 
 def commandline():
     parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '

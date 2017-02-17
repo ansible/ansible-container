@@ -1,19 +1,23 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
-
-import json
 import logging
-import os
-import re
-
-import ruamel.yaml
-from ruamel.yaml.comments import CommentedMap
-
-from .utils import create_role_from_templates
-from .exceptions import AnsibleContainerException
 
 logger = logging.getLogger(__name__)
 
+import json
+import os
+import re
+
+try:
+    import ruamel.yaml
+    from ruamel.yaml.comments import CommentedMap
+    from ruamel.yaml.error import Mark
+    from ruamel.yaml.tokens import CommentToken
+except ImportError:
+    raise ImportError('This engine requires you "pip install \'ruamel.yaml>=0.13.13\'" to import projects.')
+
+from ..utils import create_role_from_templates
+from ..exceptions import AnsibleContainerConductorException
 
 class DockerfileImport(object):
     base_path = None
@@ -24,11 +28,10 @@ class DockerfileImport(object):
     project_name = None
     role_path = None
 
-    def __init__(self, base_path, project_name, alternate_file_name):
+    def __init__(self, base_path, project_name):
         self.base_path = base_path
         self.project_name = project_name
-        self.alternate_file_name = alternate_file_name
-        file_name = self.alternate_file_name if self.alternate_file_name else u'Dockerfile'
+        file_name = u'Dockerfile'
         self.docker_file_path = os.path.normpath(os.path.join(self.base_path, file_name))
         self.role_path = os.path.normpath(os.path.join(self.base_path, u'roles', self.project_name))
 
@@ -37,7 +40,8 @@ class DockerfileImport(object):
 
     def assert_dockerfile_exists(self):
         if not os.path.exists(self.docker_file_path):
-            raise AnsibleContainerException(u"Failed to find {}".format(self.docker_file_path))
+            raise AnsibleContainerConductorException(u"Failed to find %s",
+                                                     self.docker_file_path)
 
     @property
     def lines(self):
@@ -317,7 +321,7 @@ class DockerfileImport(object):
                                          default_flow_style=False,
                                          )
         except Exception:
-            raise AnsibleContainerException(u'Error: Failed to write {}'.format(main_yml))
+            raise AnsibleContainerConductorException(u'Error: Failed to write %s', main_yml)
 
         with open(main_yml, u'w') as f:
             f.write(re.sub(ur'^-', u'\n-', task_yaml, flags=re.M))
@@ -398,8 +402,6 @@ def yscbak(self, key, before=None, indent=0, after=None, after_indent=None):
       https://bitbucket.org/ruamel/yaml/src/46689251cce58a4331a8674d14ef94c6db1e96e2/comments.py?at=default&fileviewer=file-view-default#comments.py-201
 
     """
-    from ruamel.yaml.error import Mark
-    from ruamel.yaml.tokens import CommentToken
 
     def comment_token(s, mark):
         # handle empty lines as having no comment

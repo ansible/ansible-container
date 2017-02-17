@@ -11,17 +11,17 @@ import tarfile
 import json
 import base64
 import functools
-import threading
 
 from ..engine import BaseEngine
 from .. import utils
 from .. import logmux
+from .importer import DockerfileImport
 
 try:
     import docker
     from docker import errors as docker_errors
 except ImportError:
-    raise ImportError('Use of the Docker™ engine requires the docker-py module.')
+    raise ImportError('Use of this engine requires you "pip install \'docker>=2.1\'" first.')
 
 TEMPLATES_PATH = os.path.normpath(
     os.path.join(
@@ -307,6 +307,7 @@ class Engine(BaseEngine):
             tarball_file.close()
             tarball_file = open(tarball_path, 'rb')
             logger.info('Starting Docker build of Ansible Container Conductor image (please be patient)...')
+            # FIXME: Error out properly if build of conductor fails.
             if self.debug:
                 for line in self.client.api.build(fileobj=tarball_file,
                                                   custom_context=True,
@@ -343,3 +344,15 @@ class Engine(BaseEngine):
             raise ValueError('Runtime volume not found on Conductor')
         return usr_mount['Name']
 
+    def import_project(self, base_path):
+        dfi = DockerfileImport(base_path,
+                               self.project_name)
+        dfi.assert_dockerfile_exists()
+        dfi.create_role_template()
+        dfi.add_role_tasks()
+
+        logger.debug(json.dumps(dfi.environment_vars))
+        logger.debug("workdir: {}".format(dfi.workdir))
+
+        # TODO
+        # dfi.create_container_yaml()

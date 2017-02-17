@@ -19,8 +19,8 @@ from six.moves.urllib.parse import urljoin
 
 from .exceptions import AnsibleContainerAlreadyInitializedException, \
                         AnsibleContainerRegistryAttributeException, \
-                        AnsibleContainerHostNotTouchedByPlaybook
-from .dockerfile_import import DockerfileImport
+                        AnsibleContainerHostNotTouchedByPlaybook, \
+                        AnsibleContainerException
 from .utils import *
 from . import __version__
 from .conductor.loader import load_engine
@@ -358,22 +358,27 @@ def cmdrun_init(base_path, project=None, **kwargs):
         logger.info('Ansible Container initialized.')
 
 
-def cmdrun_build(base_path, project_name, engine_name, **kwargs):
-    config = get_config(base_path, var_file=kwargs['var_file'])
-
-    engine_obj = load_engine(engine_name, project_name or os.path.basename(base_path),
+def cmdrun_build(base_path, project_name, engine_name, var_file=None, cache=True,
+                 **kwargs):
+    config = get_config(base_path, var_file=var_file)
+    engine_obj = load_engine(['BUILD'],
+                             engine_name, project_name or os.path.basename(base_path),
                              config['services'], **kwargs)
 
     conductor_container_id = engine_obj.get_container_id_for_service('conductor')
     if engine_obj.service_is_running('conductor'):
         engine_obj.stop_container(conductor_container_id, forcefully=True)
 
-    if engine_obj.CAP_BUILD_CONDUCTOR and not kwargs['devel']:
-        conductor_img_id = engine_obj.build_conductor_image(
-            base_path,
-            (config['settings'] or {}).get('conductor_base', DEFAULT_CONDUCTOR_BASE),
-            cache=kwargs['cache']
-        )
+    if not kwargs.get('devel'):
+        if engine_obj.CAP_BUILD_CONDUCTOR:
+            conductor_img_id = engine_obj.build_conductor_image(
+                base_path,
+                (config['settings'] or {}).get('conductor_base', DEFAULT_CONDUCTOR_BASE),
+                cache=cache
+            )
+        else:
+            logger.warning(u'%s does not support building the Conductor image.',
+                           engine_obj.display_name)
 
     if conductor_container_id:
         engine_obj.delete_container(conductor_container_id)
@@ -528,22 +533,13 @@ def cmdrun_version(base_path, engine_name, debug=False, **kwargs):
         engine_obj = load_engine(**engine_args)
         engine_obj.print_version_info()
 
-def cmdrun_import(base_path, dockerfile_name=None, project_name=None, **kwargs):
-    if not project_name:
-        project_name = os.path.basename(base_path).lower()
+def cmdrun_import(base_path, project_name, engine_name, **kwargs):
+    engine_obj = load_engine(['IMPORT'],
+                             engine_name, project_name or os.path.basename(base_path),
+                             {}, **kwargs)
 
-    dfi = DockerfileImport(base_path,
-                                project_name,
-                                dockerfile_name)
-    dfi.assert_dockerfile_exists()
-    dfi.create_role_template()
-    dfi.add_role_tasks()
-
-    logger.debug(json.dumps(dfi.environment_vars))
-    logger.debug("workdir: {}".format(dfi.workdir))
-
-    # TODO
-    # dfi.create_container_yaml()
+    engine_obj.import_project(base_path, **kwargs)
+    logger.info('Project imported.')
 
 def create_build_container(container_engine_obj, base_path):
     assert_initialized(base_path)
