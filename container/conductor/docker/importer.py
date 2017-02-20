@@ -7,6 +7,12 @@ logger = logging.getLogger(__name__)
 import json
 import os
 import re
+import itertools
+import subprocess
+import shlex
+import urlparse
+import tarfile
+import glob
 
 try:
     import ruamel.yaml
@@ -19,42 +25,309 @@ except ImportError:
 from ..utils import create_role_from_templates
 from ..exceptions import AnsibleContainerConductorException
 
-class DockerfileImport(object):
+# Known issues:
+# * In a Dockerfile, ENV and ARG params don't apply to directives before their
+#   declaration. In our importer, they do.
+# * We try to split multi-command RUN into multiple tasks. This only works if
+#   the Dockerfile is reasonably well formed.
+
+class CommentableObject(object):
+    comments = []
+
+    def __init__(self, obj, comments):
+        self.__obj__ = obj
+        self.comments = comments
+
+    def __getattr__(self, key):
+        if key in ['comments', '__obj__']:
+            return super(CommentableObject, self).__getattr__(key)
+        return getattr(self.__obj__, key)
+
+    def __setattr__(self, key, value):
+        if key in ['comments', '__obj__']:
+            return super(CommentableObject, self).__setattr__(key, value)
+        return setattr(self.__obj__, key, value)
+
+
+class DockerfileParser(object):
+    escape_char = u'\\'
     base_path = None
-    alternate_file_name = None
     docker_file_path = None
-    dockerfile = {}
-    cached_instructions = None
-    project_name = None
-    role_path = None
+    environment = {}
+    variables = {}
+    meta = {}
+    shell = None
+    user = None
+    working_dir = None
+
+    # These directives support JSON arrays as arguments
+    supports_json = {
+        'RUN',
+        'CMD',
+        'ADD',
+        'COPY',
+        'ENTRYPOINT',
+        'VOLUME',
+        'SHELL',
+    }
+
+    # These directives support environment variable substitution
+    supports_env = {
+        'ADD',
+        'COPY',
+        'ENV',
+        'EXPOSE',
+        'LABEL',
+        'USER',
+        'WORKDIR',
+        'VOLUME',
+        'STOPSIGNAL',
+        'ONBUILD'
+    }
 
     def __init__(self, base_path, project_name):
         self.base_path = base_path
         self.project_name = project_name
         file_name = u'Dockerfile'
-        self.docker_file_path = os.path.normpath(os.path.join(self.base_path, file_name))
-        self.role_path = os.path.normpath(os.path.join(self.base_path, u'roles', self.project_name))
-
-        if not hasattr(CommentedMap, 'yaml_set_comment_before_after_key'):
-            CommentedMap.yaml_set_comment_before_after_key = yscbak
+        self.docker_file_path = os.path.normpath(os.path.join(self.base_path,
+                                                              file_name))
+        self.role_path = os.path.normpath(os.path.join(self.base_path,
+                                                       u'roles',
+                                                       self.project_name))
 
     def assert_dockerfile_exists(self):
         if not os.path.exists(self.docker_file_path):
             raise AnsibleContainerConductorException(u"Failed to find %s",
                                                      self.docker_file_path)
 
-    @property
-    def lines(self):
+    def lines_iter(self):
         '''
         Returns contents of the Dockerfile as an array, where each line in the file is an element in the array.
         :return: list
         '''
         # Convert unicode chars to string
-        byte_to_string = lambda x: x.decode(u'utf-8') if isinstance(x, bytes) else x
+        byte_to_string = lambda x: x.strip().decode(u'utf-8') if isinstance(x, bytes) else x.strip()
 
         # Read the entire contents of the Dockerfile, decoding each line, and return the result as an array
         with open(self.docker_file_path, u'r') as f:
-            return [byte_to_string(line) for line in f.readlines()]
+            return itertools.imap(byte_to_string, f)
+
+    def preparse_iter(self):
+        """
+        Comments can be anywhere. So break apart the Dockerfile into significant
+        lines and any comments that precede them. And if a line is a carryover
+        from the previous via an escaped-newline, bring the directive with it.
+        """
+        to_yield = {}
+        last_directive = None
+        lines_processed = 0
+        for line in self.lines_iter():
+            if not line:
+                continue
+            if line.startswith(u'#'):
+                comment = line.lstrip('#').strip()
+                # Directives have to precede any instructions
+                if lines_processed == 1:
+                    if comment.startswith(u'escape='):
+                        self.escape_char = comment.split(u'=', 1)[1]
+                        continue
+                to_yield.setdefault('comments', []).append(comment)
+            else:
+                # last_directive being set means the previous line ended with a
+                # newline escape
+                if last_directive:
+                    directive, payload = last_directive, line
+                else:
+                    directive, payload = line.split(u' ', 1)
+                if line.endswith(self.escape_char):
+                    payload = payload.rstrip(self.escape_char)
+                    last_directive = directive
+                else:
+                    last_directive = None
+                to_yield['directive'] = directive
+                to_yield['payload'] = payload.strip()
+                yield to_yield
+                to_yield = {}
+
+    def instruction_iter(self):
+        lines = self.lines_iter()
+        lines_processed = 0
+        for preparsed in self.preparse_iter():
+            if preparsed['directive'] in self.supports_json:
+                try:
+                    payload = json.loads(preparsed['payload'])
+                except ValueError:
+                    payload = preparsed['payload']
+            else:
+                payload = preparsed['payload']
+            payload_processor = getattr(self, 'parse_%s' % (preparsed['directive']))
+            for instruction in payload_processor(payload,
+                                                 comments=preparsed.get('comments', [])):
+                yield instruction
+
+    @staticmethod
+    def _simple_meta_parser(meta_key):
+        def __wrapped__(self, payload, comments):
+            self.meta[meta_key] = CommentableObject(payload, comments)
+            return []
+        return __wrapped__
+
+    parse_FROM = _simple_meta_parser('from')
+
+    def parse_RUN(self, payload, comments):
+        task = {}
+        if isinstance(payload, list):
+            task['command'] = subprocess.list2cmdline(payload)
+        else:
+            task['shell'] = payload.rstrip(u';').rstrip(u'&&')
+            if self.shell:
+                task['args']['executable'] = self.shell
+        if comments:
+            task['name'] = u' '.join(comments)
+        if self.user:
+            task['remote_user'] = self.user
+        if self.working_dir:
+            task['args']['chdir'] = self.working_dir
+        return [task]
+
+    parse_CMD = _simple_meta_parser('command')
+
+    def parse_LABEL(self, payload, comments):
+        kv_pairs = shlex.split(payload)
+        for k, v in [kv.split('=', 1) for kv in kv_pairs]:
+            self.meta.setdefault('labels', CommentableObject({}, comments))[k] = v
+        return []
+
+    parse_MAINTAINER = _simple_meta_parser('maintainer')
+
+    def parse_EXPOSE(self, payload, comments):
+        ports = payload.split(' ')
+        self.meta.setdefault('ports', CommentableObject([], comments)).extend(ports)
+        return []
+
+    def parse_ENV(self, payload, comments):
+        kv_parts = shlex.split(payload)
+        # It's possible this is a single environment variable being set using
+        # the syntax that doesn't require an = sign
+        if len(kv_parts) == 2 and u'=' not in payload:
+            k, v = kv_parts
+            self.meta.setdefault('environment', {})[k] = CommentableObject(v, comments)
+        else:
+            kv_dict = {k: v for k, v in [part.split(u'=', 1) for part in kv_parts]}
+            self.meta.setdefault('environment', CommentableObject({}, comments)).update(kv_dict)
+        return []
+
+    def parse_ADD(self, payload, comments, url_and_tarball=True):
+        if isinstance(payload, list):
+            dest = payload.pop()
+            src_list = payload
+        else:
+            _src, dest = payload.split(u' ', 1)
+            src_list = [_src]
+
+        tasks = []
+        # ADD ensures the dest path exists
+        dest_path = os.path.dirname(dest)
+        tasks.append(
+            {'name': u'Ensure %s exists' % dest_path,
+             'file': {'path': dest_path,
+                      'state': 'directory'}}
+        )
+
+        for src_spec in src_list:
+            # ADD src can be a URL - look for a scheme
+            if url_and_tarball and urlparse.urlparse(src_spec).scheme in ['http', 'https']:
+                task = {'get_url': {'url': src_spec, 'dest': dest, 'mode': 0600}}
+                if comments:
+                    task['name'] = u' '.join(comments)
+                tasks.append(task)
+            else:
+                real_path = os.path.join(self.base_path, src_spec)
+                if url_and_tarball:
+                    # ADD src can be a tarfile
+                    try:
+                        _ = tarfile.open(real_path, mode='r:*')
+                    except tarfile.ReadError:
+                        # Not a tarfile.
+                        task = {'copy': {'src': src_spec,
+                                         'dest': dest}}
+                        if comments:
+                            task['name'] = u' '.join(comments)
+                        tasks.append(task)
+                else:
+                    # path specifiers can be fnmatch expressions, so use glob
+                    for abs_src in glob.iglob(real_path):
+                        src = os.path.relpath(abs_src, self.base_path)
+
+                        if os.path.isdir(real_path):
+                            task = {'synchronize': {'src': src,
+                                                    'dest': dest,
+                                                    'recursive': 'yes'}}
+                        elif os.path.isfile(real_path):
+                            task = {'unarchive': {'src': src,
+                                                  'dest': dest}}
+                        else:
+                            continue
+                    if comments:
+                        task['name'] = u' '.join(comments + [u'(%s)' % src])
+                    tasks.append(task)
+        for task in tasks:
+            if self.user:
+                task['remote_user'] = self.user
+        return tasks
+
+    def parse_COPY(self, payload, comments):
+        return self.parse_ADD(payload, comments=comments, url_and_tarball=False)
+
+    parse_ENTRYPOINT = _simple_meta_parser('entrypoint')
+
+    def parse_VOLUME(self, payload, comments):
+        if not isinstance(payload, list):
+            payload = payload.split(u' ')
+        self.meta['volumes'] = CommentableObject(payload, comments)
+
+    def parse_USER(self, payload, comments):
+        self.meta['user'] = CommentableObject(payload, comments)
+        self.user = payload
+        return []
+
+    def parse_WORKDIR(self, payload, comments):
+        self.meta['working_dir'] = CommentableObject(payload, comments)
+        self.working_dir = payload
+        return []
+
+    def parse_ARG(self, payload, comments):
+        # ARG can either be set with a default or not
+        if u'=' in payload:
+            arg, default = payload.split(u'=', 1)
+        else:
+            arg, default = payload, u'~'
+        self.variables[arg] = CommentableObject(default, comments)
+
+    parse_ONBUILD = _simple_meta_parser('onbuild')
+
+    parse_STOPSIGNAL = _simple_meta_parser('stop_signal')
+
+    parse_HEALTHCHECK = _simple_meta_parser('healthcheck')
+
+    def parse_SHELL(self, payload, comments):
+        self.meta['shell'] = CommentableObject(payload, comments)
+        self.shell = payload
+        return []
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     @property
     def instructions(self):
@@ -141,6 +414,12 @@ class DockerfileImport(object):
                 instructions.append(instruction)
         self.cached_instructions = instructions
         return instructions
+
+class DockerfileImport(object):
+    dockerfile = {}
+    cached_instructions = None
+    project_name = None
+    role_path = None
 
     @property
     def environment_vars(self):
