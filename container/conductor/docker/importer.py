@@ -30,28 +30,28 @@ from ..exceptions import AnsibleContainerConductorException
 #   declaration. In our importer, they do.
 # * We try to split multi-command RUN into multiple tasks. This only works if
 #   the Dockerfile is reasonably well formed.
-
-class CommentableObject(object):
+class CommentableDict(dict):
     comments = []
-
     def __init__(self, obj, comments):
-        self.__obj__ = obj
         self.comments = comments
+        super(CommentableDict, self).__init__(obj)
 
-    def __getattr__(self, key):
-        if key in ['comments', '__obj__']:
-            return super(CommentableObject, self).__getattr__(key)
-        return getattr(self.__obj__, key)
+class CommentableList(list):
+    comments = []
+    def __init__(self, obj, comments):
+        self.comments = comments
+        super(CommentableList, self).__init__(obj)
 
-    def __setattr__(self, key, value):
-        if key in ['comments', '__obj__']:
-            return super(CommentableObject, self).__setattr__(key, value)
-        return setattr(self.__obj__, key, value)
+class CommentableString(basestring):
+    comments = []
+    def __init__(self, obj, comments):
+        self.comments = comments
+        super(CommentableString, self).__init__(obj)
 
 
 class DockerfileParser(object):
     escape_char = u'\\'
-    base_path = None
+    path = None
     docker_file_path = None
     environment = {}
     variables = {}
@@ -85,15 +85,11 @@ class DockerfileParser(object):
         'ONBUILD'
     }
 
-    def __init__(self, base_path, project_name):
-        self.base_path = base_path
-        self.project_name = project_name
+    def __init__(self, path):
+        self.path = path
         file_name = u'Dockerfile'
-        self.docker_file_path = os.path.normpath(os.path.join(self.base_path,
+        self.docker_file_path = os.path.normpath(os.path.join(self.path,
                                                               file_name))
-        self.role_path = os.path.normpath(os.path.join(self.base_path,
-                                                       u'roles',
-                                                       self.project_name))
 
     def assert_dockerfile_exists(self):
         if not os.path.exists(self.docker_file_path):
@@ -149,26 +145,72 @@ class DockerfileParser(object):
                 yield to_yield
                 to_yield = {}
 
-    def instruction_iter(self):
+    def __iter__(self):
         lines = self.lines_iter()
         lines_processed = 0
         for preparsed in self.preparse_iter():
-            if preparsed['directive'] in self.supports_json:
+            directive = preparsed['directive']
+            if directive in self.supports_json:
                 try:
                     payload = json.loads(preparsed['payload'])
                 except ValueError:
                     payload = preparsed['payload']
             else:
                 payload = preparsed['payload']
-            payload_processor = getattr(self, 'parse_%s' % (preparsed['directive']))
-            for instruction in payload_processor(payload,
-                                                 comments=preparsed.get('comments', [])):
-                yield instruction
+            payload_processor = getattr(self, 'parse_%s' % (directive,))
+
+            if directive in self.supports_env:
+                if isinstance(payload, list):
+                    payload = [self.do_variable_syntax_substitution(s)
+                               for s in payload]
+                else:
+                    payload = self.do_variable_syntax_substitution(s)
+
+            for task in payload_processor(payload,
+                                          comments=preparsed.get('comments', [])):
+                yield task
+
+    PLAIN_VARIABLE_RE = ur'(?<!\\)\$(?P<var>[a-zA-Z_]\w*)'
+    BRACED_VARIABLE_RE = ur'(?<!\\)\$\{(?P<var>[a-zA-Z_]\w*)\}'
+    DEFAULT_VARIABLE_RE = ur'(?<!\\)\$\{(?P<var>[a-zA-Z_]\w*):(?P<plus_minus>[+-])(?P<default>\}'
+
+    def do_variable_syntax_substitution(self, string):
+        def simple_variable_sub(match_obj):
+            var_name = match_obj.group('var')
+            if var_name in self.environment:
+                return u"{{ lookup('env', '%s') }}" % var_name
+            else:
+                return u"{{ %s }}" % var_name
+        string = self.PLAIN_VARIABLE_RE.sub(simple_variable_sub, string)
+        string = self.BRACED_VARIABLE_RE.sub(simple_variable_sub, string)
+
+        def default_variable_sub(match_obj):
+            var_name = match_obj.group('var')
+            default = match_obj.group('default')
+            if var_name in self.environment:
+                var_string = "lookup('env', '%s')" % var_name
+            else:
+                var_string = var_name
+            if match_obj.group('plus_minus') == '-':
+                # Use the default as a default
+                return u"{{ %s | default('%s') }}" % (var_string, default)
+            else:
+                # If the variable is defined, use the default else blank
+                return u"{{ %s | defined | ternary('%s', '') }}" % (var_string,
+                                                                    default)
+        string = self.DEFAULT_VARIABLE_RE.sub(default_variable_sub, string)
+        return string
+
 
     @staticmethod
     def _simple_meta_parser(meta_key):
         def __wrapped__(self, payload, comments):
-            self.meta[meta_key] = CommentableObject(payload, comments)
+            if isinstance(payload, list):
+                self.meta[meta_key] = CommentableList(payload, comments)
+            elif isinstance(payload, dict):
+                self.meta[meta_key] = CommentableDict(payload, comments)
+            else:
+                self.meta[meta_key] = CommentableString(payload, comments)
             return []
         return __wrapped__
 
@@ -195,14 +237,14 @@ class DockerfileParser(object):
     def parse_LABEL(self, payload, comments):
         kv_pairs = shlex.split(payload)
         for k, v in [kv.split('=', 1) for kv in kv_pairs]:
-            self.meta.setdefault('labels', CommentableObject({}, comments))[k] = v
+            self.meta.setdefault('labels', CommentableDict({}, comments))[k] = v
         return []
 
     parse_MAINTAINER = _simple_meta_parser('maintainer')
 
     def parse_EXPOSE(self, payload, comments):
         ports = payload.split(' ')
-        self.meta.setdefault('ports', CommentableObject([], comments)).extend(ports)
+        self.meta.setdefault('ports', CommentableList([], comments)).extend(ports)
         return []
 
     def parse_ENV(self, payload, comments):
@@ -211,10 +253,10 @@ class DockerfileParser(object):
         # the syntax that doesn't require an = sign
         if len(kv_parts) == 2 and u'=' not in payload:
             k, v = kv_parts
-            self.meta.setdefault('environment', {})[k] = CommentableObject(v, comments)
+            self.meta.setdefault('environment', {})[k] = CommentableString(v, comments)
         else:
             kv_dict = {k: v for k, v in [part.split(u'=', 1) for part in kv_parts]}
-            self.meta.setdefault('environment', CommentableObject({}, comments)).update(kv_dict)
+            self.meta.setdefault('environment', CommentableDict({}, comments)).update(kv_dict)
         return []
 
     def parse_ADD(self, payload, comments, url_and_tarball=True):
@@ -242,7 +284,7 @@ class DockerfileParser(object):
                     task['name'] = u' '.join(comments)
                 tasks.append(task)
             else:
-                real_path = os.path.join(self.base_path, src_spec)
+                real_path = os.path.join(self.path, src_spec)
                 if url_and_tarball:
                     # ADD src can be a tarfile
                     try:
@@ -257,7 +299,7 @@ class DockerfileParser(object):
                 else:
                     # path specifiers can be fnmatch expressions, so use glob
                     for abs_src in glob.iglob(real_path):
-                        src = os.path.relpath(abs_src, self.base_path)
+                        src = os.path.relpath(abs_src, self.path)
 
                         if os.path.isdir(real_path):
                             task = {'synchronize': {'src': src,
@@ -284,15 +326,15 @@ class DockerfileParser(object):
     def parse_VOLUME(self, payload, comments):
         if not isinstance(payload, list):
             payload = payload.split(u' ')
-        self.meta['volumes'] = CommentableObject(payload, comments)
+        self.meta['volumes'] = CommentableList(payload, comments)
 
     def parse_USER(self, payload, comments):
-        self.meta['user'] = CommentableObject(payload, comments)
+        self.meta['user'] = CommentableString(payload, comments)
         self.user = payload
         return []
 
     def parse_WORKDIR(self, payload, comments):
-        self.meta['working_dir'] = CommentableObject(payload, comments)
+        self.meta['working_dir'] = CommentableString(payload, comments)
         self.working_dir = payload
         return []
 
@@ -302,7 +344,7 @@ class DockerfileParser(object):
             arg, default = payload.split(u'=', 1)
         else:
             arg, default = payload, u'~'
-        self.variables[arg] = CommentableObject(default, comments)
+        self.variables[arg] = CommentableString(default, comments)
 
     parse_ONBUILD = _simple_meta_parser('onbuild')
 
@@ -311,172 +353,35 @@ class DockerfileParser(object):
     parse_HEALTHCHECK = _simple_meta_parser('healthcheck')
 
     def parse_SHELL(self, payload, comments):
-        self.meta['shell'] = CommentableObject(payload, comments)
+        self.meta['shell'] = CommentableList(payload, comments)
         self.shell = payload
         return []
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-    @property
-    def instructions(self):
-        '''
-        Evaluate self.lines, and return a list of instructions, where each instructions is a dict containing
-        command (e.g. RUN, ADD, CMD, etc.), content (the original line), and the command parameters as value.
-        :return: list
-        '''
-
-        if self.cached_instructions:
-            # If we've already ben here, just return the cached data
-            return self.cached_instructions
-
-        # Strip white space, and the line continuation char
-        strip_line = lambda x: re.sub(ur'\\$', '', x.strip())
-
-        # Remove inline comment
-        strip_comment = lambda x: re.sub(ur'#.*$', '', x)
-
-        command_re = re.compile(ur'^\s*(\w+)\s+(.*)$')  # line contains an instructions (.e.g. RUN, CMD, ADD, etc.)
-        continues_re = re.compile(ur'^.*\\\s*$')        # contains a continuation char
-        inline_comment_re = re.compile(ur'#(.*)')       # comment appears inline with the instruction
-        comment_re = re.compile(ur'^\s*#')              # line starts with a comment
-        array_re = re.compile(ur'^\[(.*)\]$')           # contains an array []
-        quote_re = re.compile(ur'^\"(.*)\"$')           # contains ""
-
-        continuation = False
-        instructions = []
-        comments = []
-
-        for line in self.lines:
-            if comment_re.match(line):
-                # Capture comments preceding an instruction
-                comments.append(strip_line(re.sub(ur'^\s*#', '', line)))
-                continue
-
-            if not continuation:
-                # Detected a new instruction
-                matches = command_re.match(line)
-                if not matches:
-                    continue
-
-                instruction = {u'command': matches.groups()[0].upper(),
-                               u'content': strip_line(strip_comment(matches.groups()[1])),
-                               u'value': '',
-                               u'preceding_comments': comments[:],
-                               u'inline_comment': ''
-                               }
-
-                inline_comment = inline_comment_re.search(line)
-                if inline_comment:
-                    instruction['inline_comment'] = strip_line(' '.join(inline_comment.groups()))
-
-                comments = []
-            else:
-                # Detected a line continuation on the prior iteration, so still in the same instruction.
-                if instruction[u'content']:
-                    instruction[u'content'] += strip_line(line)
-                else:
-                    instruction[u'content'] = strip_line(line)
-
-            # Does the current instruction contain a continuation char?
-            continuation = continues_re.match(line)
-            if instruction and not continuation:
-                # We have an instruction dict, and the current line does not have a continuation char.
-                clean_values = []
-                if instruction[u'command'] == u'RUN':
-                    clean_values = [c.strip() for c in instruction[u'content'].split(u'&&')]
-                else:
-                    # If the instruction is not a RUN command, it may contain an array wrapped in double quotes.
-                    # In which case, the following will turn it into an actual array.
-                    matches = array_re.match(instruction[u'content'])
-                    if matches:
-                        values = matches.groups()[0].split(u',')
-                    else:
-                        values = [instruction[u'content']]
-                    for value in values:
-                        matches = quote_re.match(value.strip())
-                        if matches:
-                            clean_values.append(matches.groups()[0])
-                        else:
-                            clean_values.append(value)
-                instruction[u'value'] = clean_values if len(clean_values) > 1 else clean_values[0]
-                instructions.append(instruction)
-        self.cached_instructions = instructions
-        return instructions
-
 class DockerfileImport(object):
-    dockerfile = {}
-    cached_instructions = None
     project_name = None
-    role_path = None
+    import_from = None
+    base_path = None
+
+    def __init__(self, base_path, project_name, import_from):
+        # The path to write the Ansible Container project to
+        self.base_path = base_path
+        # The name of the Ansible Container project
+        self.project_name = project_name
+        # The path containing the Dockerfile and build context
+        self.import_from = import_from
+
 
     @property
-    def environment_vars(self):
-        '''
-        Find the ENV instructions, and parse all environment variables. The ENV command can take on
-        the following forms:
-            ENV foo=bar myName=John\ Doe yourName="Berry Small"
-            ENV foo bar
-        Attempts to parse both styles, accounting for quotes and escaped spaces in the value.
-
-        :return: dict of key:value pairs
-        '''
-        envs = []
-        var_dict = {}
-        quoted_vars = re.compile(r'\w+=[\'\"][\w \\]+[\'\"]')        # myName="John Doe"
-        escaped_vars = re.compile(r'(\w+=(?:\w+\\ )+(?:\w+[$ ]))')   # myName=John\ Doe
-        regular_vars = re.compile(r'(\w+=\w+(?: |$))')               # myName=john_doe
-        single_var = re.compile(r'(\w+)\s([\w+ ]*$)')                # myName John Doe
-        for instruction in self.instructions:
-            if instruction['command'] == 'ENV':
-                if '=' in instruction['value']:
-                    # Style is: ENV foo=bar myName=John\ Doe yourName="Berry Small"
-                    envs += quoted_vars.findall(instruction['value'])
-                    envs += escaped_vars.findall(instruction['value'])
-                    envs += regular_vars.findall(instruction['value'])
-                else:
-                    # Style is: myName John Doe
-                    # Find the key and value, and append to the list as "key=value"
-                    key, value = single_var.findall(instruction['value'])[0]
-                    envs.append("{0}={1}".format(key, value))
-        for env in envs:
-            key, value = env.split('=')
-            var_dict[key.strip()] = re.sub(r'[\'\"\\]', '', value.strip())
-        return var_dict
-
-    @property
-    def workdir(self):
-        # TODO  Test that this returns expecting workdir 
-        # TODO  Perform environment variable substitution when workdir contains one or more $VAR or ${VAR} 
-        workdir = ''
-        for instruction in self.instructions:
-            if instruction['command'] == 'WORDIR':
-                if not workdir:
-                    workdir = instruction['value']
-                elif workdir:
-                    if re.match(r'^/', instruction['value']):
-                        # This subsequent workdir is not relative to the prior wordir
-                        workdir = instruction['value']
-                    else:
-                        os.path.join(workdir, instruction['value'])
+    def role_path(self):
+        return os.path.join(self.base_path, 'roles', self.project_name)
 
     def create_role_template(self):
         '''
         Create roles/dockerfile-to-ansible path and role structure.
         :return: None
         '''
-        description = u"Execute tasks found in the original Dockerfile for {}".format(self.project_name)
+        description = u"Imported Dockerfile for {}".format(self.project_name)
 
         create_role_from_templates(role_name=self.project_name,
                                    role_path=self.role_path,

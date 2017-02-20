@@ -13,6 +13,7 @@ from datetime import datetime
 
 from jinja2 import Environment, FileSystemLoader
 
+from .exceptions import AnsibleContainerConductorException
 
 class MakeTempDir(object):
     temp_dir = None
@@ -105,7 +106,18 @@ def metadata_to_image_config(metadata):
     return config
 
 
-def create_role_from_templates(role_name=None, role_path=None, project_name=None, description=None):
+def create_path(path):
+    try:
+        os.makedirs(path)
+    except OSError:
+        pass
+    except Exception as exc:
+        raise AnsibleContainerConductorException(
+            u"Error: failed to create %s - %s" % (path, str(exc)))
+
+
+def create_role_from_templates(role_name=None, role_path=None,
+                               project_name=None, description=None):
     '''
     Create a new role with initial files from templates.
     :param role_name: Name of the role
