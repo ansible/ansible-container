@@ -20,10 +20,10 @@ MAINTAINER me
 
 EXPOSE 6379
 
-ARG ugly=ugly
+ARG intelligence=brilliant
 
-ENV yourmom fat
-ENV yoursister="${ugly}" yourdad="stupid"
+ENV yourmom accomplished
+ENV yoursister="${intelligence}" yourdad="noble"
 
 # Switch user to redis
 USER redis
