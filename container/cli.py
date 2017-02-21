@@ -178,7 +178,7 @@ def subcmd_import_parser(parser, subparser):
     #subparser.add_argument('--dockerfile', action='store',
     #                       help=u"Name of the file to import. Defaults to 'Dockerfile'.",
     #                       dest='dockerfile_name', default='Dockerfile')
-    subparser.add_argument('import_from', action='store', required=True,
+    subparser.add_argument('import_from', action='store',
                            help=u'Path to project/context to import.')
 
 def commandline():
