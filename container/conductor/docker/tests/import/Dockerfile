@@ -21,9 +21,12 @@ MAINTAINER me
 EXPOSE 6379
 
 ARG intelligence=brilliant
+ARG quality=noble
 
 ENV yourmom accomplished
-ENV yoursister="${intelligence}" yourdad="noble"
+# Test variable substitution
+ENV yoursister="${intelligence}" yourdad="$noble" \
+    yourdog="${dog_name:-Spot}"
 
 # Switch user to redis
 USER redis
@@ -41,7 +44,7 @@ ADD https://github.com/Yelp/dumb-init/releases/download/v1.2.0/dumb-init_1.2.0_a
 ADD one-fish.txt two-fish/ red-fish blue-fish.txt /etc/
 
 # Use dumb-init
-ENTRYPOINT ['/usr/bin/dumb-init']
+ENTRYPOINT ["/usr/bin/dumb-init"]
 
-VOLUME ['/var/lib/redis']
+VOLUME ["/var/lib/redis"]
 

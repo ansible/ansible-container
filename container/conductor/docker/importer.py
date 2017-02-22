@@ -7,7 +7,6 @@ logger = logging.getLogger(__name__)
 import json
 import os
 import re
-import itertools
 import subprocess
 import shlex
 import urlparse
@@ -16,11 +15,9 @@ import glob
 
 try:
     import ruamel.yaml
-    from ruamel.yaml.comments import CommentedMap
-    from ruamel.yaml.error import Mark
-    from ruamel.yaml.tokens import CommentToken
+    from ruamel.yaml.comments import CommentedMap, CommentedSeq
 except ImportError:
-    raise ImportError('This engine requires you "pip install \'ruamel.yaml>=0.13.13\'" to import projects.')
+    raise ImportError('This engine requires you "pip install \'ruamel.yaml>=0.13.14\'" to import projects.')
 
 from ..utils import create_role_from_templates
 from ..exceptions import AnsibleContainerConductorException
@@ -30,35 +27,23 @@ from ..exceptions import AnsibleContainerConductorException
 #   declaration. In our importer, they do.
 # * We try to split multi-command RUN into multiple tasks. This only works if
 #   the Dockerfile is reasonably well formed.
-class CommentableDict(dict):
-    comments = []
-    def __init__(self, obj, comments):
-        self.comments = comments
-        super(CommentableDict, self).__init__(obj)
 
-class CommentableList(list):
-    comments = []
-    def __init__(self, obj, comments):
-        self.comments = comments
-        super(CommentableList, self).__init__(obj)
-
-class CommentableString(basestring):
-    comments = []
-    def __init__(self, obj, comments):
-        self.comments = comments
-        super(CommentableString, self).__init__(obj)
+def _simple_meta_parser(meta_key):
+    def __wrapped__(self, payload, comments):
+        if isinstance(payload, list):
+            self.meta[meta_key] = CommentedSeq(payload)
+        elif isinstance(payload, dict):
+            self.meta[meta_key] = CommentedMap(payload.items())
+        if comments:
+            self.meta.yaml_set_comment_before_after_key(meta_key,
+                                                        before=u'\n'.join(comments))
+        return []
+    return __wrapped__
 
 
 class DockerfileParser(object):
-    escape_char = u'\\'
     path = None
     docker_file_path = None
-    environment = {}
-    variables = {}
-    meta = {}
-    shell = None
-    user = None
-    working_dir = None
 
     # These directives support JSON arrays as arguments
     supports_json = {
@@ -106,7 +91,8 @@ class DockerfileParser(object):
 
         # Read the entire contents of the Dockerfile, decoding each line, and return the result as an array
         with open(self.docker_file_path, u'r') as f:
-            return itertools.imap(byte_to_string, f)
+            for line in f:
+                yield byte_to_string(line)
 
     def preparse_iter(self):
         """
@@ -146,6 +132,13 @@ class DockerfileParser(object):
                 to_yield = {}
 
     def __iter__(self):
+        self.escape_char = u'\\'
+        self.variables = CommentedMap()
+        self.meta = CommentedMap()
+        self.shell = None
+        self.user = None
+        self.working_dir = None
+
         lines = self.lines_iter()
         lines_processed = 0
         for preparsed in self.preparse_iter():
@@ -164,20 +157,21 @@ class DockerfileParser(object):
                     payload = [self.do_variable_syntax_substitution(s)
                                for s in payload]
                 else:
-                    payload = self.do_variable_syntax_substitution(s)
+                    payload = self.do_variable_syntax_substitution(payload)
 
             for task in payload_processor(payload,
                                           comments=preparsed.get('comments', [])):
                 yield task
 
-    PLAIN_VARIABLE_RE = ur'(?<!\\)\$(?P<var>[a-zA-Z_]\w*)'
-    BRACED_VARIABLE_RE = ur'(?<!\\)\$\{(?P<var>[a-zA-Z_]\w*)\}'
-    DEFAULT_VARIABLE_RE = ur'(?<!\\)\$\{(?P<var>[a-zA-Z_]\w*):(?P<plus_minus>[+-])(?P<default>\}'
+    PLAIN_VARIABLE_RE = re.compile(ur'(?<!\\)\$(?P<var>[a-zA-Z_]\w*)')
+    BRACED_VARIABLE_RE = re.compile(ur'(?<!\\)\$\{(?P<var>[a-zA-Z_]\w*)\}')
+    DEFAULT_VARIABLE_RE = re.compile(ur'(?<!\\)\$\{(?P<var>[a-zA-Z_]\w*)'
+                                     ur':(?P<plus_minus>[+-])(?P<default>[^}]+)\}')
 
     def do_variable_syntax_substitution(self, string):
         def simple_variable_sub(match_obj):
             var_name = match_obj.group('var')
-            if var_name in self.environment:
+            if var_name in self.meta.get('environment', []):
                 return u"{{ lookup('env', '%s') }}" % var_name
             else:
                 return u"{{ %s }}" % var_name
@@ -187,7 +181,7 @@ class DockerfileParser(object):
         def default_variable_sub(match_obj):
             var_name = match_obj.group('var')
             default = match_obj.group('default')
-            if var_name in self.environment:
+            if var_name in self.meta.get('environment', []):
                 var_string = "lookup('env', '%s')" % var_name
             else:
                 var_string = var_name
@@ -201,50 +195,43 @@ class DockerfileParser(object):
         string = self.DEFAULT_VARIABLE_RE.sub(default_variable_sub, string)
         return string
 
-
-    @staticmethod
-    def _simple_meta_parser(meta_key):
-        def __wrapped__(self, payload, comments):
-            if isinstance(payload, list):
-                self.meta[meta_key] = CommentableList(payload, comments)
-            elif isinstance(payload, dict):
-                self.meta[meta_key] = CommentableDict(payload, comments)
-            else:
-                self.meta[meta_key] = CommentableString(payload, comments)
-            return []
-        return __wrapped__
-
     parse_FROM = _simple_meta_parser('from')
 
     def parse_RUN(self, payload, comments):
-        task = {}
+        task = CommentedMap()
+        if comments:
+            task['name'] = u' '.join(comments)
         if isinstance(payload, list):
             task['command'] = subprocess.list2cmdline(payload)
         else:
             task['shell'] = payload.rstrip(u';').rstrip(u'&&')
             if self.shell:
-                task['args']['executable'] = self.shell
-        if comments:
-            task['name'] = u' '.join(comments)
+                task.setdefault('args', {})['executable'] = self.shell
         if self.user:
             task['remote_user'] = self.user
         if self.working_dir:
-            task['args']['chdir'] = self.working_dir
+            task.setdefault('args', {})['chdir'] = self.working_dir
         return [task]
 
     parse_CMD = _simple_meta_parser('command')
 
     def parse_LABEL(self, payload, comments):
         kv_pairs = shlex.split(payload)
+        first = True
         for k, v in [kv.split('=', 1) for kv in kv_pairs]:
-            self.meta.setdefault('labels', CommentableDict({}, comments))[k] = v
+            self.meta.setdefault('labels', CommentedMap())[k] = v
+            if comments and first:
+                self.meta['labels'].yaml_set_comment_before_after_key(
+                    k, before=u'\n'.join(comments))
         return []
 
     parse_MAINTAINER = _simple_meta_parser('maintainer')
 
     def parse_EXPOSE(self, payload, comments):
         ports = payload.split(' ')
-        self.meta.setdefault('ports', CommentableList([], comments)).extend(ports)
+        self.meta.setdefault('ports', CommentedSeq()).extend(ports)
+        self.meta.yaml_set_comment_before_after_key('ports',
+                                                    before=u'\n'.join(comments))
         return []
 
     def parse_ENV(self, payload, comments):
@@ -253,10 +240,14 @@ class DockerfileParser(object):
         # the syntax that doesn't require an = sign
         if len(kv_parts) == 2 and u'=' not in payload:
             k, v = kv_parts
-            self.meta.setdefault('environment', {})[k] = CommentableString(v, comments)
+            self.meta.setdefault('environment', CommentedMap())[k] = v
+            self.meta['environment'].yaml_set_comment_before_after_key(k,
+                                                                       before=u'\n'.join(comments))
         else:
-            kv_dict = {k: v for k, v in [part.split(u'=', 1) for part in kv_parts]}
-            self.meta.setdefault('environment', CommentableDict({}, comments)).update(kv_dict)
+            kv_pairs = [part.split(u'=', 1) for part in kv_parts]
+            self.meta.setdefault('environment', CommentedMap()).update(kv_pairs)
+            self.meta['environment'].yaml_set_comment_before_after_key(kv_pairs[0][0],
+                                                                       before=u'\n'.join(comments))
         return []
 
     def parse_ADD(self, payload, comments, url_and_tarball=True):
@@ -267,21 +258,25 @@ class DockerfileParser(object):
             _src, dest = payload.split(u' ', 1)
             src_list = [_src]
 
-        tasks = []
+        tasks = CommentedSeq()
         # ADD ensures the dest path exists
         dest_path = os.path.dirname(dest)
         tasks.append(
-            {'name': u'Ensure %s exists' % dest_path,
-             'file': {'path': dest_path,
-                      'state': 'directory'}}
-        )
+            CommentedMap([
+                ('name', u'Ensure %s exists' % dest_path),
+                ('file', CommentedMap([
+                    ('path', dest_path),
+                    ('state', 'directory')]))
+        ]))
 
         for src_spec in src_list:
             # ADD src can be a URL - look for a scheme
             if url_and_tarball and urlparse.urlparse(src_spec).scheme in ['http', 'https']:
-                task = {'get_url': {'url': src_spec, 'dest': dest, 'mode': 0600}}
+                task = CommentedMap()
                 if comments:
                     task['name'] = u' '.join(comments)
+                task['get_url'] = CommentedMap([
+                    ('url', src_spec), ('dest', dest), ('mode', 0600)])
                 tasks.append(task)
             else:
                 real_path = os.path.join(self.path, src_spec)
@@ -291,28 +286,32 @@ class DockerfileParser(object):
                         _ = tarfile.open(real_path, mode='r:*')
                     except tarfile.ReadError:
                         # Not a tarfile.
-                        task = {'copy': {'src': src_spec,
-                                         'dest': dest}}
+                        task = CommentedMap()
                         if comments:
                             task['name'] = u' '.join(comments)
+                        task['copy'] = CommentedMap([
+                            ('src', src_spec),
+                            ('dest', dest)])
                         tasks.append(task)
                 else:
                     # path specifiers can be fnmatch expressions, so use glob
                     for abs_src in glob.iglob(real_path):
                         src = os.path.relpath(abs_src, self.path)
-
+                        task = CommentedMap()
+                        if comments:
+                            task['name'] = u' '.join(comments + [u'(%s)' % src])
                         if os.path.isdir(real_path):
-                            task = {'synchronize': {'src': src,
-                                                    'dest': dest,
-                                                    'recursive': 'yes'}}
+                            task['synchronize'] = CommentedMap([
+                                ('src', src),
+                                ('dest', dest),
+                                ('recursive', 'yes')])
                         elif os.path.isfile(real_path):
-                            task = {'unarchive': {'src': src,
-                                                  'dest': dest}}
+                            task['unarchive'] = CommentedMap([
+                                ('src', src),
+                                ('dest', dest)])
                         else:
                             continue
-                    if comments:
-                        task['name'] = u' '.join(comments + [u'(%s)' % src])
-                    tasks.append(task)
+                        tasks.append(task)
         for task in tasks:
             if self.user:
                 task['remote_user'] = self.user
@@ -326,15 +325,22 @@ class DockerfileParser(object):
     def parse_VOLUME(self, payload, comments):
         if not isinstance(payload, list):
             payload = payload.split(u' ')
-        self.meta['volumes'] = CommentableList(payload, comments)
+        self.meta.setdefault('volumes', CommentedSeq()).extend(payload)
+        self.meta.yaml_set_comment_before_after_key('volumes',
+                                                    u'\n'.join(comments))
+        return []
 
     def parse_USER(self, payload, comments):
-        self.meta['user'] = CommentableString(payload, comments)
+        self.meta['user'] = payload
+        self.meta.yaml_set_comment_before_after_key('user',
+                                                    before=u'\n'.join(comments))
         self.user = payload
         return []
 
     def parse_WORKDIR(self, payload, comments):
-        self.meta['working_dir'] = CommentableString(payload, comments)
+        self.meta['working_dir'] = payload
+        self.meta.yaml_set_comment_before_after_key('working_dir',
+                                                    u'\n'.join(comments))
         self.working_dir = payload
         return []
 
@@ -344,7 +350,10 @@ class DockerfileParser(object):
             arg, default = payload.split(u'=', 1)
         else:
             arg, default = payload, u'~'
-        self.variables[arg] = CommentableString(default, comments)
+        self.variables[arg] = default
+        self.variables.yaml_set_comment_before_after_key(arg,
+                                                         u'\n'.join(comments))
+        return []
 
     parse_ONBUILD = _simple_meta_parser('onbuild')
 
@@ -353,7 +362,9 @@ class DockerfileParser(object):
     parse_HEALTHCHECK = _simple_meta_parser('healthcheck')
 
     def parse_SHELL(self, payload, comments):
-        self.meta['shell'] = CommentableList(payload, comments)
+        self.meta['shell'] = CommentedSeq(payload)
+        self.meta.yaml_set_comment_before_after_key('shell',
+                                                    u'\n'.join(comments))
         self.shell = payload
         return []
 
