@@ -15,7 +15,7 @@ import functools
 from ..engine import BaseEngine
 from .. import utils
 from .. import logmux
-from ... import exceptions
+from .. import exceptions
 
 try:
     import docker
@@ -110,6 +110,10 @@ class Engine(BaseEngine):
     @log_runs
     def run_conductor(self, command, config, base_path, params):
         image_id = self.get_latest_image_id_for_service('conductor')
+        if image_id is None:
+            raise exceptions.AnsibleContainerConductorException(
+                    u"Conductor container can't be found. Run "
+                    u"`ansible-container build` first")
         serialized_params = base64.encodestring(json.dumps(params))
         serialized_config = base64.encodestring(json.dumps(config))
         volumes = {base_path: {'bind': '/src', 'mode': 'ro'}}
