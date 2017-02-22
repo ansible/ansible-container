@@ -7,10 +7,17 @@ logger = logging.getLogger(__name__)
 
 import datetime
 import os
+import sys
 import tarfile
+import six
 import json
 import base64
 import functools
+
+try:
+    import httplib as StatusCodes
+except ImportError:
+    from http import HTTPStatus as StatusCodes
 
 from ..engine import BaseEngine
 from .. import utils
@@ -153,14 +160,22 @@ class Engine(BaseEngine):
 
         logger.debug('Docker run: image=%s, params=%s', image_id, run_kwargs)
 
-        container_obj = self.client.containers.run(
-            image_id,
-            **run_kwargs
-        )
-        log_iter = container_obj.logs(stdout=True, stderr=True, stream=True)
-        mux = logmux.LogMultiplexer()
-        mux.add_iterator(log_iter, logger)
-        return container_obj.id
+        try:
+            container_obj = self.client.containers.run(
+                image_id,
+                **run_kwargs
+            )
+        except docker_errors.APIError as exc:
+            if exc.response.status_code == StatusCodes.CONFLICT:
+               raise exceptions.AnsibleContainerConductorException(
+                    u"Can't start conductor container, another conductor for "
+                    u"this project already exists or wasn't cleaned up.")
+            six.reraise(*sys.exc_info())
+        else:
+            log_iter = container_obj.logs(stdout=True, stderr=True, stream=True)
+            mux = logmux.LogMultiplexer()
+            mux.add_iterator(log_iter, logger)
+            return container_obj.id
 
     def service_is_running(self, service):
         try:
