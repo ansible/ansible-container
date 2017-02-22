@@ -15,6 +15,7 @@ import functools
 from ..engine import BaseEngine
 from .. import utils
 from .. import logmux
+from ... import exceptions
 
 try:
     import docker
