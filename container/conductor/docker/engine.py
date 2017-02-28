@@ -244,7 +244,17 @@ class Engine(BaseEngine):
             image = self.client.images.get(
                 '%s:latest' % self.image_name_for_service(service_name))
         except docker_errors.ImageNotFound:
-            return None
+            images = self.client.images.list(name=self.image_name_for_service(service_name))
+            logger.debug("Could not find image '%s:latest', searching for "
+                "other tags with same name",
+                self.image_name_for_service(service_name))
+
+            if not images:
+                return None
+
+            def tag_sort(i):
+                return [t for t in i.tags if t.startswith(self.image_name_for_service(service_name))][0]
+            return sorted(images, key=tag_sort)[-1].id
         else:
             return image.id
 
