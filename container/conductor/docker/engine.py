@@ -254,7 +254,10 @@ class Engine(BaseEngine):
 
             def tag_sort(i):
                 return [t for t in i.tags if t.startswith(self.image_name_for_service(service_name))][0]
-            return sorted(images, key=tag_sort)[-1].id
+
+            images = sorted(images, key=tag_sort)
+            logger.debug("Found images (newest last): %s", images)
+            return images[-1].id
         else:
             return image.id
 

@@ -236,15 +236,15 @@ def build(engine_name, project_name, services, cache=True,
     logger.info(u'All images successfully built.')
 
 def run(engine_name, project_name, services, **kwargs):
-    engine = load_engine(engine_name, project_name, services)
+    engine = load_engine(['RUN'], engine_name, project_name, services)
     logger.info(u'%s integration engine loaded. Preparing run.',
-                engine.display_name())
+                engine.display_name)
 
     # Verify all images are built
     for service_name in services:
         logger.info(u'Verifying image for %s', service_name)
         image_id = engine.get_latest_image_id_for_service(service_name)
-        if not image_id:
+        if image_id is None:
             logger.error(u'Missing image for %s. Run "ansible-container build" '
                          u'to (re)create it.', service_name)
             raise RuntimeError('Run failed.')

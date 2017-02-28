@@ -397,15 +397,51 @@ def cmdrun_build(base_path, project_name, engine_name, var_file=None, cache=True
         else:
             logger.info('Conductor terminated. Preserving as requested.')
 
-def cmdrun_run(base_path, engine_name, service=[], production=False, **kwargs):
+def cmdrun_run(base_path, project_name, engine_name, var_file=None, cache=True,
+               **kwargs):
+    logger.info('Got extra args %s to `run` command' % (kwargs))
+    config = get_config(base_path, var_file=var_file)
     assert_initialized(base_path)
-    engine_args = kwargs.copy()
-    engine_args.update(locals())
-    engine_obj = load_engine(**engine_args)
-    with make_temp_dir() as temp_dir:
-        hosts = service or (engine_obj.all_hosts_in_orchestration())
-        engine_obj.orchestrate('run', temp_dir,
-                               hosts=hosts)
+
+    engine_obj = load_engine(['RUN'],
+                             engine_name, project_name or os.path.basename(base_path),
+                             config['services'], **kwargs)
+    if not engine_obj.CAP_RUN:
+        msg = u'{} does not support building the Conductor image.'.format(
+            engine_obj.display_name)
+        logger.error(msg)
+        raise Exception(msg)
+
+    print(engine_obj.services)
+    for service in engine_obj.services:
+        if not engine_obj.service_is_running(service):
+            logger.debug(u'Service "%s" not running, will be started by `run`'
+                u' command', service)
+            continue
+        logger.info(u'Service "%s" is already running, will stopped and'
+            u' restarted by `run` command', service)
+        engine_obj.stop_container(
+            engine_obj.get_container_id_for_service(service),
+            forcefully=True
+        )
+
+    conductor_container_id = engine_obj.run_conductor(
+        'run', dict(config), base_path, kwargs)
+
+    try:
+        while engine_obj.service_is_running('conductor'):
+            time.sleep(0.1)
+    finally:
+        if not config.get('save_build_container', False):
+            logger.info('Conductor terminated. Cleaning up.')
+            if engine_obj.service_is_running('conductor'):
+                engine_obj.stop_container(conductor_container_id, forcefully=True)
+            engine_obj.delete_container(conductor_container_id)
+        else:
+            logger.info('Conductor terminated. Preserving as requested.')
+        #hosts = service or (engine_obj.all_hosts_in_orchestration())
+        #engine_obj.orchestrate('run', temp_dir,
+        #                       hosts=hosts)
 
 
 def cmdrun_stop(base_path, engine_name, service=[], **kwargs):
