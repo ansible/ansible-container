@@ -46,7 +46,7 @@ def decode_b64json(encoded_params):
     return json.loads(base64.decodestring(encoded_params))
 
 def commandline():
-    sys.stderr.write('Parsing args.')
+    sys.stderr.write('Parsing conductor CLI args.\n')
     parser = argparse.ArgumentParser(description=u'This should not be invoked '
                                                  u'except in a container by '
                                                  u'Ansible Container.')
@@ -78,8 +78,3 @@ def commandline():
     logger.debug('Starting Ansible Container Conductor: %s', args.command)
     getattr(core, args.command)(args.engine, args.project_name,
                                 containers_config.get('services', []), **params)
-
-
-
-
-

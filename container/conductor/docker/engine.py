@@ -141,6 +141,7 @@ class Engine(BaseEngine):
         if params.get('devel'):
             from container import conductor
             conductor_path = os.path.dirname(conductor.__file__)
+            logger.debug(u"Binding conductor at %s into conductor container", conductor_path)
             volumes[conductor_path] = {'bind': '/_ansible/conductor/conductor', 'mode': 'rw'}
 
         run_kwargs = dict(
