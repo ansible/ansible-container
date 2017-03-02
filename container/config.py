@@ -7,51 +7,50 @@ logger = logging.getLogger(__name__)
 
 import os
 import json
-import yaml
-import re
 import six
 
-from jinja2 import Environment, FileSystemLoader
 from collections import Mapping
 from .exceptions import AnsibleContainerConfigException
-from .filters import LookupLoader, FilterLoader
-from .temp import MakeTempDir as make_temp_dir
+
+from ruamel import yaml, ordereddict
 
 # TODO: Actually do some schema validation
 
+# jag: Division of labor between outer utility and conductor:
+#
+# Out here, we will parse the container.yml and process AC_* environment
+# variables/--var-file into finding the resulting variable defaults values.
+# We will do zero Jinja processing out here.
+#
+# Inside of the conductor, we will process metadata and defaults from roles and
+# build service-level variables. And since Ansible is actually inside of the
+# conductor container, it is _then_ that we will do Jinja2 processing of the
+# given variable values
 
 class AnsibleContainerConfig(Mapping):
-    _config = {}
+    _config = ordereddict.ordereddict()
     base_path = None
-    lookup_loader = LookupLoader()
-    filter_loader = FilterLoader()
 
     def __init__(self, base_path, var_file=None):
         self.base_path = base_path
         self.var_file = var_file
         self.config_path = os.path.join(self.base_path, 'container.yml')
-        self.all_filters = self.filter_loader.all()
         self.set_env('prod')
 
     def set_env(self, env):
         '''
-        Loads config from container.yml, performs Jinja templating, and stores the resulting dict to self._config.
+        Loads config from container.yml,  and stores the resulting dict to self._config.
 
         :param env: string of either 'dev' or 'prod'. Indicates 'dev_overrides' handling.
         :return: None
         '''
         assert env in ['dev', 'prod']
-        context = self._get_variables()
-        config = self._render_template(context=context)
         try:
-            config = yaml.safe_load(config)
+            config = yaml.round_trip_load(open(self.config_path))
         except yaml.YAMLError as exc:
-            raise AnsibleContainerConfigException(u"Parsing container.yml - %s" % str(exc))
+            raise AnsibleContainerConfigException(u"Parsing container.yml - %s" % unicode(exc))
 
         self._validate_config(config)
-
-        if config.get('defaults'):
-            del config['defaults']
 
         for service, service_config in (config.get('services') or {}).items():
             if not service_config or isinstance(service_config, six.string_types):
@@ -62,103 +61,26 @@ class AnsibleContainerConfig(Mapping):
                 if env == 'dev':
                     service_config.update(dev_overrides)
 
+        self._resolve_defaults(config)
+
         logger.debug(u"Config:\n%s" % json.dumps(config,
-                                                 sort_keys=True,
-                                                 indent=4,
-                                                 separators=(',', ': ')))
+                                                 indent=4))
         self._config = config
 
-    def _lookup(self, name, *args, **kwargs):
-        lookup_instance = self.lookup_loader.get(name)
-        wantlist = kwargs.pop('wantlist', False)
-        try:
-            ran = lookup_instance.run(args, {}, **kwargs)
-        except Exception as exc:
-            raise AnsibleContainerConfigException("Error in filter %s - %s" % (name, exc))
+    def _resolve_defaults(self, config):
+        """
+        Defaults are in the container.yml, overridden by any --var-file param given,
+        and finally overridden by any AC_* environment variables.
 
-        if ran and not wantlist:
-            ran = ','.join(ran)
-        return ran
-
-    def _render_template(self, context=None, path=None, template='container.yml'):
-        '''
-        Apply Jinja template rendering to a given template. If no template provided, template ansible/container.yml
-
-        :param template_vars: dict providing Jinja context
-        :return: dict
-        '''
-        if not context:
-            context = dict()
-        if not path:
-            path = self.base_path
-        j2_env = Environment(loader=FileSystemLoader(path))
-        j2_env.globals['lookup'] = self._lookup
-        j2_env.filters.update(self.all_filters)
-        j2_tmpl = j2_env.get_template(template)
-        tmpl = j2_tmpl.render(**context)
-        if isinstance(tmpl, six.binary_type):
-            tmpl = tmpl.encode('utf8')
-        return tmpl
-
-    def _get_variables(self):
-        '''
-        Resolve variables by creating an empty dict and updating it first with the 'defaults' section in the config,
-        then any variables from var_file, and finally any AC_* environment variables. Returns the resulting dict.
-
-        :return: dict
-        '''
-        new_vars = {}
-        new_vars.update(self._get_defaults())
+        :param config: Loaded YAML config
+        :return: None
+        """
+        defaults = config.setdefault('defaults', ordereddict.ordereddict())
         if self.var_file:
-            logger.debug('Reading variables from var file...')
-            file_vars = self._get_variables_from_file(self.var_file, context=new_vars)
-            new_vars.update(file_vars)
-        new_vars.update(self._get_environment_variables())
-        logger.debug(u'Template variables:\n %s' % json.dumps(new_vars,
-                                                              sort_keys=True,
-                                                              indent=4,
-                                                              separators=(',', ': ')))
-        return new_vars
-
-    def _get_defaults(self):
-        '''
-        Parse the optional 'defaults' section of container.yml
-
-        :return: dict
-        '''
-        defaults = {}
-        default_lines = ['defaults:']
-        found = False
-        sections = [u'version:', u'services:', u'registries:']
-        try:
-            with open(self.config_path, 'r') as f:
-                for line in f:
-                    if re.search(r'^defaults:', line):
-                        found = True
-                        continue
-                    if found:
-                        if re.sub(u'\n', '', line) not in sections:
-                            default_lines.append(re.sub(u'\n', '', line))
-                        else:
-                            break
-        except (OSError, IOError):
-            raise AnsibleContainerConfigException(u"Failed to open %s. Are you in the correct directory?" %
-                                                  self.config_path)
-
-        if len(default_lines) > 1:
-            # re-assemble the defaults section, template, and parse as yaml
-            with make_temp_dir() as temp_dir:
-                with open(os.path.join(temp_dir, 'defaults.txt'), 'w') as f:
-                    f.write(u'\n'.join(default_lines))
-                default_section = self._render_template(context={}, path=temp_dir, template='defaults.txt')
-            try:
-                config = yaml.safe_load(default_section)
-                defaults.update(config.get('defaults'))
-            except yaml.YAMLError as exc:
-                raise AnsibleContainerConfigException(u"Parsing container.yml - %s" % str(exc))
-        logger.debug(u"Default vars:")
-        logger.debug(json.dumps(defaults, sort_keys=True, indent=4, separators=(',', ': ')))
-        return defaults
+            defaults.update(self._get_variables_from_file(), relax=True)
+        defaults.update(self._get_environment_variables(), relax=True)
+        logger.debug(u'Template variables:\n %s' % json.dumps(defaults,
+                                                              indent=4))
 
     def _get_environment_variables(self):
         '''
@@ -166,56 +88,41 @@ class AnsibleContainerConfig(Mapping):
         key is the result of removing 'AC_' from the variable name and converting the remainder to lowercase.
         For example, 'AC_DEBUG=1' becomes 'debug: 1'.
 
-        :return dict
+        :return ruamel.ordereddict.ordereddict
         '''
         logger.debug(u'Getting environment variables...')
-        new_vars = {}
-        for var, value in six.iteritems(os.environ):
-            matches = re.match(r'^AC_(.+)$', var)
-            if matches:
-                new_vars[matches.group(1).lower()] = value
-        return new_vars
+        env_vars = ordereddict.ordereddict()
+        for var, value in [(k, v) for k, v in six.iteritems(os.environ)
+                           if k.startswith('AC_')]:
+            env_vars[var[3:].lower()] = value
+        return env_vars
 
-    def _get_variables_from_file(self, file, context=None):
-        '''
+    def _get_variables_from_file(self):
+        """
         Looks for file relative to base_path. If not found, checks relative to base_path/ansible.
         If file extension is .yml | .yaml, parses as YAML, otherwise parses as JSON.
 
-        :param file: string: path relative to base_path or base_path/ansible.
-        :param context: dict of any available default variables
-        :return: dict
-        '''
-        file_path = os.path.abspath(file)
-        path = os.path.dirname(file_path)
-        name = os.path.basename(file_path)
-        if not os.path.isfile(file_path):
-            path = self.base_path
-            file_path = os.path.normpath(os.path.join(self.base_path, file))
-            name = os.path.basename(file_path)
-            if not os.path.isfile(file_path):
-                path = os.path.join(self.base_path, 'ansible')
-                file_path = os.path.normpath(os.path.join(path, file))
-                name = os.path.basename(file_path)
-                if not os.path.isfile(file_path):
-                    raise AnsibleContainerConfigException(u"Unable to locate %s. Provide a path relative to %s or %s." % (
-                                                          file, self.base_path, os.path.join(self.base_path, 'ansible')))
-        logger.debug("Use variable file: %s" % file_path)
-        data = self._render_template(context=context, path=path, template=name)
+        :return: ruamel.ordereddict.ordereddict
+        """
+        abspath = os.path.abspath(self.var_file)
+        if not os.path.exists(abspath):
+            dirname, filename = os.path.split(abspath)
+            raise AnsibleContainerConfigException(
+                u'Variables file "%s" not found. (I looked in "%s" for it.)' % (
+                    filename, dirname))
+        logger.debug("Use variable file: %s" % abspath)
 
-        if name.endswith('yml') or name.endswith('yaml'):
+        if os.path.splitext(abspath)[-1].lower().endswith(('yml', 'yaml')):
             try:
-                config = yaml.safe_load(data)
+                config = yaml.round_trip_load(open(abspath))
             except yaml.YAMLError as exc:
-                raise AnsibleContainerConfigException(u"YAML exception: %s" %  str(exc))
+                raise AnsibleContainerConfigException(u"YAML exception: %s" % unicode(exc))
         else:
             try:
-                config = json.loads(data)
+                config = json.loads(open(abspath))
             except Exception as exc:
-                raise AnsibleContainerConfigException(u"JSON exception: %s" % str(exc))
-        return config
-
-
-
+                raise AnsibleContainerConfigException(u"JSON exception: %s" % unicode(exc))
+        return config.iteritems()
 
     TOP_LEVEL_WHITELIST = [
         'version',

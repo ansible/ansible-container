@@ -10,13 +10,12 @@ cli.py - The console script for Ansible Container inside of the Conductor
 container.
 """
 
-import os
 import sys
 import argparse
 import base64
 import json
 
-from .loader import load_engine
+from .config import AnsibleContainerConductorConfig
 from . import core
 
 from logging import config
@@ -66,6 +65,7 @@ def commandline():
 
     decoding_fn = globals()['decode_%s' % args.encoding]
     containers_config = decoding_fn(args.config)
+    conductor_config = AnsibleContainerConductorConfig(containers_config)
     if args.params:
         params = decoding_fn(args.params)
     else:
@@ -76,5 +76,9 @@ def commandline():
     config.dictConfig(LOGGING)
 
     logger.debug('Starting Ansible Container Conductor: %s', args.command)
+    logger.debug('Services: %s', conductor_config.services)
     getattr(core, args.command)(args.engine, args.project_name,
-                                containers_config.get('services', []), **params)
+                                conductor_config.services,
+                                volume_data=conductor_config.volumes,
+                                repository_data=conductor_config.registries,
+                                **params)

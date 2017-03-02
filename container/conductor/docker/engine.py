@@ -101,7 +101,7 @@ class Engine(BaseEngine):
         """Run a particular container. The kwargs argument contains individual
         parameter overrides from the service definition."""
         run_kwargs = self.run_kwargs_for_service(service_name)
-        run_kwargs.update(kwargs)
+        run_kwargs.update(kwargs, relax=True)
         logger.debug('Docker run: image=%s, params=%s', image_id, run_kwargs)
 
         container_obj = self.client.containers.run(
