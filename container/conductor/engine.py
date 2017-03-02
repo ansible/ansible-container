@@ -110,5 +110,5 @@ class BaseEngine(object):
         """Get the volume ID for the portable python runtime."""
         raise NotImplementedError()
 
-    def import_project(self, base_path):
+    def import_project(self, base_path, import_from, bundle_files=False, **kwargs):
         raise NotImplementedError()

@@ -10,6 +10,7 @@ import importlib
 import tempfile
 import shutil
 from datetime import datetime
+from distutils import dir_util
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -106,16 +107,6 @@ def metadata_to_image_config(metadata):
     return config
 
 
-def create_path(path):
-    try:
-        os.makedirs(path)
-    except OSError:
-        pass
-    except Exception as exc:
-        raise AnsibleContainerConductorException(
-            u"Error: failed to create %s - %s" % (path, str(exc)))
-
-
 def create_role_from_templates(role_name=None, role_path=None,
                                project_name=None, description=None):
     '''
@@ -126,44 +117,33 @@ def create_role_from_templates(role_name=None, role_path=None,
     :param description: One line description of the role.
     :return: None
     '''
+    context = locals()
+    templates_path = os.path.join(conductor_dir, 'templates', 'role')
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%s')
 
-    role_paths = {
-        u'base': [u'README.j2', u'travis.j2.yml'],
-        u'defaults': [u'defaults.j2.yml'],
-        u'meta': [u'meta.j2.yml'],
-        u'test': [u'test.j2.yml', u'travis.j2.yml'],
-        u'tasks': [],
-    }
-
-    context = {
-        u'role_name': role_name,
-        u'project_name': project_name,
-        u'role_description': description
-    }
-
-    create_path(role_path)
-
-    for p, templates in role_paths.items():
-        target_dir = os.path.join(role_path, p) if p != 'base' else role_path
-        if p != 'base':
-            os.makedirs(target_dir, exist_ok=True)
+    logger.debug('Role templates path: %s', templates_path)
+    for rel_path, templates in [(os.path.relpath(path, templates_path), files)
+                                for (path, _, files) in os.walk(templates_path)]:
+        target_dir = os.path.join(role_path, rel_path)
+        dir_util.mkpath(target_dir)
         for template in templates:
+            template_rel_path = os.path.join(rel_path, template)
             target_name = template.replace('.j2', '')
-            if target_name.startswith('travis'):
-                target_name = '.' + target_name
-            if target_name.startswith('defaults') or target_name.startswith('meta'):
-                target_name = 'main.yml'
-            if not os.path.exists(os.path.join(target_dir, target_name)):
-                logger.debug("Rendering template for %s/%s" % (target_dir, template))
-                jinja_render_to_temp('role/%s' % template,
-                                     target_dir,
-                                     target_name,
-                                     **context)
+            target_path = os.path.join(target_dir, target_name)
+            if os.path.exists(target_path):
+                backup_path = u'%s_%s' % (target_path, timestamp)
+                logger.debug(u'Backing up %s to %s', target_path, backup_path)
+                os.rename(target_path, backup_path)
+            logger.debug("Rendering template for %s/%s" % (target_dir, template))
+            jinja_render_to_temp(templates_path,
+                                 template_rel_path,
+                                 target_dir,
+                                 target_name,
+                                 **context)
 
     new_file_name = "main_{}.yml".format(datetime.today().strftime('%y%m%d%H%M%S'))
     new_tasks_file = os.path.join(role_path, 'tasks', new_file_name)
     tasks_file = os.path.join(role_path, 'tasks', 'main.yml')
 
     if os.path.exists(tasks_file):
-        logger.debug("Backing up tasks/main.yml to {}".format(new_file_name))
         os.rename(tasks_file, new_tasks_file)

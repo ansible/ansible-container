@@ -95,7 +95,7 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
 
         ansible_args = dict(inventory=inventory_path,
                             playbook=playbook_path,
-                            debug_maybe='-vvv' if debug else '',
+                            debug_maybe='-vvvv' if debug else '',
                             engine_args=engine.ansible_args,
                             ansible_playbook=engine.ansible_exec_path,
                             ansible_options=ansible_options or '')

@@ -178,6 +178,12 @@ def subcmd_import_parser(parser, subparser):
     #subparser.add_argument('--dockerfile', action='store',
     #                       help=u"Name of the file to import. Defaults to 'Dockerfile'.",
     #                       dest='dockerfile_name', default='Dockerfile')
+    subparser.add_argument('--bundle-files', action='store_true',
+                           help=u'By default, Ansible Container treats files '
+                                u'in the same path you\'re importing from as '
+                                u'the build context. If you wish those files to '
+                                u'be copied to the content of the role itself, '
+                                u'use this flag.', default=False)
     subparser.add_argument('import_from', action='store',
                            help=u'Path to project/context to import.')
 

@@ -60,6 +60,7 @@ class Engine(BaseEngine):
     CAP_BUILD = True
     CAP_RUN = True
     CAP_DEPLOY = True
+    CAP_IMPORT = True
 
     display_name = u'Docker\u2122 daemon'
 
@@ -377,17 +378,11 @@ class Engine(BaseEngine):
             raise ValueError('Runtime volume not found on Conductor')
         return usr_mount['Name']
 
-    def import_project(self, base_path):
+    def import_project(self, base_path, import_from, bundle_files=False, **kwargs):
         from .importer import DockerfileImport
 
         dfi = DockerfileImport(base_path,
-                               self.project_name)
-        dfi.assert_dockerfile_exists()
-        dfi.create_role_template()
-        dfi.add_role_tasks()
-
-        logger.debug(json.dumps(dfi.environment_vars))
-        logger.debug("workdir: {}".format(dfi.workdir))
-
-        # TODO
-        # dfi.create_container_yaml()
+                               self.project_name,
+                               import_from,
+                               bundle_files)
+        dfi.run()

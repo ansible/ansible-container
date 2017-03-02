@@ -12,6 +12,8 @@ import shlex
 import urlparse
 import tarfile
 import glob
+import shutil
+import functools
 
 try:
     import ruamel.yaml
@@ -19,8 +21,8 @@ try:
 except ImportError:
     raise ImportError('This engine requires you "pip install \'ruamel.yaml>=0.13.14\'" to import projects.')
 
-from ..utils import create_role_from_templates
 from ..exceptions import AnsibleContainerConductorException
+from ..utils import create_role_from_templates
 
 # Known issues:
 # * In a Dockerfile, ENV and ARG params don't apply to directives before their
@@ -28,22 +30,34 @@ from ..exceptions import AnsibleContainerConductorException
 # * We try to split multi-command RUN into multiple tasks. This only works if
 #   the Dockerfile is reasonably well formed.
 
+def debug_parsing(fn):
+    @functools.wraps(fn)
+    def __wrapped__(self, payload, comments):
+        to_return = fn(self, payload, comments)
+        logger.debug(u'Parser: "%s" becomes %s',
+                     payload, to_return)
+        return to_return
+    return __wrapped__
+
 def _simple_meta_parser(meta_key):
     def __wrapped__(self, payload, comments):
         if isinstance(payload, list):
             self.meta[meta_key] = CommentedSeq(payload)
         elif isinstance(payload, dict):
             self.meta[meta_key] = CommentedMap(payload.items())
+        else:
+            self.meta[meta_key] = payload
         if comments:
             self.meta.yaml_set_comment_before_after_key(meta_key,
                                                         before=u'\n'.join(comments))
+        logger.debug(u'Parser: meta: %s -> %s', meta_key, self.meta[meta_key])
         return []
     return __wrapped__
-
 
 class DockerfileParser(object):
     path = None
     docker_file_path = None
+    parsed = False
 
     # These directives support JSON arrays as arguments
     supports_json = {
@@ -70,11 +84,14 @@ class DockerfileParser(object):
         'ONBUILD'
     }
 
-    def __init__(self, path):
+    def __init__(self, path, default_vars=None, bundle_files=False):
         self.path = path
+        self.service_name = os.path.basename(self.path)
         file_name = u'Dockerfile'
         self.docker_file_path = os.path.normpath(os.path.join(self.path,
                                                               file_name))
+        self.default_vars = default_vars or {}
+        self.bundle_files = bundle_files
 
     def assert_dockerfile_exists(self):
         if not os.path.exists(self.docker_file_path):
@@ -134,10 +151,13 @@ class DockerfileParser(object):
     def __iter__(self):
         self.escape_char = u'\\'
         self.variables = CommentedMap()
+        for k, v in self.default_vars.iteritems():
+            self.variables[k] = v
         self.meta = CommentedMap()
         self.shell = None
         self.user = None
         self.working_dir = None
+        self.parsed = False
 
         lines = self.lines_iter()
         lines_processed = 0
@@ -162,6 +182,24 @@ class DockerfileParser(object):
             for task in payload_processor(payload,
                                           comments=preparsed.get('comments', [])):
                 yield task
+        logger.debug('Parsing complete!')
+        logger.debug('Meta is:\n%s', self.meta)
+        logger.debug('Vars are:\n%s', self.variables)
+        self.parsed = True
+
+    @property
+    def container_yml(self):
+        if not self.parsed:
+            raise ValueError(u'Finish parsing the Dockerfile first')
+        safe_service_name = self.service_name.replace(u'-', u'_')
+        container_yml = CommentedMap()
+        container_yml['settings'] = CommentedMap()
+        container_yml['settings']['conductor_base'] = self.meta['from']
+        container_yml['services'] = CommentedMap()
+        container_yml['services'][safe_service_name] = CommentedMap()
+        container_yml['services'][safe_service_name]['roles'] = CommentedSeq(
+            [safe_service_name])
+        return container_yml
 
     PLAIN_VARIABLE_RE = re.compile(ur'(?<!\\)\$(?P<var>[a-zA-Z_]\w*)')
     BRACED_VARIABLE_RE = re.compile(ur'(?<!\\)\$\{(?P<var>[a-zA-Z_]\w*)\}')
@@ -197,6 +235,7 @@ class DockerfileParser(object):
 
     parse_FROM = _simple_meta_parser('from')
 
+    @debug_parsing
     def parse_RUN(self, payload, comments):
         task = CommentedMap()
         if comments:
@@ -250,6 +289,7 @@ class DockerfileParser(object):
                                                                        before=u'\n'.join(comments))
         return []
 
+    @debug_parsing
     def parse_ADD(self, payload, comments, url_and_tarball=True):
         if isinstance(payload, list):
             dest = payload.pop()
@@ -260,12 +300,11 @@ class DockerfileParser(object):
 
         tasks = CommentedSeq()
         # ADD ensures the dest path exists
-        dest_path = os.path.dirname(dest)
         tasks.append(
             CommentedMap([
-                ('name', u'Ensure %s exists' % dest_path),
+                ('name', u'Ensure %s exists' % dest),
                 ('file', CommentedMap([
-                    ('path', dest_path),
+                    ('path', dest),
                     ('state', 'directory')]))
         ]))
 
@@ -286,32 +325,43 @@ class DockerfileParser(object):
                         _ = tarfile.open(real_path, mode='r:*')
                     except tarfile.ReadError:
                         # Not a tarfile.
+                        pass
+                    else:
                         task = CommentedMap()
                         if comments:
                             task['name'] = u' '.join(comments)
-                        task['copy'] = CommentedMap([
+                        task['unarchive'] = CommentedMap([
                             ('src', src_spec),
                             ('dest', dest)])
                         tasks.append(task)
-                else:
-                    # path specifiers can be fnmatch expressions, so use glob
-                    for abs_src in glob.iglob(real_path):
-                        src = os.path.relpath(abs_src, self.path)
-                        task = CommentedMap()
-                        if comments:
-                            task['name'] = u' '.join(comments + [u'(%s)' % src])
-                        if os.path.isdir(real_path):
-                            task['synchronize'] = CommentedMap([
-                                ('src', src),
-                                ('dest', dest),
-                                ('recursive', 'yes')])
-                        elif os.path.isfile(real_path):
-                            task['unarchive'] = CommentedMap([
-                                ('src', src),
-                                ('dest', dest)])
-                        else:
-                            continue
-                        tasks.append(task)
+                        continue
+                # path specifiers can be fnmatch expressions, so use glob
+                for abs_src in glob.iglob(real_path):
+                    src = os.path.relpath(abs_src, self.path)
+                    # the src specifier might be a relative path. If so, the
+                    # value of bundle_files determines whether we put
+                    # these files
+                    # into the role or whether we leave them as part of
+                    # the build
+                    # context
+                    if not self.bundle_files:
+                        src = os.path.join(u"{{ lookup('pipe','pwd') }}",
+                                           src)
+                    task = CommentedMap()
+                    if comments:
+                        task['name'] = u' '.join(comments + [u'(%s)' % src])
+                    if os.path.isdir(real_path):
+                        task['synchronize'] = CommentedMap([
+                            ('src', src),
+                            ('dest', dest),
+                            ('recursive', 'yes')])
+                    elif os.path.isfile(real_path):
+                        task['copy'] = CommentedMap([
+                            ('src', src),
+                            ('dest', dest)])
+                    else:
+                        continue
+                    tasks.append(task)
         for task in tasks:
             if self.user:
                 task['remote_user'] = self.user
@@ -374,248 +424,138 @@ class DockerfileImport(object):
     import_from = None
     base_path = None
 
-    def __init__(self, base_path, project_name, import_from):
+    def __init__(self, base_path, project_name, import_from, bundle_files):
         # The path to write the Ansible Container project to
         self.base_path = base_path
         # The name of the Ansible Container project
         self.project_name = project_name
         # The path containing the Dockerfile and build context
         self.import_from = import_from
-
+        # Whether to bundle files in import_from into the role or to leave them
+        # as part of the build context
+        self.bundle_files = bundle_files
 
     @property
     def role_path(self):
-        return os.path.join(self.base_path, 'roles', self.project_name)
+        return os.path.join(self.base_path, 'roles', os.path.basename(self.import_from))
 
-    def create_role_template(self):
+    def copytree(self, src, dst, symlinks=False, ignore=None):
+        if ignore:
+            ignored = ignore(src, os.listdir(src))
+        else:
+            ignored = []
+        for item in os.listdir(src):
+            if item in ignored:
+                continue
+            s = os.path.join(src, item)
+            d = os.path.join(dst, item)
+            if os.path.isdir(s):
+                shutil.copytree(s, d, symlinks, ignore)
+            else:
+                shutil.copy2(s, d)
+
+    def copy_files_from_src(self):
+        if self.bundle_files:
+            target = os.path.join(self.role_path, 'files')
+        else:
+            target = self.base_path
+        self.copytree(self.import_from,
+                      target,
+                      ignore=lambda dir, files: ['Dockerfile']
+                      if dir == self.import_from else [])
+
+    def run(self):
+        # FIXME: ensure self.base_path is empty
+        parser = DockerfileParser(self.import_from,
+                                  default_vars={'playbook_debug': False})
+        try:
+            self.create_role_from_template()
+            for data, path in [
+                (list(parser), os.path.join(self.role_path, 'tasks', 'main.yml')),
+                (parser.variables, os.path.join(self.role_path, 'defaults', 'main.yml')),
+                (parser.meta, os.path.join(self.role_path, 'meta', 'container.yml')),
+                (parser.container_yml, os.path.join(self.base_path, 'container.yml'))
+            ]:
+                if not os.path.exists(os.path.dirname(path)):
+                    os.makedirs(os.path.dirname(path))
+                with open(path, 'w') as ofs:
+                    ruamel.yaml.round_trip_dump(data, ofs)
+            self.copy_files_from_src()
+        except Exception, e:
+            #try:
+            #    shutil.rmtree(self.base_path)
+            #except Exception, e:
+            #    pass
+            raise
+        self.explain_wtf_just_happened()
+
+    def create_role_from_template(self):
         '''
         Create roles/dockerfile-to-ansible path and role structure.
         :return: None
         '''
         description = u"Imported Dockerfile for {}".format(self.project_name)
 
-        create_role_from_templates(role_name=self.project_name,
+        create_role_from_templates(role_name=os.path.basename(self.import_from),
                                    role_path=self.role_path,
                                    project_name=self.project_name,
                                    description=description)
 
-    def add_role_tasks(self):
-        '''
-        Evaluates self.instructions, and transforms any RUN and ADD tasks to the role's tasks/main.yml
-        :return: None
-        '''
+    def explain_wtf_just_happened(self):
+        logger.info(u'Project successfully imported. You can find the results '
+                    u'in:\n%s', self.base_path)
+        logger.info(u'A brief description of what you will find...\n\n')
+        logger.info(u'container.yml')
+        logger.info(u'-------------\n')
+        logger.info(u'The container.yml file is your orchestration file that '
+                    u'expresses what services you have and how to build/run them.\n')
+        with open(os.path.join(self.base_path, 'container.yml')) as ifs:
+            logger.info(ifs.read()+u'\n')
+        logger.info(u'I added a single service named %s for your imported '
+                    u'Dockerfile.', os.path.basename(self.import_from))
+        logger.info(u'As you can see, I made an Ansible role for your '
+                    u'service, which you can find in:\n%s\n',
+                    os.path.join(self.base_path, 'roles',
+                                 os.path.basename(self.import_from)))
+        tasks_main_yml = os.path.join(self.base_path,
+                                      'roles',
+                                      os.path.basename(self.import_from),
+                                      'tasks',
+                                      'main.yml')
+        rel_tasks_main_yml = os.path.relpath(tasks_main_yml,
+                                             os.path.dirname(self.base_path))
+        logger.info(rel_tasks_main_yml)
+        logger.info(u'-' * len(rel_tasks_main_yml) + u'\n')
+        logger.info(u'The tasks/main.yml file has your RUN/ADD/COPY instructions.\n')
+        with open(tasks_main_yml) as ifs:
+            logger.info(ifs.read()+u'\n')
+        logger.info(u'I tried to preserve comments as task names, but you '
+                    u'probably want to make')
+        logger.info(u'sure each task has a human readable name.\n')
 
-        def get_run_tasks(instruction):
-            '''
-            Transforms a dockerfile RUN command into a set of playbook tasks.
+        meta_container_yml = os.path.join(self.base_path,
+                                      'roles',
+                                      os.path.basename(self.import_from),
+                                      'meta',
+                                      'container.yml')
+        rel_meta_container_yml = os.path.relpath(meta_container_yml,
+                                                 os.path.dirname(self.base_path))
+        logger.info(rel_meta_container_yml)
+        logger.info(u'-' * len(rel_meta_container_yml) + u'\n')
+        logger.info(u'Metadata from your Dockerfile went into '
+                    u'meta/container.yml in your role.')
+        logger.info(u'These will be used as build/run defaults for your role.\n')
+        with open(meta_container_yml) as ifs:
+            logger.info(ifs.read()+u'\n')
 
-            :param instruction: dict containing RUN command attributes
-            :return: list of dicts, where each represents a task
-            '''
-
-            def create_task(cmd, preceding_comments):
-                task = CommentedMap()
-                name = ''
-                if preceding_comments:
-                    # If there are preceding comment lines, use the first as the task name.
-                    name = preceding_comments[0]
-                if re.search(ur'[><|]', cmd):
-                    # If the command includes a pipe, it's *generally* better to use the shell module
-                    task[u'name'] = u'Shell command' if not name else name
-                    task[u'shell'] = cmd
-                else:
-                    # Otherwise, the command module *should* work
-                    task[u'name'] = u'Command command' if not name else name
-                    task[u'command'] = cmd
-                if preceding_comments and len(preceding_comments) > 1:
-                    # When multiple preceding comment lines, place them before the task name
-                    task.yaml_set_comment_before_after_key('name', before=u'\n'.join(preceding_comments), indent=2)
-                return task
-
-            run_tasks = []
-
-            if isinstance(instruction[u'value'], list):
-                count = 0
-                for value in instruction[u'value']:
-                    if count == 0:
-                        # Pass all preceding comments on first instruction
-                        comments = instruction[u'preceding_comments']
-                    else:
-                        # Only pass the first comment to use as 'name' value on subsequent instructions
-                        comments = [instruction[u'preceding_comments'][0]] if instruction[u'preceding_comments'] else []
-                    run_tasks.append(create_task(value, comments))
-                    count += 1
-            else:
-                run_tasks.append(create_task(instruction[u'value'], instruction[u'preceding_comments']))
-            return run_tasks
-
-        def get_add_tasks(instruction):
-            '''
-            Transforms a dockerfile ADD command into a playbook task.
-
-            :param instruction: dict containing ADD command attributes
-            :return: dict containing task attributes
-            '''
-            if isinstance(instruction[u'value'], list):
-                raise NotImplementedError(u'Error: expected the ADD command to be a string.')
-
-            preceding_comments = instruction['preceding_comments']
-            name = ''
-            if preceding_comments:
-                # If there are preceding comments, use the first as the task name
-                name = preceding_comments[0]
-
-            add_tasks = []
-            task = CommentedMap()
-            src, dest = instruction[u'value'].split(' ')
-            src_path = os.path.normpath(os.path.join(u'../../', src))
-
-            # TODO: The dest directory may contain environment vars, and it may also be relavant to WORKDIR.
-            #       Modify the following to use environment_vars and workdir properties to resolve the full
-            #       dest path.
-
-            if os.path.isdir(os.path.join(self.base_path, src)):
-                task[u'name'] = name if name else u'Synch {}'.format(src)
-                task[u'synchronize'] = CommentedMap()
-                task[u'synchronize'][u'src'] = src_path
-                task[u'synchronize'][u'dest'] = dest
-            elif re.search(ur'[*?]', src):
-                task[u'name'] = name if name else u'Synch {}'.format(src)
-                task[u'synchronize'] = CommentedMap()
-                task[u'synchronize'][u'src'] = u"{{ item }}"
-                task[u'synchronize'][u'dest'] = dest
-                task[u'with_items'] = list(src_path)
-            else:
-                task[u'name'] = name if name else u'Copy {}'.format(src)
-                task[u'copy'] = CommentedMap()
-                task[u'copy'][u'src'] = src_path
-                task[u'copy'][u'dest'] = dest
-
-            if instruction['inline_comment']:
-                task.yaml_add_eol_comment(instruction['inline_comment'], key='name')
-
-            if preceding_comments and len(preceding_comments) > 1:
-                # When multiple preceding comment lines, place them before the task name.
-                task.yaml_set_comment_before_after_key('name', before=u'\n'.join(preceding_comments), indent=2)
-
-            add_tasks.append(task)
-            return add_tasks
-
-        tasks = []
-        logger.debug(json.dumps(self.instructions, indent=4))
-        for instruction in self.instructions:
-            if instruction[u'command'] == u'RUN':
-                tasks += get_run_tasks(instruction)
-            elif instruction[u'command'] == u'ADD':
-                tasks += get_add_tasks(instruction)
-
-        main_yml = os.path.normpath(os.path.join(self.role_path, u'tasks', u'main.yml'))
-        try:
-            task_yaml = ruamel.yaml.dump(tasks,
-                                         Dumper=ruamel.yaml.RoundTripDumper,
-                                         default_flow_style=False,
-                                         )
-        except Exception:
-            raise AnsibleContainerConductorException(u'Error: Failed to write %s', main_yml)
-
-        with open(main_yml, u'w') as f:
-            f.write(re.sub(ur'^-', u'\n-', task_yaml, flags=re.M))
-
-    def create_container_yaml(self):
-        pass
-        # def get_directives(instruction):
-        #     '''
-        #     Transforms Dockerfile commands into container.yml directives.
-        #
-        #     :param instruction: dict containing RUN command attributes
-        #     :return: list of dicts, where each represents a task
-        #     '''
-        #
-        #     def create_task(cmd, preceding_comments):
-        #         task = CommentedMap()
-        #         name = ''
-        #         if preceding_comments:
-        #             # If there are preceding comment lines, use the first as the task name.
-        #             name = preceding_comments[0]
-        #         if re.search(ur'[><|]', cmd):
-        #             # If the command includes a pipe, it's *generally* better to use the shell module
-        #             task[u'name'] = u'Shell command' if not name else name
-        #             task[u'shell'] = cmd
-        #         else:
-        #             # Otherwise, the command module *should* work
-        #             task[u'name'] = u'Command command' if not name else name
-        #             task[u'command'] = cmd
-        #         if preceding_comments and len(preceding_comments) > 1:
-        #             # When multiple preceding comment lines, place them before the task name
-        #             task.yaml_set_comment_before_after_key('name', before=u'\n'.join(preceding_comments), indent=2)
-        #         return task
-        #
-        #     run_tasks = []
-        #
-        #     if isinstance(instruction[u'value'], list):
-        #         count = 0
-        #         for value in instruction[u'value']:
-        #             if count == 0:
-        #                 # Pass all preceding comments on first instruction
-        #                 comments = instruction[u'preceding_comments']
-        #             else:
-        #                 # Only pass the first comment to use as 'name' value on subsequent instructions
-        #                 comments = [instruction[u'preceding_comments'][0]] if instruction[u'preceding_comments'] else []
-        #             run_tasks.append(create_task(value, comments))
-        #             count += 1
-        #     else:
-        #         run_tasks.append(create_task(instruction[u'value'], instruction[u'preceding_comments']))
-        #     return run_tasks
-        #
-        # tasks = []
-        # logger.debug(json.dumps(self.instructions, indent=4))
-        # for instruction in self.instructions:
-        #     if instruction[u'command'] not in [u'RUN', u'ADD']:
-        #         tasks += get_run_tasks(instruction)
-        #
-        # main_yml = os.path.normpath(os.path.join(self.role_path, u'tasks', u'main.yml'))
-        # try:
-        #     task_yaml = ruamel.yaml.dump(tasks,
-        #                                  Dumper=ruamel.yaml.RoundTripDumper,
-        #                                  default_flow_style=False,
-        #                                  )
-        # except Exception:
-        #     raise AnsibleContainerException(u'Error: Failed to write {}'.format(main_yml))
-        #
-        # with open(main_yml, u'w') as f:
-        #     f.write(re.sub(ur'^-', u'\n-', task_yaml, flags=re.M))
+        logger.info(u'I also stored ARG directives in the role\'s '
+                    u'defaults/main.yml which will used as')
+        logger.info(u'variables by Ansible in your build and run operations.\n')
+        logger.info(u'Good luck!')
 
 
-def yscbak(self, key, before=None, indent=0, after=None, after_indent=None):
-    """
-    Expects comment (before/after) to be without `#`, and possibly have multiple lines
 
-    Adapted from:
-      http://stackoverflow.com/questions/40704916/how-to-insert-a-comment-line-to-yaml-in-python-using-ruamel-yaml
 
-    This code seems to be in the code base, but has not made it into a release:
-      https://bitbucket.org/ruamel/yaml/src/46689251cce58a4331a8674d14ef94c6db1e96e2/comments.py?at=default&fileviewer=file-view-default#comments.py-201
 
-    """
 
-    def comment_token(s, mark):
-        # handle empty lines as having no comment
-        return CommentToken(('# ' if s else '') + s + '\n', mark, None)
 
-    if after_indent is None:
-        after_indent = indent + 2
-    if before and before[-1] == '\n':
-        before = before[:-1]  # strip final newline if there
-    if after and after[-1] == '\n':
-        after = after[:-1]  # strip final newline if there
-    start_mark = Mark(None, None, None, indent, None, None)
-    c = self.ca.items.setdefault(key, [None, [], None, None])
-    if before:
-        for com in before.split('\n'):
-            c[1].append(comment_token(com, start_mark))
-    if after:
-        start_mark = Mark(None, None, None, after_indent, None, None)
-        if c[3] is None:
-            c[3] = []
-        for com in after.split('\n'):
-            c[3].append(comment_token(com, start_mark))
