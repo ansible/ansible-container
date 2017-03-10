@@ -34,13 +34,13 @@ class AnsibleContainerConductorConfig(Mapping):
         for key, value in section_value.items():
             if isinstance(value, basestring):
                 # strings can be templated
-                processed[key] = self._templar.template(value)
+                processed[key] = templar.template(value)
             elif isinstance(value, (list, dict)):
                 # if it's a dimensional structure, it's cheaper just to serialize
                 # it, treat it like a template, and then deserialize it again
                 buffer = StringIO()
                 yaml.round_trip_dump(value, buffer)
-                buffer = StringIO(self._templar.template(buffer.getvalue()))
+                buffer = StringIO(templar.template(buffer.getvalue()))
                 processed[key] = yaml.round_trip_load(buffer)
             else:
                 # ints, booleans, etc.
@@ -85,6 +85,7 @@ class AnsibleContainerConductorConfig(Mapping):
                                         relax=True)
                 service_defaults.update(role_args, relax=True)
             processed.update(service_data, relax=True)
+            logger.debug('Renering service keys using %s', service_defaults)
             services[service] = self._process_section(
                 processed,
                 templar=Templar(loader=None,

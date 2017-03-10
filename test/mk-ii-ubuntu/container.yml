@@ -1,8 +1,0 @@
-version: "2"
-settings:
-  conductor_base: ubuntu:trusty
-services:
-  redis:
-    from: ubuntu:trusty
-    roles:
-      - j00bar.redis-container

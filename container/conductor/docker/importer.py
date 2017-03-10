@@ -32,8 +32,9 @@ from ..utils import create_role_from_templates
 
 def debug_parsing(fn):
     @functools.wraps(fn)
-    def __wrapped__(self, payload, comments):
-        to_return = fn(self, payload, comments)
+    def __wrapped__(self, payload, comments, **kwargs):
+        logger.debug(u'Parsing payload "%s"', payload)
+        to_return = fn(self, payload, comments, **kwargs)
         logger.debug(u'Parser: "%s" becomes %s',
                      payload, to_return)
         return to_return
@@ -243,7 +244,7 @@ class DockerfileParser(object):
         if isinstance(payload, list):
             task['command'] = subprocess.list2cmdline(payload)
         else:
-            task['shell'] = payload.rstrip(u';').rstrip(u'&&')
+            task['shell'] = payload.rstrip(u';').rstrip(u'&&').rstrip()
             if self.shell:
                 task.setdefault('args', {})['executable'] = self.shell
         if self.user:
@@ -267,22 +268,26 @@ class DockerfileParser(object):
     parse_MAINTAINER = _simple_meta_parser('maintainer')
 
     def parse_EXPOSE(self, payload, comments):
-        ports = payload.split(' ')
+        # Ensure all variable references are quoted, so we can use shlex
+        payload = re.sub(ur'(\{\{[^}]+\}\})', ur'"\1"', payload)
+        ports = shlex.split(payload)
         self.meta.setdefault('ports', CommentedSeq()).extend(ports)
         self.meta.yaml_set_comment_before_after_key('ports',
                                                     before=u'\n'.join(comments))
         return []
 
     def parse_ENV(self, payload, comments):
-        kv_parts = shlex.split(payload)
         # It's possible this is a single environment variable being set using
         # the syntax that doesn't require an = sign
-        if len(kv_parts) == 2 and u'=' not in payload:
-            k, v = kv_parts
+        if u'=' not in payload.split(u' ', 1)[0]:
+            k, v = payload.split(u' ', 1)
             self.meta.setdefault('environment', CommentedMap())[k] = v
             self.meta['environment'].yaml_set_comment_before_after_key(k,
                                                                        before=u'\n'.join(comments))
         else:
+            # Ensure all variable references are quoted, so we can use shlex
+            payload = re.sub(ur'=(\{\{[^}]+\}\})', ur'="\1"', payload)
+            kv_parts = shlex.split(payload)
             kv_pairs = [part.split(u'=', 1) for part in kv_parts]
             self.meta.setdefault('environment', CommentedMap()).update(kv_pairs)
             self.meta['environment'].yaml_set_comment_before_after_key(kv_pairs[0][0],
@@ -297,14 +302,18 @@ class DockerfileParser(object):
         else:
             _src, dest = payload.split(u' ', 1)
             src_list = [_src]
+        if dest.endswith('/'):
+            dest_path = dest
+        else:
+            dest_path = os.path.dirname(dest)
 
         tasks = CommentedSeq()
         # ADD ensures the dest path exists
         tasks.append(
             CommentedMap([
-                ('name', u'Ensure %s exists' % dest),
+                ('name', u'Ensure %s exists' % dest_path),
                 ('file', CommentedMap([
-                    ('path', dest),
+                    ('path', dest_path),
                     ('state', 'directory')]))
         ]))
 
@@ -415,7 +424,7 @@ class DockerfileParser(object):
         self.meta['shell'] = CommentedSeq(payload)
         self.meta.yaml_set_comment_before_after_key('shell',
                                                     u'\n'.join(comments))
-        self.shell = payload
+        self.shell = u' '.join(payload)
         return []
 
 

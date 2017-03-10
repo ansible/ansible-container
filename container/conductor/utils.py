@@ -80,7 +80,7 @@ def metadata_to_image_config(metadata):
         'domainname': ('Domainname', None),
         'user': ('User', None),
         'ports': ('ExposedPorts', ports_to_exposed_ports),
-        'environment': ('Env', lambda _obj: format_environment),
+        'environment': ('Env', format_environment),
         'command': ('Cmd', None),
         'working_dir': ('WorkingDir', None),
         'entrypoint': ('Entrypoint', None),

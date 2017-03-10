@@ -1,6 +1,0 @@
-version: "2"
-services:
-  redis:
-    from: centos:7
-    roles:
-      - j00bar.redis-container

@@ -64,8 +64,6 @@ def commandline():
     args = parser.parse_args()
 
     decoding_fn = globals()['decode_%s' % args.encoding]
-    containers_config = decoding_fn(args.config)
-    conductor_config = AnsibleContainerConductorConfig(containers_config)
     if args.params:
         params = decoding_fn(args.params)
     else:
@@ -74,6 +72,9 @@ def commandline():
     if params.get('debug'):
         LOGGING['loggers']['conductor']['level'] = 'DEBUG'
     config.dictConfig(LOGGING)
+
+    containers_config = decoding_fn(args.config)
+    conductor_config = AnsibleContainerConductorConfig(containers_config)
 
     logger.debug('Starting Ansible Container Conductor: %s', args.command)
     logger.debug('Services: %s', conductor_config.services)

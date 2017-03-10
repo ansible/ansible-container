@@ -15,7 +15,7 @@ import subprocess
 import yaml
 
 from .loader import load_engine
-from .utils import get_metadata_from_role, get_role_fingerprint
+from .utils import get_role_fingerprint
 
 
 def run_playbook(playbook, engine, service_map, ansible_options='',
@@ -31,6 +31,16 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
                 ofs.write('%s ansible_host="%s" ansible_python_interpreter="%s"\n' % (
                     service_name, container_id,
                     python_interpreter or engine.python_interpreter_path))
+        os.mkdir(os.path.join(tmpdir, 'files'))
+        os.mkdir(os.path.join(tmpdir, 'templates'))
+        rc = subprocess.call(['mount', '--bind', '/src',
+                              os.path.join(tmpdir, 'files')])
+        if rc:
+            raise OSError('Could not bind-mount /src into tmpdir')
+        rc = subprocess.call(['mount', '--bind', '/src',
+                              os.path.join(tmpdir, 'templates')])
+        if rc:
+            raise OSError('Could not bind-mount /src into tmpdir')
 
         ansible_args = dict(inventory=inventory_path,
                             playbook=playbook_path,
@@ -38,6 +48,8 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
                             engine_args=engine.ansible_args,
                             ansible_playbook=engine.ansible_exec_path,
                             ansible_options=ansible_options or '')
+        # env = os.environ.copy()
+        # env['ANSIBLE_REMOTE_TEMP'] = '/tmp/.ansible-${USER}/tmp'
 
         ansible_cmd = ('{ansible_playbook} '
                        '{debug_maybe} '
@@ -50,20 +62,33 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
                                    shell=True,
                                    bufsize=1,
                                    stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT)
+                                   stderr=subprocess.STDOUT,
+                                   cwd='/src',
+                                   #env=env
+                                   )
 
         log_iter = iter(process.stdout.readline, '')
         while process.returncode is None:
             try:
                 logger.info(log_iter.next().rstrip())
             except StopIteration:
-                break
+                process.wait()
             finally:
                 process.poll()
 
         return process.returncode
     finally:
-        shutil.rmtree(tmpdir, ignore_errors=True)
+        try:
+            rc = subprocess.call(['unmount',
+                                  os.path.join(tmpdir, 'files')])
+            rc = subprocess.call(['unmount',
+                                  os.path.join(tmpdir, 'templates')])
+        except Exception:
+            pass
+        try:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        except Exception:
+            pass
 
 
 def apply_role_to_container(role, container_id, service_name, engine,
@@ -162,11 +187,10 @@ def build(engine_name, project_name, services, cache=True,
                 logger.info(u'%s: Applied role %s', service_name, role)
 
                 engine.stop_container(container_id, forcefully=True)
-                metadata = get_metadata_from_role(role)
                 image_id = engine.commit_role_as_layer(container_id,
                                                        service_name,
                                                        fingerprint_hash.hexdigest(),
-                                                       metadata)
+                                                       service)
                 logger.info(u'%s: Committed layer as image ID %s', service_name, image_id)
                 engine.delete_container(container_id)
                 cur_image_id = image_id

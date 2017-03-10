@@ -127,7 +127,7 @@ class Engine(BaseEngine):
 
     def run_kwargs_for_service(self, service_name):
         to_return = self.services[service_name].copy()
-        for key in ['from', 'roles']:
+        for key in ['from', 'roles', 'shell']:
             to_return.pop(key)
         if to_return.get('ports'):
             # convert ports from a list to a dict that docker-py likes
@@ -204,7 +204,8 @@ class Engine(BaseEngine):
             user='root',
             volumes=volumes,
             environment=environ,
-            working_dir='/src'
+            working_dir='/src',
+            cap_add=['SYS_ADMIN']
         )
 
         logger.debug('Docker run: image=%s, params=%s', image_id, run_kwargs)
@@ -232,6 +233,13 @@ class Engine(BaseEngine):
             return container.status == 'running' and container.id
         except docker_errors.NotFound:
             return False
+
+    def service_exit_code(self, service):
+        try:
+            container = self.client.api.inspect_container(self.container_name_for_service(service))
+            return container['State']['ExitCode']
+        except docker_errors.APIError:
+            return None
 
     def stop_container(self, container_id, forcefully=False):
         try:
@@ -331,7 +339,7 @@ class Engine(BaseEngine):
         image_name = self.image_name_for_service(service_name)
         image_version = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
         image_config = utils.metadata_to_image_config(metadata)
-        image_config['Labels'][self.FINGERPRINT_LABEL_KEY] = fingerprint
+        image_config.setdefault('Labels', {})[self.FINGERPRINT_LABEL_KEY] = fingerprint
         commit_data = dict(repository=image_name,
             tag=image_version,
             message=self.LAYER_COMMENT,

@@ -83,6 +83,9 @@ class BaseEngine(object):
     def service_is_running(self, service):
         raise NotImplementedError()
 
+    def service_exit_code(self, service):
+        raise NotImplementedError()
+
     def stop_container(self, container_id, forcefully=False):
         raise NotImplementedError()
 

@@ -1,8 +1,0 @@
-version: "2"
-settings:
-  conductor_base: alpine:3.5
-services:
-  redis:
-    from: alpine:3.5
-    roles:
-      - j00bar.redis-container

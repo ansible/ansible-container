@@ -108,7 +108,7 @@ def cmdrun_init(base_path, project=None, **kwargs):
         logger.info('Ansible Container initialized.')
 
 
-def cmdrun_build(base_path, project_name, engine_name, var_file=None, cache=True,
+def cmdrun_build(base_path, project_name, engine_name, var_file=None,
                  **kwargs):
     config = get_config(base_path, var_file=var_file)
     engine_obj = load_engine(['BUILD'],
@@ -124,7 +124,7 @@ def cmdrun_build(base_path, project_name, engine_name, var_file=None, cache=True
             conductor_img_id = engine_obj.build_conductor_image(
                 base_path,
                 (config['settings'] or {}).get('conductor_base', DEFAULT_CONDUCTOR_BASE),
-                cache=cache
+                cache=kwargs['cache']
             )
         else:
             logger.warning(u'%s does not support building the Conductor image.',
@@ -139,6 +139,7 @@ def cmdrun_build(base_path, project_name, engine_name, var_file=None, cache=True
         while engine_obj.service_is_running('conductor'):
             time.sleep(0.1)
     finally:
+        exit_code = engine_obj.service_exit_code('conductor')
         if not kwargs['save_build_container']:
             logger.info('Conductor terminated. Cleaning up.')
             if engine_obj.service_is_running('conductor'):
@@ -146,6 +147,9 @@ def cmdrun_build(base_path, project_name, engine_name, var_file=None, cache=True
             engine_obj.delete_container(conductor_container_id)
         else:
             logger.info('Conductor terminated. Preserving as requested.')
+        if exit_code:
+            raise AnsibleContainerException(u'Conductor exited with status %s' %
+                                            exit_code)
 
 
 def cmdrun_run(base_path, project_name, engine_name, var_file=None, cache=True,
