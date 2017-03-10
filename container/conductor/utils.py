@@ -65,10 +65,17 @@ def metadata_to_image_config(metadata):
         return to_return
 
     def format_environment(environment):
-        if isinstance(environment, dict):
-            return ['='.join(tpl) for tpl in environment.iteritems()]
-        else:
-            return environment
+        to_return = dict(
+            LD_LIBRARY_PATH='',
+            CPATH='',
+            PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+            PYTHONPATH=''
+        )
+        if isinstance(environment, list):
+            environment = {k: v for (k, v) in
+                           [item.split('=', 1) for item in environment]}
+        to_return.update(environment)
+        return ['='.join(tpl) for tpl in to_return.iteritems()]
 
     TRANSLATORS = {
         # Keys are the key found in the service_data

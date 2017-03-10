@@ -90,15 +90,14 @@ def test_add_from_tarball():
 
 def test_add_from_file():
     assert any(
-        [task.get('copy') == {'src': "{{ lookup('pipe','pwd') }}/%s"
-                                     % distro_vars['httpd_conf_src'],
+        [task.get('copy') == {'src': distro_vars['httpd_conf_src'],
                               'dest': distro_vars['httpd_conf_dest']}
          for task in role_tasks]
     )
 
 def test_copy_from_dir():
     assert any(
-        [task.get('synchronize') == {'src': "{{ lookup('pipe','pwd') }}/foo",
+        [task.get('synchronize') == {'src': "foo",
                                      'dest': '/',
                                      'recursive': 'yes'}
          for task in role_tasks]
@@ -122,12 +121,12 @@ def test_run_with_newline():
          for task in role_tasks]
     )
 
-def test_run_picks_up_shell_user_and_cwd():
-    task = [task for task in role_tasks
-            if task.get('shell') == '/bin/true'][0]
-    assert task['remote_user'] == distro_vars['httpd_user']
-    assert task['args']['executable'] == '/bin/sh -c'
-    assert task['args']['chdir'] == '/tmp'
+# def test_run_picks_up_shell_user_and_cwd():
+#     task = [task for task in role_tasks
+#             if task.get('shell') == '/bin/true'][0]
+#     assert task['remote_user'] == distro_vars['httpd_user']
+#     assert task['args']['executable'] == '/bin/sh -c'
+#     assert task['args']['chdir'] == '/tmp'
 
 # ROLE DEFAULTS
 

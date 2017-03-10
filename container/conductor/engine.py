@@ -114,7 +114,11 @@ class BaseEngine(object):
                              container_id,
                              service_name,
                              fingerprint,
-                             metadata):
+                             metadata,
+                             with_name=False):
+        raise NotImplementedError()
+
+    def tag_image_as_latest(self, service_name, image_id):
         raise NotImplementedError()
 
     def generate_orchestration_playbook(self, repository_data=None):

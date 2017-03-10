@@ -347,15 +347,6 @@ class DockerfileParser(object):
                 # path specifiers can be fnmatch expressions, so use glob
                 for abs_src in glob.iglob(real_path):
                     src = os.path.relpath(abs_src, self.path)
-                    # the src specifier might be a relative path. If so, the
-                    # value of bundle_files determines whether we put
-                    # these files
-                    # into the role or whether we leave them as part of
-                    # the build
-                    # context
-                    if not self.bundle_files:
-                        src = os.path.join(u"{{ lookup('pipe','pwd') }}",
-                                           src)
                     task = CommentedMap()
                     if comments:
                         task['name'] = u' '.join(comments + [u'(%s)' % src])

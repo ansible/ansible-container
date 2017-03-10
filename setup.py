@@ -1,5 +1,6 @@
 import os
 import sys
+import shlex
 from setuptools import setup, find_packages
 from setuptools.command.test import test as TestCommand
 from pip.req import parse_requirements
@@ -9,12 +10,18 @@ install_reqs = parse_requirements('requirements.txt', session=False)
 reqs = [str(ir.req) for ir in install_reqs]
 
 class PlaybookAsTests(TestCommand):
-    user_options = []
+    user_options = [('ansible-args=', None, "Extra ansible arguments")]
+
+    def initialize_options(self):
+        self.ansible_args = u''
+        TestCommand.initialize_options(self)
 
     def run_tests(self):
         import subprocess
         p = subprocess.Popen(
-            ['ansible-playbook', '-vv', '-e', '@distros.yml', 'run_tests.yml'],
+            ['ansible-playbook', '-vv', '-e', '@distros.yml'] +
+            shlex.split(self.ansible_args) +
+            ['run_tests.yml'],
             cwd=os.path.join(os.getcwd(), 'test'),
         )
         rc = p.wait()

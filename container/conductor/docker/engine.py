@@ -334,18 +334,23 @@ class Engine(BaseEngine):
                              container_id,
                              service_name,
                              fingerprint,
-                             metadata):
+                             metadata,
+                             with_name=False):
         container = self.client.containers.get(container_id)
         image_name = self.image_name_for_service(service_name)
         image_version = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
         image_config = utils.metadata_to_image_config(metadata)
         image_config.setdefault('Labels', {})[self.FINGERPRINT_LABEL_KEY] = fingerprint
-        commit_data = dict(repository=image_name,
-            tag=image_version,
+        commit_data = dict(repository=image_name if with_name else None,
+            tag=image_version if with_name else None,
             message=self.LAYER_COMMENT,
             conf=image_config)
         logger.debug('Committing data: %s', commit_data)
-        return container.commit(**commit_data)
+        return container.commit(**commit_data).id
+
+    def tag_image_as_latest(self, service_name, image_id):
+        image_obj = self.client.images.get(image_id)
+        image_obj.tag(self.image_name_for_service(service_name), 'latest')
 
     def generate_orchestration_playbook(self, repository_data=None):
         """If repository_data is specified, presume to pull images from that

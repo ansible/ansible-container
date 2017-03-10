@@ -12,6 +12,7 @@
       with_items: "{{ distros }}"
       register: tempdirs
       notify: "Cleanup temp dirs"
+      tags: always
     - name: Make context dirs
       file:
         state: directory
@@ -19,6 +20,7 @@
       with_together:
         - "{{ distros }}"
         - "{{ tempdirs.results }}"
+      tags: always
     - name: Make project dirs
       file:
         state: directory
@@ -26,6 +28,7 @@
       with_together:
         - "{{ distros }}"
         - "{{ tempdirs.results }}"
+      tags: always
     - name: Render Dockerfile
       template:
         src: "content/Dockerfile.j2"
@@ -33,6 +36,7 @@
       with_together:
         - "{{ distros }}"
         - "{{ tempdirs.results }}"
+      tags: always
     - name: Copy build context
       synchronize:
         src: "{{ playbook_dir }}/content/"
@@ -40,6 +44,7 @@
       with_together:
         - "{{ distros }}"
         - "{{ tempdirs.results }}"
+      tags: always
     - name: Run ansible-container import
       command: >
         ansible-container --debug --project-path
@@ -48,6 +53,7 @@
       with_together:
         - "{{ distros }}"
         - "{{ tempdirs.results }}"
+      tags: always
     - name: Validate import
       command: pytest tests/validate_import.py
       environment:
@@ -56,6 +62,8 @@
       with_together:
         - "{{ distros }}"
         - "{{ tempdirs.results }}"
+      tags:
+        - validate_import
     - name: Run ansible-container build
       command: >
         ansible-container --debug --project-path
@@ -63,13 +71,20 @@
       with_together:
         - "{{ distros }}"
         - "{{ tempdirs.results }}"
+      tags:
+        - build
+        - build_no_validate
     - name: Validate build
       command: pytest tests/validate_build.py
       environment:
         TO_AC: "{{ item.1.path|quote }}/test-{{ item.0.name|quote }}"
         DISTRO_DATA: "{{ item.0|to_json }}"
-    - name: Pause
-      pause:
+      with_together:
+        - "{{ distros }}"
+        - "{{ tempdirs.results }}"
+      tags:
+        - build
+        - validate_build
   handlers:
     - name: Cleanup temp dirs
       file:

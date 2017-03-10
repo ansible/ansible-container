@@ -187,13 +187,17 @@ def build(engine_name, project_name, services, cache=True,
                 logger.info(u'%s: Applied role %s', service_name, role)
 
                 engine.stop_container(container_id, forcefully=True)
+                is_last_role = role is service['roles'][-1]
                 image_id = engine.commit_role_as_layer(container_id,
                                                        service_name,
                                                        fingerprint_hash.hexdigest(),
-                                                       service)
+                                                       service,
+                                                       with_name=is_last_role)
                 logger.info(u'%s: Committed layer as image ID %s', service_name, image_id)
                 engine.delete_container(container_id)
                 cur_image_id = image_id
+            # Tag the image also as latest:
+            engine.tag_image_as_latest(service_name, cur_image_id)
             logger.info(u'%s: Build complete.', service_name)
         else:
             logger.info(u'%s: No roles specified. Nothing to do.', service_name)
