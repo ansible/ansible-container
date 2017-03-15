@@ -128,7 +128,10 @@ class Engine(BaseEngine):
     def run_kwargs_for_service(self, service_name):
         to_return = self.services[service_name].copy()
         for key in ['from', 'roles', 'shell']:
-            to_return.pop(key)
+            try:
+                to_return.pop(key)
+            except KeyError:
+                pass
         if to_return.get('ports'):
             # convert ports from a list to a dict that docker-py likes
             new_ports = build_port_bindings(to_return.get('ports'))
