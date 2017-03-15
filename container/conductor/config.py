@@ -88,8 +88,8 @@ class AnsibleContainerConductorConfig(Mapping):
             logger.debug('Renering service keys using %s', service_defaults)
             services[service] = self._process_section(
                 processed,
-                templar=Templar(loader=None,
-                                variables=service_defaults))
+                templar=Templar(loader=None, variables=service_defaults)
+            )
         self.services = services
 
     def __getitem__(self, key):
