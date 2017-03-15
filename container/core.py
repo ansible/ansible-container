@@ -119,7 +119,7 @@ def cmdrun_build(base_path, project_name, engine_name, var_file=None,
     if engine_obj.service_is_running('conductor'):
         engine_obj.stop_container(conductor_container_id, forcefully=True)
 
-    if not kwargs.get('devel'):
+    if conductor_container_id is None or not kwargs.get('devel'):
         if engine_obj.CAP_BUILD_CONDUCTOR:
             conductor_img_id = engine_obj.build_conductor_image(
                 base_path,
