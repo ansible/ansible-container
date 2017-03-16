@@ -299,6 +299,12 @@ class Engine(BaseEngine):
             return None
 
     def get_latest_image_id_for_service(self, service_name):
+        image = self.get_latest_image_for_service(service_name)
+        if image is not None:
+            return image.id
+        return None
+
+    def get_latest_image_for_service(self, service_name):
         try:
             image = self.client.images.get(
                 '%s:latest' % self.image_name_for_service(service_name))
@@ -316,9 +322,9 @@ class Engine(BaseEngine):
 
             images = sorted(images, key=tag_sort)
             logger.debug("Found images (newest last): %s", images)
-            return images[-1].id
+            return images[-1]
         else:
-            return image.id
+            return image
 
     def get_build_stamp_for_image(self, image_id):
         build_stamp = None
