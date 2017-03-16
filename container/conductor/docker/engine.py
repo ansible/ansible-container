@@ -364,8 +364,27 @@ class Engine(BaseEngine):
     def generate_orchestration_playbook(self, repository_data=None):
         """If repository_data is specified, presume to pull images from that
         repository. If not, presume the images are already present."""
-        # FIXME: Implement me.
-        raise NotImplementedError()
+        tasks = []
+
+        for service_name, service in self.services.items():
+            image = self.get_latest_image_for_service(service_name)
+            runit = {
+                'docker_container': {
+                    'name': service_name,
+                    'image': image.tags[0],
+                }
+
+            }
+            logger.debug('Adding play task for %s: %s', service_name, runit)
+            tasks.append(runit)
+
+        playbook = [{
+            'hosts': 'localhost',
+            'gather_facts': False,
+            'tasks': tasks
+        }]
+        logger.debug('Created playbook to run project: %s', json.dumps(playbook))
+        return playbook
 
     def push(self, image_id, service_name, repository_data):
         """
