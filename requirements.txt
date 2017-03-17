@@ -3,3 +3,4 @@ PyYAML>=3.11
 six
 requests
 ruamel.yaml
+structlog[dev]
