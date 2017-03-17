@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
-import logging
-
-logger = logging.getLogger(__name__)
+from .visibility import getLogger
+logger = getLogger(__name__)
 
 import os
 import sys
@@ -231,7 +230,7 @@ def commandline():
     subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
     subparsers.required = True
     for subcommand in AVAILABLE_COMMANDS:
-        logger.debug('Registering subcommand %s', subcommand)
+        logger.debug('Registering subcommand', subcommand=subcommand)
         subparser = subparsers.add_parser(subcommand, help=AVAILABLE_COMMANDS[subcommand])
         globals()['subcmd_%s_parser' % subcommand](parser, subparser)
 
@@ -248,26 +247,26 @@ def commandline():
     try:
         getattr(core, u'cmdrun_{}'.format(args.subcommand))(**vars(args))
     except exceptions.AnsibleContainerAlreadyInitializedException as e:
-        logger.error('Ansible Container is already initialized')
+        logger.error('Ansible Container is already initialized', exc_info=e)
         sys.exit(1)
     except exceptions.AnsibleContainerNotInitializedException as e:
         logger.error('No Ansible Container project data found - do you need to '
-                     'run "ansible-container init"?')
+                     'run "ansible-container init"?', exc_info=e)
         sys.exit(1)
     except exceptions.AnsibleContainerNoAuthenticationProvidedException as e:
-        logger.exception(e)
+        logger.error('No authentication provided, unable to continue', exc_info=e)
         sys.exit(1)
     except exceptions.AnsibleContainerNoMatchingHosts:
-        logger.error('No matching service found in ansible/container.yml')
+        logger.error('No matching service found in ansible/container.yml', exc_info=e)
         sys.exit(1)
     except exceptions.AnsibleContainerHostNotTouchedByPlaybook:
-        logger.error('The requested service(s) is not referenced in ansible/main.yml. Nothing to build.')
+        logger.error('The requested service(s) is not referenced in ansible/main.yml. Nothing to build.', exc_info=e)
         sys.exit(1)
     except exceptions.AnsibleContainerConfigException as e:
         logger.error('Invalid container.yml: {}'.format(e.message))
     except Exception as e:
         if args.debug:
-            logger.exception(e)
+            logger.exception('Unknown exception %s' % str(e), exc_info=e)
         else:
-            logger.error(e)
+            logger.error('Unknown exception', exc_info=e)
         sys.exit(1)
