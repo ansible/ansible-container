@@ -57,16 +57,16 @@ class AnsibleContainerConductorConfig(Mapping):
 
     def _process_top_level_sections(self):
         for section in ['volumes', 'registries']:
-            logger.debug('Processing %s section...', section)
+            logger.debug('Processing section...', section=section)
             setattr(self, section,
-                    self._process_section(self._config.get(section,
-                                                           ordereddict.ordereddict())))
+                    self._process_section(self._config.get(
+                        section, ordereddict.ordereddict())))
 
     def _process_services(self):
         services = ordereddict.ordereddict()
         for service, service_data in self._config.get(
                 'services', ordereddict.ordereddict()).items():
-            logger.debug('Processing service %s...', service)
+            logger.debug('Processing service...', service=service)
             processed = ordereddict.ordereddict()
             service_defaults = self.defaults.copy()
             for role_spec in service_data.get('roles', []):
@@ -84,7 +84,7 @@ class AnsibleContainerConductorConfig(Mapping):
                                         relax=True)
                 service_defaults.update(role_args, relax=True)
             processed.update(service_data, relax=True)
-            logger.debug('Renering service keys using %s', service_defaults)
+            logger.debug('Rendering service keys from defaults', defaults=service_defaults)
             services[service] = self._process_section(
                 processed,
                 templar=Templar(loader=None, variables=service_defaults)

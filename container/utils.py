@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
-import logging
-
-logger = logging.getLogger(__name__)
+from .visibility import getLogger
+logger = getLogger(__name__)
 
 import os
 import importlib
@@ -61,8 +60,7 @@ def jinja_render_to_temp(template_file, temp_dir, dest_file, **context):
     j2_env = Environment(loader=FileSystemLoader(j2_tmpl_path))
     j2_tmpl = j2_env.get_template(template_file)
     rendered = j2_tmpl.render(dict(temp_dir=temp_dir, **context))
-    logger.debug('Rendered Jinja Template:')
-    logger.debug(rendered.encode('utf8'))
+    logger.debug('Rendered Jinja Template:', body=rendered.encode('utf8'))
     open(os.path.join(temp_dir, dest_file), 'wb').write(
         rendered.encode('utf8'))
 
@@ -108,7 +106,7 @@ def load_engine(engine_name='', base_path='', **kwargs):
     """
     mod = importlib.import_module('container.%s.engine' % engine_name)
     project_name = os.path.basename(base_path).lower()
-    logger.debug('Project name is %s', project_name)
+    logger.debug('Engine loaded for project', name=project_name, path=base_path)
     return mod.Engine(base_path, project_name, kwargs)
 
 

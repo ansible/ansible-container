@@ -2,12 +2,15 @@
 from __future__ import absolute_import
 
 import logging
+plainLogger = logging.getLogger(__name__)
 
-logger = logging.getLogger(__name__)
+from ..visibility import getLogger
+logger = getLogger(__name__)
 
 import base64
 import datetime
 import functools
+import inspect
 import json
 import os
 import re
@@ -57,11 +60,15 @@ REMOVE_HTTP = re.compile('^https?://')
 def log_runs(fn):
     @functools.wraps(fn)
     def __wrapped__(self, *args, **kwargs):
-        logger.debug(u'Call: %s.%s(args=%s, kwargs=%s)',
-                     type(self).__name__,
-                     fn.__name__,
-                     unicode(args),
-                     unicode(kwargs))
+        logger.debug(
+            u'Call: %s.%s' % (type(self).__name__, fn.__name__),
+            # because log_runs is a decorator, we need to override the caller
+            # line & function
+            caller_func='%s.%s' % (type(self).__name__, fn.__name__),
+            caller_line=inspect.getsourcelines(fn)[-1],
+            args=args,
+            kwargs=kwargs,
+        )
         return fn(self, *args, **kwargs)
     return __wrapped__
 
@@ -144,7 +151,7 @@ class Engine(BaseEngine):
         parameter overrides from the service definition."""
         run_kwargs = self.run_kwargs_for_service(service_name)
         run_kwargs.update(kwargs, relax=True)
-        logger.debug('Docker run: image=%s, params=%s', image_id, run_kwargs)
+        logger.debug('Running container in docker', image=image_id, params=run_kwargs)
 
         container_obj = self.client.containers.run(
             image=image_id,
@@ -154,7 +161,7 @@ class Engine(BaseEngine):
 
         log_iter = container_obj.logs(stdout=True, stderr=True, stream=True)
         mux = logmux.LogMultiplexer()
-        mux.add_iterator(log_iter, logger)
+        mux.add_iterator(log_iter, plainLogger)
         return container_obj.id
 
     @log_runs
@@ -186,7 +193,7 @@ class Engine(BaseEngine):
         if params.get('devel'):
             from container import conductor
             conductor_path = os.path.dirname(conductor.__file__)
-            logger.debug(u"Binding conductor at %s into conductor container", conductor_path)
+            logger.debug(u"Binding conductor at %s into conductor container" % conductor_path)
             volumes[conductor_path] = {'bind': '/_ansible/conductor/conductor', 'mode': 'rw'}
 
         if command in ('login', 'push') and params.get('config_path'):
@@ -211,7 +218,7 @@ class Engine(BaseEngine):
             cap_add=['SYS_ADMIN']
         )
 
-        logger.debug('Docker run: image=%s, params=%s', image_id, run_kwargs)
+        logger.debug('Docker run:', image=image_id, params=run_kwargs)
 
         try:
             container_obj = self.client.containers.run(
@@ -227,7 +234,7 @@ class Engine(BaseEngine):
         else:
             log_iter = container_obj.logs(stdout=True, stderr=True, stream=True)
             mux = logmux.LogMultiplexer()
-            mux.add_iterator(log_iter, logger)
+            mux.add_iterator(log_iter, plainLogger)
             return container_obj.id
 
     def service_is_running(self, service):
@@ -310,9 +317,9 @@ class Engine(BaseEngine):
                 '%s:latest' % self.image_name_for_service(service_name))
         except docker_errors.ImageNotFound:
             images = self.client.images.list(name=self.image_name_for_service(service_name))
-            logger.debug("Could not find image '%s:latest', searching for "
-                "other tags with same name",
-                self.image_name_for_service(service_name))
+            logger.debug("Could not ':latest' image, searching for "
+                "other tags with same image name",
+                image_name=self.image_name_for_service(service_name))
 
             if not images:
                 return None
@@ -321,7 +328,9 @@ class Engine(BaseEngine):
                 return [t for t in i.tags if t.startswith(self.image_name_for_service(service_name))][0]
 
             images = sorted(images, key=tag_sort)
-            logger.debug("Found images (newest last): %s", images)
+            logger.debug('Found images for service',
+                    service=service_name,
+                    images=images)
             return images[-1]
         else:
             return image
@@ -354,7 +363,7 @@ class Engine(BaseEngine):
             tag=image_version if with_name else None,
             message=self.LAYER_COMMENT,
             conf=image_config)
-        logger.debug('Committing data: %s', commit_data)
+        logger.debug('Committing new layer', params=commit_data)
         return container.commit(**commit_data).id
 
     def tag_image_as_latest(self, service_name, image_id):
@@ -375,7 +384,7 @@ class Engine(BaseEngine):
                 }
 
             }
-            logger.debug('Adding play task for %s: %s', service_name, runit)
+            logger.debug('Adding new play task', service=service_name, task=runit)
             tasks.append(runit)
 
         playbook = [{
@@ -383,7 +392,7 @@ class Engine(BaseEngine):
             'gather_facts': False,
             'tasks': tasks
         }]
-        logger.debug('Created playbook to run project: %s', json.dumps(playbook))
+        logger.debug('Created playbook to run project', playbook=playbook)
         return playbook
 
     def push(self, image_id, service_name, repository_data):
@@ -418,13 +427,13 @@ class Engine(BaseEngine):
             for line in data:
                 line = json.loads(line)
                 if type(line) is dict and 'error' in line:
-                    logger.error(line['error'])
+                    plainLogger.error(line['error'])
                 if type(line) is dict and 'status' in line:
                     if line['status'] != last_status:
-                        logger.info(line['status'])
+                        plainLogger.info(line['status'])
                     last_status = line['status']
                 else:
-                    logger.debug(line)
+                    plainLogger.debug(line)
 
     @log_runs
     def build_conductor_image(self, base_path, base_image, cache=True):
@@ -472,7 +481,8 @@ class Engine(BaseEngine):
 
             logger.debug('Context manifest:')
             for tarinfo_obj in tarball.getmembers():
-                logger.debug(' - %s (%s bytes)', tarinfo_obj.name, tarinfo_obj.size)
+                logger.debug('tarball item: %s (%s bytes)' % (tarinfo_obj.name, tarinfo_obj.size),
+                    file=tarinfo_obj.name, bytes=tarinfo_obj.size, terse=True)
             tarball.close()
             tarball_file.close()
             tarball_file = open(tarball_path, 'rb')
@@ -490,7 +500,9 @@ class Engine(BaseEngine):
                             line = line_json['stream']
                     except ValueError:
                         pass
-                    logger.debug(line)
+                    # this bypasses the fancy colorized logger for things that
+                    # are just STDOUT of a process
+                    plainLogger.debug(line.rstrip())
                 return self.get_latest_image_id_for_service('conductor')
             else:
                 image = self.client.images.build(fileobj=tarball_file,

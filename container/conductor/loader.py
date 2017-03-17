@@ -4,13 +4,12 @@ from __future__ import absolute_import
 import logging
 import importlib
 
-from .engine import CAPABILITIES
-
-logger = logging.getLogger(__name__)
+from .visibility import getLogger
+logger = getLogger(__name__)
 
 
 def load_engine(capabilities_needed, engine_name, project_name, services=[], **kwargs):
-    logger.debug(u"Loading capabilities %s for engine %s", ','.join(capabilities_needed), engine_name)
+    logger.debug(u"Loading engine capabilities", capabilities=capabilities_needed, engine=engine_name)
     conductor_module_name = __name__.rsplit('.', 1)[0]
     mod = importlib.import_module('.%s.engine' % engine_name,
                                   package=conductor_module_name)

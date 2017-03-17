@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
-import logging
-
-logger = logging.getLogger(__name__)
+from .visibility import getLogger
+logger = getLogger(__name__)
 
 import os
 import json
@@ -63,8 +62,7 @@ class AnsibleContainerConfig(Mapping):
 
         self._resolve_defaults(config)
 
-        logger.debug(u"Config:\n%s" % json.dumps(config,
-                                                 indent=4))
+        logger.debug(u"Parsed config", config=config)
         self._config = config
 
     def _resolve_defaults(self, config):
@@ -79,8 +77,7 @@ class AnsibleContainerConfig(Mapping):
         if self.var_file:
             defaults.update(self._get_variables_from_file(), relax=True)
         defaults.update(self._get_environment_variables(), relax=True)
-        logger.debug(u'Template variables:\n %s' % json.dumps(defaults,
-                                                              indent=4))
+        logger.debug(u'Resolved template variables', template_vars=defaults)
 
     def _get_environment_variables(self):
         '''
@@ -95,6 +92,7 @@ class AnsibleContainerConfig(Mapping):
         for var, value in [(k, v) for k, v in six.iteritems(os.environ)
                            if k.startswith('AC_')]:
             env_vars[var[3:].lower()] = value
+        logger.debug(u'Read environment variables', env_vars=env_vars)
         return env_vars
 
     def _get_variables_from_file(self):
@@ -110,7 +108,7 @@ class AnsibleContainerConfig(Mapping):
             raise AnsibleContainerConfigException(
                 u'Variables file "%s" not found. (I looked in "%s" for it.)' % (
                     filename, dirname))
-        logger.debug("Use variable file: %s" % abspath)
+        logger.debug("Use variable file: %s" % abspath, file=abspath)
 
         if os.path.splitext(abspath)[-1].lower().endswith(('yml', 'yaml')):
             try:

@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
-import logging
-
-logger = logging.getLogger(__name__)
+from .visibility import getLogger
+logger = getLogger(__name__)
 
 import os
 import importlib
@@ -26,15 +25,17 @@ class MakeTempDir(object):
 
     def __enter__(self):
         self.temp_dir = tempfile.mkdtemp()
-        logger.debug('Using temporary directory %r...', self.temp_dir)
+        logger.debug('Using temporary directory', path=self.temp_dir)
         return os.path.realpath(self.temp_dir)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         try:
-            logger.debug('Cleaning up temporary directory %r...', self.temp_dir)
+            logger.debug('Cleaning up temporary directory',
+                path=self.temp_dir)
             shutil.rmtree(self.temp_dir)
-        except Exception:
-            logger.exception('Failure cleaning up temp space %r', self.temp_dir)
+        except Exception as e:
+            logger.error('Failure cleaning up temp space', path=self.temp_dir,
+                exc_info=e)
 
 conductor_dir = os.path.normpath(os.path.dirname(__file__))
 
@@ -44,8 +45,7 @@ def jinja_render_to_temp(templates_path, template_file, temp_dir, dest_file, **c
     j2_env = Environment(loader=FileSystemLoader(templates_path))
     j2_tmpl = j2_env.get_template(template_file)
     rendered = j2_tmpl.render(dict(temp_dir=temp_dir, **context))
-    logger.debug('Rendered Jinja Template:')
-    logger.debug(rendered.encode('utf8'))
+    logger.debug('Rendered Jinja Template:', rendered=rendered.encode('utf8'))
     open(os.path.join(temp_dir, dest_file), 'wb').write(
         rendered.encode('utf8'))
 
@@ -133,7 +133,7 @@ def create_role_from_templates(role_name=None, role_path=None,
     templates_path = os.path.join(conductor_dir, 'templates', 'role')
     timestamp = datetime.now().strftime('%Y%m%d%H%M%s')
 
-    logger.debug('Role templates path: %s', templates_path)
+    logger.debug('Role template location', path=templates_path)
     for rel_path, templates in [(os.path.relpath(path, templates_path), files)
                                 for (path, _, files) in os.walk(templates_path)]:
         target_dir = os.path.join(role_path, rel_path)
@@ -144,7 +144,8 @@ def create_role_from_templates(role_name=None, role_path=None,
             target_path = os.path.join(target_dir, target_name)
             if os.path.exists(target_path):
                 backup_path = u'%s_%s' % (target_path, timestamp)
-                logger.debug(u'Backing up %s to %s', target_path, backup_path)
+                logger.debug(u'Found existing file. Backing target to backup',
+                    target=target_path, backup=backup_path)
                 os.rename(target_path, backup_path)
             logger.debug("Rendering template for %s/%s" % (target_dir, template))
             jinja_render_to_temp(templates_path,

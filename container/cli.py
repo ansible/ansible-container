@@ -266,7 +266,7 @@ def commandline():
         logger.error('Invalid container.yml: {}'.format(e.message))
     except Exception as e:
         if args.debug:
-            logger.exception('Unknown exception %s' % str(e), exc_info=e)
+            logger.exception('Unknown exception %s' % str(e))
         else:
             logger.error('Unknown exception', exc_info=e)
         sys.exit(1)
