@@ -90,7 +90,8 @@ def subcmd_build_parser(parser, subparser):
     subparser.add_argument('--no-purge-last', action='store_false',
                            help=u'By default, Ansible Container will remove the '
                                 u'previously built image for your hosts. Disable '
-                                u'that with this flag.')
+                                u'that with this flag.',
+                           dest='purge_last', default=True)
     subparser.add_argument('--from-scratch', action='store_true',
                            help=u'Instead of running the Ansible playbook against '
                                 u'the existing copies of your containers, run the '
@@ -160,6 +161,11 @@ def subcmd_push_parser(parser, subparser):
                                  u'including the namespace. If passing a URL, an example would be: '
                                  u'"https://registry.example.com:5000/myproject"'),
                            dest='push_to', default=None)
+    subparser.add_argument('--tag', action='store',
+                           help=(u'A custom tag to apply to the image before pushing. '
+                                 u'For example, to tag and push images with "latest": '
+                                 u'--tag latest'),
+                           dest='tag', default=None)
     subcmd_common_parsers(parser, subparser, 'push')
 
 def subcmd_version_parser(parser, subparser):
@@ -191,8 +197,13 @@ def commandline():
     parser.add_argument('--var-file', action='store',
                         help=u'Path to a YAML or JSON formatted file providing variables for '
                              u'Jinja2 templating in container.yml.', default=None)
+    parser.add_argument('--no-selinux', action='store_false', dest='selinux',
+                        help=u"Disables the 'Z' option from being set on volumes automatically "
+                             u"mounted to the build container.", default=True)
+
 
     subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
+    subparsers.required = True
     for subcommand in AVAILABLE_COMMANDS:
         logger.debug('Registering subcommand %s', subcommand)
         subparser = subparsers.add_parser(subcommand, help=AVAILABLE_COMMANDS[subcommand])
@@ -210,15 +221,15 @@ def commandline():
 
     try:
         getattr(engine, u'cmdrun_{}'.format(args.subcommand))(**vars(args))
-    except exceptions.AnsibleContainerAlreadyInitializedException, e:
+    except exceptions.AnsibleContainerAlreadyInitializedException as e:
         logger.error('Ansible Container is already initialized')
         sys.exit(1)
-    except exceptions.AnsibleContainerNotInitializedException, e:
+    except exceptions.AnsibleContainerNotInitializedException as e:
         logger.error('No Ansible Container project data found - do you need to '
                      'run "ansible-container init"?')
         sys.exit(1)
-    except exceptions.AnsibleContainerNoAuthenticationProvidedException, e:
-        logger.error(unicode(e))
+    except exceptions.AnsibleContainerNoAuthenticationProvidedException as e:
+        logger.exception(e)
         sys.exit(1)
     except exceptions.AnsibleContainerNoMatchingHosts:
         logger.error('No matching service found in ansible/container.yml')
@@ -226,9 +237,12 @@ def commandline():
     except exceptions.AnsibleContainerHostNotTouchedByPlaybook:
         logger.error('The requested service(s) is not referenced in ansible/main.yml. Nothing to build.')
         sys.exit(1)
-    except Exception, e:
+    except exceptions.AnsibleContainerConfigException as e:
+        logger.error('Invalid container.yml: {}'.format(e.message))
+    except Exception as e:
         if args.debug:
-            logger.exception(unicode(e))
+            logger.exception(e)
         else:
-            logger.error(unicode(e))
+            msg = str(e) if str(e) else type(e)
+            logger.error('Execution failed with {}'.format(msg))
         sys.exit(1)

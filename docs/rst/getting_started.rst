@@ -52,7 +52,7 @@ By way of an example, consider the below ``container.yml`` file:
 
 .. code-block:: yaml
 
-    version: "1"
+    version: "2"
     services:
       web:
         image: "ubuntu:trusty"
@@ -65,10 +65,9 @@ By way of an example, consider the below ``container.yml`` file:
 
 Things to note:
 
-1. We mark this schema with version 1. Future versions may deviate from this schema.
+1. In this example the schema is set to version 2. (Version 2 support was add in version 0.3.0.)
 2. Each of the containers you wish to orchestrate should be under the `services` key.
-3. The content of the `services` key observes all of the keys supported by the
-   Docker Compose v1 schema.
+3. For supported `service` keys, see :doc:`container_yml/reference`.
 4. The image you specify should be the base image that your containers will start from.
    Ansible Container will use your playbook to build upon this base image.
 5. You may optionally specify a `dev_overrides` section. During build and in generating
@@ -80,6 +79,8 @@ Things to note:
    for every code change. Thus that developer may wish to include `dev_overrides` that run
    a BrowserSync server for those assets, whereas in production Gulp would build those assets
    and exit.
+
+
 
 main.yml
 ````````
@@ -102,7 +103,7 @@ Ansible Container.
 
 meta.yml
 ````````
-Share your app on `Ansible Galaxy <https:\\galaxy.ansible.com>`_. Provide the requested information in ``meta.yml``, and
+Share your app on `Ansible Galaxy <https://galaxy.ansible.com>`_. Provide the requested information in ``meta.yml``, and
 then log into Galaxy and use the import feature to let the world know about your project.
 
 requirements.txt
@@ -138,7 +139,7 @@ Gulp and Node.js. To pull the skeleton from Ansible Galaxy and bootstrap a new a
 
 .. code-block:: bash
 
-  ansible-container init j00bar.django-gulp-nginx
+  ansible-container init ansible.django-gulp-nginx
 
 From here, you can even build and run this app, even though it doesn't do a whole lot.
 
@@ -149,6 +150,10 @@ From here, you can even build and run this app, even though it doesn't do a whol
 
 To take a deeper dive into what the skeleton app offers, it requires looking into the ``ansible/``
 directory, where we find the application orchestration and build instructions.
+
+.. note::
+
+    The most recent version of `ansible.django-gulp-nginx <https://galaxy.ansible.com/ansible/django-gulp-nginx>`_ requires Ansible Container version 0.3.0+. Depending on the version of Ansible Container available from `PyPi <https://pypi.python.org/>`_, you may need to clone the Ansible Container repo, and run from source. For help, view the :doc:`Installation Guide </installation>`.  
 
 container.yml
 `````````````
@@ -208,8 +213,7 @@ Django container sets the database server DSN in an environment variable. In dev
 exported into the container as a volume so that changes to the code can be detected and instantly integrated into
 the development container, however in production, the full Django project's code is part of the container's
 filesystem. Note that in both development and production, `Yelp's dumb-init <https://github.com/Yelp/dumb-init>`_ is
-used for PID 1 management, which is an excellent practice. For use with the :doc:`shipit command <deploy_kubernetes>`,
-the service includes a Kubernetes specific option for the uid of the user running the container's process.
+used for PID 1 management, which is an excellent practice.
 
 The Gulp service exists to compile our static asset sources into minified and unified distributable assets, but
 in development, like with Django, we want Gulp to run a self-reloading webserver, recompiling when the developer
@@ -244,20 +248,20 @@ Conversely, the Nginx server runs in production but does not in development orch
 
 .. code-block:: yaml
 
-      nginx:
-        image: centos:7
-        ports:
-          - "80:{{ DJANGO_PORT }}"
-        user: 'nginx'
-        links:
-          - django
-        command: ['/usr/bin/dumb-init', 'nginx', '-c', '/etc/nginx/nginx.conf']
-        dev_overrides:
-          ports: []
-          command: '/bin/false'
-        options:
-          kube:
-            runAsUser: 997
+    nginx:
+      image: centos:7
+      ports:
+        - "80:{{ DJANGO_PORT }}"
+      user: 'nginx'
+      links:
+        - django
+      command: ['/usr/bin/dumb-init', 'nginx', '-c', '/etc/nginx/nginx.conf']
+      dev_overrides:
+        ports: []
+        command: '/bin/false'
+      options:
+        kube:
+          runAsUser: 997
 
 In development, Gulp's webserver listens on port 80 and proxies requests to Django, whereas
 in production we want Nginx to have that functionality.
@@ -266,16 +270,16 @@ Finally, we set up a PostgreSQL database server using a stock image from Docker 
 
 .. code-block:: yaml
 
-  postgresql:
-    image: postgres:9.4
-    expose:
-      - "5432"
-    volumes:
-      - '/var/lib/postgresql/data'
-    environment:
-      POSTGRES_USER: "{{ POSTGRES_USER }}"
-      POSTGRES_PASSWORD: "{{ POSTGRES_PASSWORD }}"
-      POSTGRES_DB: "{{ POSTGRES_DB }}"
+    postgresql:
+      image: postgres:9.4
+      expose:
+        - "5432"
+      volumes:
+        - '/var/lib/postgresql/data'
+      environment:
+        POSTGRES_USER: "{{ POSTGRES_USER }}"
+        POSTGRES_PASSWORD: "{{ POSTGRES_PASSWORD }}"
+        POSTGRES_DB: "{{ POSTGRES_DB }}"
 
 You can use distribution base images like CentOS, Ubuntu, or Fedora for the build process
 to customize, or you can use pre-built base images from a container registry like Docker Hub
@@ -299,13 +303,13 @@ each container:
         - gulp-static
     - hosts: nginx
       roles:
-        - role: j00bar.nginx-container
+        - role: ansible.nginx-container
           ASSET_PATHS:
             - /tmp/django/static/
             - /tmp/gulp/node/dist/
 
 The first two of these roles come bundled with the app and can be found in the ``ansible/roles/`` directory.
-The third one, `j00bar.nginx-container`, is a reference to a role hosted on Ansible Galaxy, and we make that
+The third one, `ansible.nginx-container`, is a reference to a role hosted on Ansible Galaxy, and we make that
 role a dependency for build in ``requirements.yml``. Because the containers described by the included roles
 are so closely tied to the source code in the project, it's appropriate that they're bundled with this app
 skeleton whereas the `j00bar.nginx-container` role is independent of the source code in the project, making
@@ -349,4 +353,9 @@ Now, you can run:
    $ ansible-container build
 
 ... to recreate your app, and this time, you'll find a newly built Redis container image all ready to go.
+
+Managing the Application Lifecycle
+----------------------------------
+
+Ansible Container can manage the lifecycle of an application from development through cloud deployment. For a hands-on walk through of creating, testing, and deploying a sample application, visit our `demo site <https://ansible.github.io/ansible-container-demo/>`_.
 

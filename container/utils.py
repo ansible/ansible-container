@@ -54,7 +54,7 @@ def jinja_render_to_temp(template_file, temp_dir, dest_file, **context):
     rendered = j2_tmpl.render(dict(temp_dir=temp_dir, **context))
     logger.debug('Rendered Jinja Template:')
     logger.debug(rendered.encode('utf8'))
-    open(os.path.join(temp_dir, dest_file), 'w').write(
+    open(os.path.join(temp_dir, dest_file), 'wb').write(
         rendered.encode('utf8'))
 
 def get_config(base_path, var_file=None):

@@ -17,6 +17,34 @@ from .utils import create_path, represent_odict
 from ..utils import jinja_render_to_temp
 
 
+class BaseShipItObject(object):
+    def __init__(self, config=None, project_name=None):
+        self.project_name = project_name
+        self.config = config
+
+    def get_template(self):
+        return self._get_template_or_task(request_type="config")
+
+    def get_task(self):
+        return self._get_template_or_task(request_type="task")
+
+    def _get_template_or_task(self, request_type="task"):
+        '''
+        Read the container.yml configuration, and for each service create a configuration template or
+        playbook task.
+
+        :return: list of configuration templates or playbook tasks
+        '''
+        raise NotImplementedError()
+
+    def _create(self, name, request_type, service):
+        '''
+        Generate a configuration template or playbook task.
+        :param request_type:
+        '''
+        raise NotImplementedError()
+
+
 class BaseShipItEngine(object):
     name = None
 
@@ -27,7 +55,7 @@ class BaseShipItEngine(object):
         self.role_name = "%s-%s" % (self.project_name, self.name)
         self.roles_path = os.path.join(self.base_path, SHIPIT_PATH, SHIPIT_ROLES_DIR, self.role_name)
 
-    def add_options(self, subparser):
+    def add_options(self, parser):
         """
         Given an argument subparser, add to it the arguments and options
         this engine allows.
@@ -37,16 +65,25 @@ class BaseShipItEngine(object):
         :param subparser: An argparse.ArgumentSubparser
         :return: None
         """
-        subparser.add_argument('--save-config', action='store_true',
-                               help=(u'Generate and save the %s configuration files in '
-                                     u'ansible/shipit_config/kubernetes.' % self.name),
-                               dest='save_config', default=False)
+        parser.add_argument('--save-config', action='store_true',
+                            help=(u'Generate and save the %s configuration files in '
+                                  u'ansible/shipit_config/kubernetes.' % self.name),
+                            dest='save_config', default=False)
 
-        subparser.add_argument('--pull-from', action='store',
-                               help=u'Name of a registry defined in container.yml or the actual URL the cluster will '
-                                    u'use to pull images. If passing a URL, an example would be: '
-                                    u'"registry.example.com:5000/myproject"',
-                               dest='pull_from', default=None)
+        parser.add_argument('--tag', action='store',
+                            help=(u'Name of a tag to pull down'),
+                            dest='tag', default=None)
+
+        egroup = parser.add_mutually_exclusive_group()
+        egroup.add_argument('--pull-from', action='store',
+                            help=u'Name of a registry defined in container.yml or the actual URL the cluster will '
+                                 u'use to pull images. If passing a URL, an example would be: '
+                                 u'"registry.example.com:5000/myproject"',
+                            dest='pull_from', default=None)
+
+        egroup.add_argument('--local-images', action='store_true',
+                            help=u'Images can be accessed from the Docker daemon',
+                            dest='local_images', default=False)
 
     def run(self):
         """
@@ -74,15 +111,14 @@ class BaseShipItEngine(object):
         logger.debug("Copying modules from %s to %s" % (modules_dir, library_path))
         create_path(library_path)
 
-        include_files = []
+        include_files = set()
         for mod in glob.glob(modules_dir + '/*.py'):
             with open(mod, 'r') as mod_file:
                 for line in mod_file:
                     match = re.search('#include--> ?(\w+.py)', line)
                     if match and match.groups():
-                        include_files += list(match.groups())
+                        include_files.update(match.groups())
 
-        include_files = list(set(include_files))
         for mod in glob.glob(modules_dir + '/*.py'):
             base_file = os.path.basename(mod)
             if base_file not in include_files and not base_file.endswith('__init__.py'):
@@ -131,6 +167,8 @@ class BaseShipItEngine(object):
                 target_name = template.replace('.j2', '')
                 if target_name.startswith('travis'):
                     target_name = '.' + target_name
+                if target_name.startswith('defaults') or target_name.startswith('meta'):
+                    target_name = 'main.yml'
                 if not os.path.exists(os.path.join(role_dir, target_name)):
                     logger.debug("Rendering template for %s/%s" % (path, template))
                     jinja_render_to_temp('shipit_role/%s' % template,
@@ -147,8 +185,7 @@ class BaseShipItEngine(object):
             logger.debug("Backing up tasks/main.yml to main_%s.yml" % now)
             os.rename(tasks_file, new_tasks_file)
 
-        #TODO: limit the number of backups kept?
-
+        #TODO: limit the number of backups?
 
     def create_role(self, tasks):
         '''
@@ -193,12 +230,11 @@ class BaseShipItEngine(object):
             play['hosts'] = 'localhost'
             play['gather_facts'] = False
             play['connection'] = 'local'
-            play['vars'] = dict(
-                playbook_debug=False
-            )
-            play['roles'] = [dict(
-                role=self.role_name
-            )]
+            play['roles'] = []
+            role = OrderedDict()
+            role['role'] = self.role_name
+            role['playbook_debug'] = False 
+            play['roles'].append(role)
             with open(playbook_path, 'w') as f:
                 f.write(yaml.safe_dump([play], default_flow_style=False))
 

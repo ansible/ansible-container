@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 import logging
 
 logger = logging.getLogger(__name__)
 
+import io
 import os
 import datetime
 import re
 import sys
-import urllib
 import gzip
 import tarfile
-import StringIO
 
 import requests
+from six.moves.urllib.parse import urljoin
 
 from .exceptions import AnsibleContainerAlreadyInitializedException, \
                         AnsibleContainerRegistryAttributeException, \
@@ -56,7 +56,7 @@ class BaseEngine(object):
         """
         List all hosts touched by the execution of the build playbook.
 
-        :return: list of strings
+        :return: frozenset of strings
         """
         raise NotImplementedError()
 
@@ -240,7 +240,7 @@ class BaseEngine(object):
         """
         raise NotImplementedError()
 
-    def push_latest_image(self, host, url=None, namespace=None):
+    def push_latest_image(self, host, url=None, namespace=None, tag=None):
         """
         Push the latest built image for a host to a registry
 
@@ -254,7 +254,7 @@ class BaseEngine(object):
     def get_config(self):
         raise NotImplementedError()
 
-    def get_config_for_shipit(self, url=None, namespace=None):
+    def get_config_for_shipit(self, url=None, namespace=None, tag=None):
         '''
         Get the configuration needed by cmdrun_shipit. Result should include
         the *options* attribute for each service, as it may contain cluster
@@ -285,15 +285,14 @@ def cmdrun_init(base_path, project=None, **kwargs):
             raise ValueError(u'Invalid project name: %r; use '
                              u'"username.project" style syntax.' % project)
         galaxy_base_url = kwargs.pop('server')
-        response = requests.get(urllib.basejoin(galaxy_base_url,
-                                                '/api/v1/roles/'),
+        response = requests.get(urljoin(galaxy_base_url, '/api/v1/roles/'),
                                 params={'role_type': 'APP',
                                         'namespace': namespace,
                                         'name': name},
                                 headers={'Accepts': 'application/json'})
         try:
             response.raise_for_status()
-        except requests.RequestException, e:
+        except requests.RequestException as e:
             raise requests.RequestException(u'Could not find %r on Galaxy '
                                             u'server %r: %r' % (project,
                                                                 galaxy_base_url,
@@ -314,10 +313,10 @@ def cmdrun_init(base_path, project=None, **kwargs):
         archive = requests.get(archive_url)
         try:
             archive.raise_for_status()
-        except requests.RequestException, e:
+        except requests.RequestException as e:
             raise requests.RequestException(u'Could not get archive at '
                                             u'%r: %r' % (archive_url, e))
-        faux_file = StringIO.StringIO(archive.content)
+        faux_file = io.BytesIO(archive.content)
         gz_obj = gzip.GzipFile(fileobj=faux_file)
         tar_obj = tarfile.TarFile(fileobj=gz_obj)
         members = tar_obj.getmembers()
@@ -424,7 +423,7 @@ def cmdrun_restart(base_path, engine_name, service=[], **kwargs):
         engine_obj.restart('restart', temp_dir, hosts=hosts)
 
 
-def cmdrun_push(base_path, engine_name, username=None, password=None, email=None, push_to=None, **kwargs):
+def cmdrun_push(base_path, engine_name, username=None, password=None, email=None, push_to=None, tag=None, **kwargs):
     assert_initialized(base_path)
     engine_args = kwargs.copy()
     engine_args.update(locals())
@@ -435,7 +434,7 @@ def cmdrun_push(base_path, engine_name, username=None, password=None, email=None
     url = engine_obj.default_registry_url
     namespace = None
     if push_to:
-        if config.get('registries', {}).get(push_to):
+        if (config.get('registries') or {}).get(push_to):
             url = config['registries'][push_to].get('url')
             namespace = config['registries'][push_to].get('namespace')
             if not url:
@@ -453,44 +452,46 @@ def cmdrun_push(base_path, engine_name, username=None, password=None, email=None
     logger.info('Pushing to "%s/%s' % (re.sub(r'/$', '', url), namespace))
 
     for host in engine_obj.hosts_touched_by_playbook():
-        engine_obj.push_latest_image(host, url=url, namespace=namespace)
+        engine_obj.push_latest_image(host, url=url, namespace=namespace, tag=tag)
     logger.info('Done!')
 
 
-def cmdrun_shipit(base_path, engine_name, pull_from=None, **kwargs):
+def cmdrun_shipit(base_path, engine_name, pull_from=None, tag=None, **kwargs):
     assert_initialized(base_path)
     engine_args = kwargs.copy()
     engine_args.update(locals())
     engine_obj = load_engine(**engine_args)
     shipit_engine_name = kwargs.pop('shipit_engine')
     project_name = os.path.basename(base_path).lower()
+    local_images = kwargs.get('local_images')
 
     # determine the registry url and namespace the cluster will use to pull images
     config = engine_obj.config
     url = None
     namespace = None
-    if not pull_from:
-        url = engine_obj.default_registry_url
-    elif config.get('registries', {}).get(pull_from):
-        url = config['registries'][pull_from].get('url')
-        namespace = config['registries'][pull_from].get('namespace')
-        if not url:
-            raise AnsibleContainerRegistryAttributeException("Registry %s missing required attribute 'url'."
-                                                             % pull_from)
-        pull_from = None  # pull_from is now resolved to a url/namespace
-    if url and not namespace:
-        # try to get the username for the url from the container engine
-        try:
-            namespace = engine_obj.registry_login(url=url)
-        except Exception as exc:
-            if "Error while fetching server API version" in str(exc):
-                msg = "Cannot connect to the Docker daemon. Is the daemon running?"
-            else:
-                msg = "Unable to determine namespace for registry %s. Error: %s. Either authenticate with the " \
-                      "registry or provide a namespace for the registry in container.yml" % (url, str(exc))
-            raise AnsibleContainerRegistryAttributeException(msg)
+    if not local_images:
+        if not pull_from:
+            url = engine_obj.default_registry_url
+        elif config.get('registries', {}).get(pull_from):
+            url = config['registries'][pull_from].get('url')
+            namespace = config['registries'][pull_from].get('namespace')
+            if not url:
+                raise AnsibleContainerRegistryAttributeException("Registry %s missing required attribute 'url'."
+                                                                 % pull_from)
+            pull_from = None  # pull_from is now resolved to a url/namespace
+        if url and not namespace:
+            # try to get the username for the url from the container engine
+            try:
+                namespace = engine_obj.registry_login(url=url)
+            except Exception as exc:
+                if "Error while fetching server API version" in str(exc):
+                    msg = "Cannot connect to the Docker daemon. Is the daemon running?"
+                else:
+                    msg = "Unable to determine namespace for registry %s. Error: %s. Either authenticate with the " \
+                          "registry or provide a namespace for the registry in container.yml" % (url, str(exc))
+                raise AnsibleContainerRegistryAttributeException(msg)
 
-    config = engine_obj.get_config_for_shipit(pull_from=pull_from, url=url, namespace=namespace)
+    config = engine_obj.get_config_for_shipit(pull_from=pull_from, url=url, namespace=namespace, tag=tag)
 
     shipit_engine_obj = load_shipit_engine(AVAILABLE_SHIPIT_ENGINES[shipit_engine_name]['cls'],
                                            config=config,
@@ -517,10 +518,10 @@ def cmdrun_install(base_path, engine_name, roles=[], **kwargs):
 
 
 def cmdrun_version(base_path, engine_name, debug=False, **kwargs):
-    print 'Ansible Container, version', __version__
+    print('Ansible Container, version', __version__)
     if debug:
-        print u', '.join(os.uname())
-        print sys.version, sys.executable
+        print(u', '.join(os.uname()))
+        print(sys.version, sys.executable)
         assert_initialized(base_path)
         engine_args = kwargs.copy()
         engine_args.update(locals())

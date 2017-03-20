@@ -16,14 +16,21 @@ import pprint
 import docker
 from docker.client import errors as docker_errors
 from docker.utils import kwargs_from_env
-from compose.cli.command import project_from_options
-from compose.cli import main
+from docker.constants import DEFAULT_TIMEOUT_SECONDS
+
+try:
+    from compose.cli.command import project_from_options
+    from compose.cli import main
+except Exception as exc:
+    raise Exception("Error importing Docker compose: {0}".format(exc.message))
+
 from yaml import dump as yaml_dump
 
 from ..exceptions import (AnsibleContainerNotInitializedException,
                           AnsibleContainerNoAuthenticationProvidedException,
                           AnsibleContainerDockerConfigFileException,
                           AnsibleContainerDockerLoginException,
+                          AnsibleContainerListHostsException,
                           AnsibleContainerNoMatchingHosts)
 
 from ..engine import BaseEngine, REMOVE_HTTP
@@ -34,6 +41,24 @@ from .utils import *
 if not os.environ.get('DOCKER_HOST'):
     logger.warning('No DOCKER_HOST environment variable found. Assuming UNIX '
                    'socket at /var/run/docker.sock')
+
+
+def get_timeout():
+    timeout = DEFAULT_TIMEOUT_SECONDS
+    source = None
+    if os.environ.get('DOCKER_CLIENT_TIMEOUT'):
+        timeout_value = os.environ.get('DOCKER_CLIENT_TIMEOUT')
+        source = 'DOCKER_CLIENT_TIMEOUT'
+    elif os.environ.get('COMPOSE_HTTP_TIMEOUT'):
+        timeout_value = os.environ.get('COMPOSE_HTTP_TIMEOUT')
+        source = 'COMPOSE_HTTP_TIMEOUT'
+    if source:
+        try:
+            timeout = int(timeout_value)
+        except ValueError:
+            raise Exception("Error: {0} set to '{1}'. Expected an integer.".format(source, timeout_value))
+    logger.debug("Setting Docker client timeout to {0}".format(timeout))
+    return timeout
 
 
 class Engine(BaseEngine):
@@ -55,13 +80,14 @@ class Engine(BaseEngine):
 
         :return: list of strings
         """
-        return (self.config.get('services') or {}).keys()
+        services = self.config.get('services')
+        return list(services.keys()) if services else []
 
     def hosts_touched_by_playbook(self):
         """
         List all hosts touched by the execution of the build playbook.
 
-        :return: list of strings
+        :return: frozenset of strings
         """
         if not self._orchestrated_hosts:
             with teed_stdout() as stdout, make_temp_dir() as temp_dir:
@@ -73,12 +99,23 @@ class Engine(BaseEngine):
                 # We need to cleverly extract the host names from the output...
                 logger.debug('--list-hosts\n%s', stdout.getvalue())
                 lines = stdout.getvalue().split('\r\n')
+                clean_exit = False
+                for line in lines:
+                     if "exited with code 0" in line:
+                         clean_exit = True
+                         break
+                if not clean_exit:
+                    logger.error("ERROR: encountered the following while attempting to get hosts touched by main.yml:")
+                    for line in lines:
+                        logger.error(line)
+                    raise AnsibleContainerListHostsException("ERROR: unable to get the list of hosts touched by main.yml") 
                 lines_minus_builder_host = [line.rsplit('|', 1)[1] for line
                                             in lines if '|' in line]
-                host_lines = [line for line in lines_minus_builder_host
-                              if line.startswith('       ')]
-                self._orchestrated_hosts = list(set([line.strip() for line in host_lines]))
-        return filter(None, self._orchestrated_hosts)
+                host_lines = set(line.strip() for line in lines_minus_builder_host
+                              if line.startswith('       '))
+                host_lines.discard('')
+                self._orchestrated_hosts = frozenset(host_lines)
+        return self._orchestrated_hosts
 
     def build_buildcontainer_image(self):
         """
@@ -130,6 +167,13 @@ class Engine(BaseEngine):
         client = self.get_client()
         try:
             return client.images(name=name, quiet=True)[0]
+        except IndexError:
+            raise NameError('No image with the name %s' % name)
+
+    def get_images_by_name(self, name):
+        client = self.get_client()
+        try:
+            return client.images(name=name, quiet=True)
         except IndexError:
             raise NameError('No image with the name %s' % name)
 
@@ -203,7 +247,7 @@ class Engine(BaseEngine):
         exit_status = build_container_info['Status']
         return '(0)' in exit_status
 
-    def get_config_for_shipit(self, pull_from=None, url=None, namespace=None):
+    def get_config_for_shipit(self, pull_from=None, url=None, namespace=None, tag=None):
         '''
         Retrieve the configuration needed to run the shipit command
 
@@ -214,25 +258,27 @@ class Engine(BaseEngine):
         '''
         config = get_config(self.base_path, var_file=self.var_file)
         client = self.get_client()
-
-        if pull_from:
-            image_path = re.sub(r'/$', '', REMOVE_HTTP.sub('', pull_from))
+        image_path = None
+        if self.params.get('local_images'):
+            logger.info("Using local images")
         else:
-            image_path = namespace
-            if url != self.default_registry_url:
-                url = REMOVE_HTTP.sub('', url)
-                image_path = "%s/%s" % (re.sub(r'/$', '', url), image_path)
+            if pull_from:
+                image_path = re.sub(r'/$', '', REMOVE_HTTP.sub('', pull_from))
+            else:
+                image_path = namespace
+                if url != self.default_registry_url:
+                    url = REMOVE_HTTP.sub('', url)
+                    image_path = "%s/%s" % (re.sub(r'/$', '', url), image_path)
 
-        logger.info("Images will be pulled from %s" % image_path)
+            logger.info("Images will be pulled from %s" % image_path)
         orchestrated_hosts = self.hosts_touched_by_playbook()
         for host, service_config in config.get('services', {}).items():
             if host in orchestrated_hosts:
                 image_id, image_buildstamp = get_latest_image_for(self.project_name, host, client)
-                service_config.update(
-                    dict(
-                        image='%s/%s-%s:%s' % (image_path, self.project_name, host, image_buildstamp)
-                    )
-                )
+                image = '{0}-{1}:{2}'.format(self.project_name, host, tag or image_buildstamp)
+                if image_path:
+                    image = '{0}/{1}'.format(image_path, image)
+                service_config.update({u'image':  image})
         return config
 
     # Docker-compose uses docopt, which outputs things like the below
@@ -269,6 +315,11 @@ class Engine(BaseEngine):
         u'--timeout': None,
         u'-d': False,
         u'SERVICE': []
+    }
+
+    DEFAULT_COMPOSE_DOWN_OPTIONS = {
+        u'--volumes': True,
+        u'--remove-orphans': False
     }
 
     DEFAULT_COMPOSE_STOP_OPTIONS = {
@@ -364,16 +415,14 @@ class Engine(BaseEngine):
         return {'--no-color': True}
 
     def terminate(self, operation, temp_dir, hosts=[]):
-
         options, command_options, command = self.bootstrap_env(
             temp_dir=temp_dir,
             behavior='terminate',
             operation=operation,
             compose_option='stop'
+
         )
-
-        options.update({u'COMMAND': 'stop'})
-
+        options.update({u'COMMAND': u'stop'})
         command_options[u'SERVICE'] = hosts
 
         if self.params.get('force'):
@@ -408,38 +457,41 @@ class Engine(BaseEngine):
         compose_config = config_to_compose(self.config)
         return compose_config
 
-    def _fix_volumes(self, service_name, service_config):
+    def _fix_volumes(self, service_name, service_config, compose_version='1', top_level_volumes=dict()):
         # If there are volumes defined for this host, we need to create the
         # volume if one doesn't already exist.
         client = self.get_client()
+        project_name = os.path.basename(self.base_path).lower()
         for volume in service_config.get('volumes', []):
             if ':' not in volume:
-                # This is an unnamed volume. We have to handle making this
-                # volume with a predictable name.
-                volume_name = '%s-%s-%s' % (self.project_name,
-                                            service_name,
-                                            volume.replace('/', '_'))
-                try:
-                    client.inspect_volume(name=volume_name)
-                except docker_errors.NotFound, e:
-                    # We need to create this volume
-                    client.create_volume(name=volume_name, driver='local')
+                # This is an unnamed or anonymous volume. Create the volume with a predictable name.
+                volume_name = ('%s-%s-%s' % (project_name, service_name, volume.replace('/', '_'))).replace('-_', '_')
                 service_config['volumes'].remove(volume)
                 service_config['volumes'].append('%s:%s' % (volume_name, volume))
+                if compose_version == '1':
+                    try:
+                        client.inspect_volume(name=volume_name)
+                    except docker_errors.NotFound:
+                        # The volume does not exist
+                        client.create_volume(name=volume_name, driver='local')
+                if volume_name not in top_level_volumes.keys():
+                    top_level_volumes[volume_name] = {}
 
     def get_config_for_build(self):
         compose_config = config_to_compose(self.config)
+        version = compose_config.get('version', '1')
+        volumes = compose_config.get('volumes', {})
         orchestrated_hosts = self.hosts_touched_by_playbook()
         if self.params.get('service'):
             # only build a subset of the orchestrated hosts
-            orchestrated_hosts = list(set(orchestrated_hosts).intersection(self.params['service']))
-            for host in set(compose_config.keys()) - set(orchestrated_hosts):
-                del compose_config[host]
-            if not compose_config:
+            orchestrated_hosts = orchestrated_hosts.intersection(self.params['service'])
+            for host in set(compose_config['services'].keys()) - orchestrated_hosts:
+                del compose_config['services'][host]
+            if not compose_config['services']:
                 raise AnsibleContainerNoMatchingHosts()
-        logger.debug('Orchestrated hosts: %s', orchestrated_hosts)
+        logger.debug('Orchestrated hosts: %s', ', '.join(orchestrated_hosts))
 
-        for service, service_config in compose_config.items():
+        for service, service_config in compose_config['services'].items():
             if service in orchestrated_hosts:
                 logger.debug('Setting %s to sleep', service)
                 service_config.update(
@@ -474,22 +526,32 @@ class Engine(BaseEngine):
                     logger.debug('No NameError raised when searching for tag %s',
                                  '%s-%s:latest' % (self.project_name, service))
                     service_config['image'] = tag
-            self._fix_volumes(service, service_config)
+            self._fix_volumes(service, service_config, compose_version=version, top_level_volumes=volumes)
+
+        if volumes:
+            compose_config['volumes'] = volumes
+
         return compose_config
 
     def get_config_for_run(self):
         if not self.params['production']:
             self.config.set_env('dev')
         compose_config = config_to_compose(self.config)
+        version = compose_config.get('version', '1')
+        volumes = compose_config.get('volumes', {})
         orchestrated_hosts = self.hosts_touched_by_playbook()
-        for service, service_config in compose_config.items():
+        for service, service_config in compose_config['services'].items():
             if service in orchestrated_hosts:
                 service_config.update(
                     dict(
                         image='%s-%s:latest' % (self.project_name, service)
                     )
                 )
-            self._fix_volumes(service, service_config)
+            self._fix_volumes(service, service_config, compose_version=version, top_level_volumes=volumes)
+
+        if volumes:
+            compose_config['volumes'] = volumes
+
         return compose_config
 
     def get_config_for_stop(self):
@@ -498,7 +560,9 @@ class Engine(BaseEngine):
 
     def get_config_for_listhosts(self):
         compose_config = config_to_compose(self.config)
-        for service, service_config in compose_config.items():
+        version = compose_config.get('version', '1')
+        volumes = compose_config.get('volumes', {})
+        for service, service_config in compose_config['services'].items():
             service_config.update(
                 dict(
                     user='root',
@@ -507,6 +571,11 @@ class Engine(BaseEngine):
                     entrypoint=[]
                 )
             )
+            self._fix_volumes(service, service_config, compose_version=version, top_level_volumes=volumes)
+
+        if volumes:
+            compose_config['volumes'] = volumes
+
         return compose_config
 
     def get_config_for_install(self):
@@ -530,11 +599,14 @@ class Engine(BaseEngine):
             entrypoint = json.dumps(entrypoint)
         image_config = dict(
             USER=self.config['services'][host].get('user', 'root'),
-            WORKDIR=self.config['services'][host].get('working_dir', '/'),
             LABEL='com.docker.compose.oneoff="" com.docker.compose.project="%s"' % self.project_name,
             ENTRYPOINT=entrypoint,
             CMD=cmd
         )
+        # Only add WORKDIR if it does not contain an unexpanded environment var
+        workdir = self.config['services'][host].get('working_dir', '/')
+        image_config['WORKDIR'] = workdir if not re.search('\$|\{', workdir) else '/' 
+
         if flatten:
             logger.info('Flattening image...')
             exported = client.export(container_id)
@@ -549,7 +621,7 @@ class Engine(BaseEngine):
                           tag=version,
                           message='Built using Ansible Container',
                           changes=u'\n'.join(
-                              [u'%s %s' % (k, unicode(v))
+                              [u'%s %s' % (k, v)
                                for k, v in image_config.items()]
                           ))
         image_id, = client.images(
@@ -610,7 +682,7 @@ class Engine(BaseEngine):
         username, email = self.currently_logged_in_registry_user(url)
         if not username:
             raise AnsibleContainerNoAuthenticationProvidedException(
-                u'Please provide login credentials for registry %s.' % url)
+                u'Please provide login credentials for registry %r.' % url)
         return username
 
     DOCKER_CONFIG_FILEPATH_CASCADE = [
@@ -685,9 +757,8 @@ class Engine(BaseEngine):
             email=email
         )
 
-        if config['auths'][url] != encoded_credentials:
-            config['auths'][url] = encoded_credentials
-            self.write_config(path, config)
+        config['auths'][url] = encoded_credentials
+        self.write_config(path, config)
 
     @staticmethod
     def write_config(path, config):
@@ -697,7 +768,7 @@ class Engine(BaseEngine):
             raise AnsibleContainerDockerConfigFileException("Failed to write docker registry config to %s - %s" %
                                                             (path, str(exc)))
 
-    def push_latest_image(self, host, url=None, namespace=None):
+    def push_latest_image(self, host, url=None, namespace=None, tag=None):
         '''
         :param host: The host in the container.yml to push
         :parm url: URL of the registry to which images will be pushed
@@ -707,6 +778,7 @@ class Engine(BaseEngine):
         client = self.get_client()
         image_id, image_buildstamp = get_latest_image_for(self.project_name,
                                                           host, client)
+        tag = tag or image_buildstamp
 
         repository = "%s/%s-%s" % (namespace, self.project_name, host)
         if url != self.default_registry_url:
@@ -714,11 +786,11 @@ class Engine(BaseEngine):
             repository = "%s/%s" % (re.sub('/$', '', url), repository)
 
         logger.info('Tagging %s' % repository)
-        client.tag(image_id, repository, tag=image_buildstamp)
+        client.tag(image_id, repository, tag=tag)
 
-        logger.info('Pushing %s:%s...' % (repository, image_buildstamp))
+        logger.info('Pushing %s:%s...' % (repository, tag))
         stream = client.push(repository,
-                             tag=image_buildstamp,
+                             tag=tag,
                              stream=True)
         last_status = None
         for data in stream:
@@ -738,7 +810,8 @@ class Engine(BaseEngine):
         if not self._client:
             # To ensure version compatibility, we have to generate the kwargs ourselves
             client_kwargs = kwargs_from_env(assert_hostname=False)
-            self._client = docker.AutoVersionClient(**client_kwargs)
+            timeout = get_timeout()
+            self._client = docker.AutoVersionClient(timeout=timeout, **client_kwargs)
             self.api_version = self._client.version()['ApiVersion']
             # Set the version in the env so it can be used elsewhere
             os.environ['DOCKER_API_VERSION'] = self.api_version
@@ -774,25 +847,45 @@ class Engine(BaseEngine):
                                                                 operation))()
         config = getattr(self, 'get_config_for_%s' % operation)()
         logger.debug('%s' % (config,))
-        config_yaml = yaml_dump(config) if config else ''
+        config_yaml = yaml_dump(config['services']) if config else ''
         logger.debug('Config YAML is')
         logger.debug(config_yaml)
         hosts = self.all_hosts_in_orchestration()
+        version = config.get('version', '1')
+        volumes_yaml = yaml_dump(config['volumes']) if config and config.get('volumes') else ''
         if operation == 'build' and self.params.get('service'):
             # build operation is limited to a specific list of services
             hosts = list(set(hosts).intersection(self.params['service']))
-        jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
-                             temp_dir,
-                             'docker-compose.yml',
-                             hosts=hosts,
-                             project_name=self.project_name,
-                             base_path=self.base_path,
-                             params=self.params,
-                             api_version=self.api_version,
-                             builder_img_id=builder_img_id,
-                             config=config_yaml,
-                             env=os.environ,
-                             **context)
+        if version == '1':
+            logger.debug('HERE VERSION 1')
+            jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
+                                 temp_dir,
+                                 'docker-compose.yml',
+                                 hosts=hosts,
+                                 project_name=self.project_name,
+                                 base_path=self.base_path,
+                                 params=self.params,
+                                 api_version=self.api_version,
+                                 builder_img_id=builder_img_id,
+                                 config=config_yaml,
+                                 env=os.environ,
+                                 **context)
+        else:
+            jinja_render_to_temp('compose_versioned.j2.yml',
+                                 temp_dir,
+                                 'docker-compose.yml',
+                                 template='%s-docker-compose.j2.yml' % (operation,),
+                                 hosts=hosts,
+                                 project_name=self.project_name,
+                                 base_path=self.base_path,
+                                 params=self.params,
+                                 api_version=self.api_version,
+                                 builder_img_id=builder_img_id,
+                                 config=config_yaml,
+                                 env=os.environ,
+                                 version=version,
+                                 volumes=volumes_yaml,
+                                 **context)
         options = self.DEFAULT_COMPOSE_OPTIONS.copy()
 
         options.update({

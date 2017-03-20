@@ -24,7 +24,7 @@ class TestAnsibleContainerConfig(unittest.TestCase):
         os.mkdir(self.ansible_dir)
         # Create container.yml.
         container_text = (
-            u"version: '1'\n"
+            u"version: '2'\n"
             u"defaults:\n"
             u"    web_image: apache:latest\n"
             u"    web_ports: ['8080:80']\n"

@@ -12,11 +12,13 @@ rm -rf "${test_dir}"
 mkdir -p "${test_dir}/data"
 
 export COVERAGE_FILE="${test_dir}/data/coverage"
+export COMPOSE_HTTP_TIMEOUT=300
 
 cd "${source_root}"
 
 PYTHONDONTWRITEBYTECODE=1 PATH="${source_root}/test/utils/coverage:$PATH" py.test \
-    --timeout=120 \
+    --capture=no \
+    --timeout=600 \
     --verbose --strict -r a --junit-xml="${test_dir}/junit.xml" "${source_root}/test/integration"
 
 coverage combine

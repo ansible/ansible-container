@@ -1,5 +1,6 @@
 import os
 import pytest
+import time
 
 from scripttest import TestFileEnvironment as ScriptTestEnvironment  # rename to avoid pytest collect warning
 
@@ -127,7 +128,7 @@ def test_install_role_requirements():
     env = ScriptTestEnvironment()
     result = env.run('ansible-container', '--debug', 'build',
                      cwd=project_dir('requirements'), expect_stderr=True)
-    assert "ansible-role-apache was installed successfully" in result.stderr
+    assert "ansible-role-apache was installed successfully" in result.stdout
 
 @pytest.mark.timeout(240)
 def test_setting_ansible_container_envar():
@@ -138,8 +139,52 @@ def test_setting_ansible_container_envar():
     assert "db MYVAR=foo ANSIBLE_CONTAINER=1" in result.stdout
     assert "mw ANSIBLE_CONTAINER=1" in result.stdout
 
-#def test_shipit_minimal_docker_container():
-#    env = ScriptTestEnvironment()
-#    result = env.run('ansible-container', 'shipit', 'kube', cwd=project_dir('minimal'), expect_error=True)
-#    assert result.returncode == 1
-#    assert "Role minimal created" in result.stderr
+def test_compose_v2_build_and_run():
+    env = ScriptTestEnvironment()
+    result = env.run('ansible-container', '--debug', 'build',
+                     cwd=project_dir('postgres'), expect_stderr=True)
+    assert "ansible_ansible-container_1 exited with code 0" in result.stderr
+
+    result = env.run('docker', 'volume', 'ls')
+    assert "ansible_logs" in result.stdout
+    assert "ansible_postgres-postgresql_var_lib_postgresql_data" in result.stdout
+
+    result = env.run('ansible-container', '--debug', 'run', '-d',
+                     cwd=project_dir('postgres'), expect_stderr=True)
+    assert "Deploying application in detached mode" in result.stderr
+
+    # Give the containers a chance to start and reach a 'ready' state
+    time.sleep(10)
+
+    result = env.run('ansible-container', '--debug', 'stop',
+                     cwd=project_dir('postgres'), expect_stderr=True)
+    assert "Stopping ansible_postgresql_1 ... done" in result.stderr
+    assert "Stopping ansible_nginx_1 ... done" in result.stderr
+
+def test_shipit_openshift():
+   env = ScriptTestEnvironment()
+   # Should run shipit openshift to success
+   result = env.run('ansible-container', '--debug', 'shipit', 'openshift', '--pull-from', 'https://index.docker.io/v1/ansible',
+                    cwd=project_dir('postgres'), expect_error=True)
+   assert result.returncode == 0
+   assert "Role postgres created" in result.stderr
+   # Should create a role
+   result = env.run('ls ansible/roles', cwd=project_dir('postgres'))
+   assert "postgres-openshift" in result.stdout
+   # Should create a playbook
+   result = env.run('ls ansible', cwd=project_dir('postgres'))
+   assert "shipit-openshift.yml" in result.stdout
+
+def test_shipit_kube():
+   env = ScriptTestEnvironment()
+   # Should run shipit kube to success
+   result = env.run('ansible-container', '--debug',  'shipit', 'kube', '--pull-from', 'https://index.docker.io/v1/ansible',
+                    cwd=project_dir('postgres'), expect_error=True)
+   assert result.returncode == 0
+   assert "Role postgres created" in result.stderr
+   # Should create a role
+   result = env.run('ls ansible/roles', cwd=project_dir('postgres'))
+   assert "postgres-kubernetes" in result.stdout
+   # Should create a playbook
+   result = env.run('ls ansible', cwd=project_dir('postgres'))
+   assert "shipit-kubernetes.yml" in result.stdout

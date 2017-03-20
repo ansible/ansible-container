@@ -1,21 +1,21 @@
-[![Build Status](https://travis-ci.org/ansible/ansible-container.svg)](https://travis-ci.org/ansible/ansible-container)
+[![Build Status](https://travis-ci.org/ansible/ansible-container.svg?branch=develop)](https://travis-ci.org/ansible/ansible-container)
 [![Code Coverage](https://codecov.io/gh/ansible/ansible-container/coverage.svg)](https://codecov.io/gh/ansible/ansible-container)
 
 # Ansible Container
 
-Ansible Container is a tool to build Docker images and orchestrate containers using only Ansible playbooks.
+Ansible Container is a tool for building Docker images and orchestrating containers using Ansible playbooks.
 
 ## How it works
 
-Use Ansible Container to manage container lifecycle from development, through testing, to production:
+Use Ansible Container to manage the container lifecycle from development, through testing, to production:
 
 * `ansible-container init`
 
-  Creates a directory *ansible* with files to get you started. Read the comments and edit to suit your needs.
+  Creates a directory *ansible* with files to get you started. Read the comments, and edit to suit your needs.
 
 * `ansible-container install`
 
-  Downloads Ansible-Container-ready roles from Ansible Galaxy and installs them in your project.
+  Downloads Ansible-Container-ready roles from [Ansible Galaxy](https://galaxy.ansible.com), and installs them in your project.
 
 * `ansible-container build`
 
@@ -28,11 +28,11 @@ Use Ansible Container to manage container lifecycle from development, through te
 
 * `ansible-container push`
 
-  Pushes the project's images to a container registry of your choice.
+  Pushes the project's container images to a registry of your choice.
 
 * `ansible-container shipit`
 
-  Generates the necessary playbook and role to deploy your containers on a supported cloud provider.
+  Generates a playbook and role capable of deploying the project on a supported cloud provider.
 
 ## Installing
 
@@ -53,7 +53,9 @@ For more details, prerequisite, and instructions on installing the latest develo
 
 ## Getting started
 
-For examples and a tour of Ansible Container [visit our docs site](https://docs.ansible.com/ansible-container/).
+For examples and a quick tour of Ansible Container visit [Getting Started](http://docs.ansible.com/ansible-container/getting_started.html) at our docs site.
+
+Visit the [Ansible Container Demo](https://ansible.github.io/ansible-container-demo/) for a complete walk-through of managing an application from development through cloud deployment.
 
 ## Get Involved
 

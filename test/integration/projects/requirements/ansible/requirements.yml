@@ -3,4 +3,4 @@
 # When the build process starts `ansible-galaxy install -r requirements.yml` is executed
 # using this file. Follow the instructions at http://docs.ansible.com/ansible/galaxy.html
 # to include any roles you want intalled prior to running main.yml.
-- src: https://github.com/chouseknecht/ansible-role-apache
+- src: https://github.com/geerlingguy/ansible-role-apache

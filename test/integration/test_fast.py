@@ -14,7 +14,8 @@ def test_no_command_shows_help():
     result = env.run('ansible-container', expect_error=True)
     assert result.returncode == 2
     assert len(result.stdout) == 0
-    assert "ansible-container: error: too few arguments" in result.stderr
+    assert "usage: ansible-container" in result.stderr
+    assert "ansible-container: error:" in result.stderr
 
 
 def test_help_command_shows_help():

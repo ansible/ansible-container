@@ -9,6 +9,7 @@ import os
 import json
 import yaml
 import re
+import six
 
 from jinja2 import Environment, FileSystemLoader
 from collections import Mapping
@@ -46,11 +47,14 @@ class AnsibleContainerConfig(Mapping):
             config = yaml.safe_load(config)
         except yaml.YAMLError as exc:
             raise AnsibleContainerConfigException(u"Parsing container.yml - %s" % str(exc))
+
+        self._validate_config(config)
+
         if config.get('defaults'):
             del config['defaults']
 
         for service, service_config in (config.get('services') or {}).items():
-            if not service_config or isinstance(service_config, basestring):
+            if not service_config or isinstance(service_config, six.string_types):
                 raise AnsibleContainerConfigException(u"Error: no definition found in container.yml for service %s."
                                                       % service)
             if isinstance(service_config, dict):
@@ -91,7 +95,10 @@ class AnsibleContainerConfig(Mapping):
         j2_env.globals['lookup'] = self._lookup
         j2_env.filters.update(self.all_filters)
         j2_tmpl = j2_env.get_template(template)
-        return j2_tmpl.render(**context).encode('utf8')
+        tmpl = j2_tmpl.render(**context)
+        if isinstance(tmpl, six.binary_type):
+            tmpl = tmpl.encode('utf8')
+        return tmpl
 
     def _get_variables(self):
         '''
@@ -163,7 +170,7 @@ class AnsibleContainerConfig(Mapping):
         '''
         logger.debug(u'Getting environment variables...')
         new_vars = {}
-        for var, value in os.environ.iteritems():
+        for var, value in six.iteritems(os.environ):
             matches = re.match(r'^AC_(.+)$', var)
             if matches:
                 new_vars[matches.group(1).lower()] = value
@@ -206,6 +213,33 @@ class AnsibleContainerConfig(Mapping):
             except Exception as exc:
                 raise AnsibleContainerConfigException(u"JSON exception: %s" % str(exc))
         return config
+
+
+
+
+    TOP_LEVEL_WHITELIST = [
+        'version',
+        'volumes',
+        'services',
+        'defaults',
+        'registries'
+    ]
+
+    OPTIONS_KUBE_WHITELIST = []
+
+    OPTIONS_OPENSHIFT_WHITELIST = []
+
+    SUPPORTED_COMPOSE_VERSIONS = ['1', '2']
+
+    def _validate_config(self, config):
+        for top_level in config:
+            if top_level not in self.TOP_LEVEL_WHITELIST:
+                raise AnsibleContainerConfigException("invalid key '{0}'".format(top_level))
+            if top_level == 'version':
+                if config['version'] not in self.SUPPORTED_COMPOSE_VERSIONS:
+                    raise AnsibleContainerConfigException("requested version is not supported")
+                if config['version'] == '1':
+                    logger.warning("Version '1' is deprecated. Consider upgrading to version '2'.")
 
     def __getitem__(self, item):
         return self._config.get(item)

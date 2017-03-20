@@ -82,7 +82,6 @@ class OSOServiceManager(object):
             loadbalancer=dict(type='bool', default=False),
             replace=dict(type='bool', default=False),
             selector=dict(type='dict', required=True),
-            cli=dict(type='str', choices=['kubectl', 'oc'], default='oc'),
             debug=dict(type='bool', default=False)
         )
 
@@ -97,7 +96,6 @@ class OSOServiceManager(object):
         self.loadbalancer = None
         self.selector = None
         self.replace = None
-        self.cli = None
         self.api = None
         self.debug = None
         self.check_mode = self.module.check_mode
@@ -207,8 +205,7 @@ class OSOServiceManager(object):
             if not port.get('name'):
                 port['name'] = "port%s" % count
                 count += 1
-            if not port.get('type'):
-                port['type'] = "TCP"
+
 
 #The following will be included by `ansble-container shipit` when cloud modules are copied into the role library path.
 #include--> oso_api.py

@@ -4,5 +4,5 @@ Container.yml
 .. toctree::
    :maxdepth: 2
 
-   Reference Guide<reference>
+   reference
    Jinja Templating<template>

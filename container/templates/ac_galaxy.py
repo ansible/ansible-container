@@ -15,7 +15,10 @@ import ansible.constants as C
 from ansible.galaxy import Galaxy
 from ansible.galaxy.role import GalaxyRole
 from ansible.playbook.role.requirement import RoleRequirement
+
 import ruamel.yaml
+from ruamel.yaml.comments import CommentedMap
+
 
 ANSIBLE_CONTAINER_PATH = '/ansible-container'
 
@@ -34,7 +37,7 @@ class MakeTempDir(object):
         try:
             logger.debug('Cleaning up temporary directory %s...', self.temp_dir)
             shutil.rmtree(self.temp_dir)
-        except Exception, e:
+        except Exception:
             logger.exception('Failure cleaning up temp space')
             pass
 
@@ -79,7 +82,7 @@ def get_container_yml_snippet(role_obj):
     if os.path.exists(container_yml_path):
         try:
             snippet = ruamel.yaml.round_trip_load(open(container_yml_path))
-        except Exception, e:
+        except Exception:
             logger.exception('Error loading container.yml snippet for %s',
                              role_obj)
             return None
@@ -98,12 +101,14 @@ def get_knobs_and_dials(role_obj):
     if os.path.exists(defaults_yml_path):
         try:
             defaults = ruamel.yaml.round_trip_load(open(defaults_yml_path))
-        except Exception, e:
+        except Exception:
             logger.exception('Error loading defaults/main.yml for %s',
                              role_obj)
         else:
+            if not defaults:
+                defaults = CommentedMap()
             return defaults
-    return {}
+    return CommentedMap()
 
 def update_container_yml(role_obj):
     snippet = get_container_yml_snippet(role_obj)
@@ -113,7 +118,7 @@ def update_container_yml(role_obj):
                                       'container.yml')
     try:
         container_yml = ruamel.yaml.round_trip_load(open(container_yml_path))
-    except Exception, e:
+    except Exception:
         logger.exception('Could not load project ansible/container.yml')
         raise FatalException()
 
@@ -132,7 +137,7 @@ def update_container_yml(role_obj):
     try:
         ruamel.yaml.round_trip_dump(container_yml,
                                     stream=open(container_yml_path, 'w'))
-    except Exception, e:
+    except Exception:
         logger.exception('Error updating ansible/container.yml')
         raise FatalException()
     return new_service_key
@@ -144,15 +149,14 @@ def update_main_yml(service, role_obj):
     main_yml = None
     try:
         main_yml = ruamel.yaml.round_trip_load(open(main_yml_path))
-    except Exception, e:
+    except Exception:
         logger.exception('Could not load project ansible/main.yml')
         raise FatalException()
 
     if not main_yml:
-        main_yml = [] 
+        main_yml = []
 
-    # this is a ruamel.ordereddict.OrderedDict
-    # for readability, put the role name at the start of the dict
+    # For readability, put the role name at the start of the dict
     defaults.insert(0, 'role', role_obj.name)
 
     snippet = {
@@ -163,7 +167,7 @@ def update_main_yml(service, role_obj):
     try:
         ruamel.yaml.round_trip_dump(main_yml,
                                     stream=open(main_yml_path, 'w'))
-    except Exception, e:
+    except Exception:
         logger.exception('Error updating ansible/main.yml')
         raise FatalException()
 
@@ -174,21 +178,29 @@ def update_requirements_yml(role_obj):
     if os.path.exists(requirements_yml_path):
         try:
             requirements = ruamel.yaml.round_trip_load(open(requirements_yml_path)) or []
-        except Exception, e:
+        except Exception:
             logger.exception('Could not load project ansible/requirements.yml')
             raise FatalException()
     if not requirements:
         requirements = []
     for req in requirements:
-        if req.get('src', '') == role_obj.name:
+        if req.get('src', '') == role_obj.src:
             logger.warning('Requirement %s already found in requirements.yml',
                            role_obj.name)
             return
-    requirements.append({'src': role_obj.name})
+    role_def = {}
+    role_def[u'src'] = role_obj.src
+    if role_obj.version and role_obj.version != 'master':
+        role_def[u'version'] = role_obj.version
+    if role_obj.scm:
+        role_def[u'scm'] = role_obj.scm
+    if role_obj.name and role_obj.name != role_obj.src:
+        role_def[u'name'] = role_obj.name
+    requirements.append(role_def)
     try:
         ruamel.yaml.round_trip_dump(requirements,
                                     stream=open(requirements_yml_path, 'w'))
-    except Exception, e:
+    except Exception:
         logger.exception('Error updating ansible/requirements.yml')
         raise FatalException()
 
@@ -212,8 +224,8 @@ def install(roles):
                         if service:
                             update_main_yml(service, role_obj)
                         else:
-                            logger.warning('Role %s is not Ansible Container enabled.',
-                                           role_obj)
+                            logger.warning("WARNING: %s is not Container Enabled but will still be added to "
+                                           "requirements.yml", role_obj.name)
                         update_requirements_yml(role_obj)
                     roles_processed.append(role_to_install)
                 except FatalException:
@@ -234,8 +246,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     try:
         install(args.roles)
-    except Exception, e:
-        logger.error(unicode(e))
+    except Exception as e:
+        logger.error(repr(e))
         sys.exit(1)
 
 
