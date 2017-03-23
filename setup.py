@@ -6,8 +6,6 @@ from setuptools.command.test import test as TestCommand
 from pip.req import parse_requirements
 import container
 
-install_reqs = parse_requirements('requirements.txt', session=False)
-reqs = [str(ir.req) for ir in install_reqs]
 
 class PlaybookAsTests(TestCommand):
     user_options = [('ansible-args=', None, "Extra ansible arguments")]
@@ -27,6 +25,45 @@ class PlaybookAsTests(TestCommand):
         rc = p.wait()
         sys.exit(rc)
 
+
+if container.ENV == 'host':
+    install_reqs = parse_requirements('requirements.txt', session=False)
+    setup_kwargs = dict(
+        install_requires=[str(ir.req) for ir in install_reqs],
+        tests_require=[
+            'ansible>=2.3.0',
+            'pytest>=3',
+            'docker>=2.1'
+        ],
+        extras_require={
+            'docker': ['docker>=2.1'],
+        },
+        dependency_links=[
+            'git+https://github.com/ansible/ansible'
+        ],
+        cmdclass={'test': PlaybookAsTests},
+        entry_points={
+            'console_scripts': [
+                'ansible-container = container.cli:host_commandline']
+        },
+    )
+else:
+    install_reqs = parse_requirements('conductor-requirements.txt', session=False)
+    setup_kwargs = dict(
+        install_requires=[str(ir.req) for ir in install_reqs],
+        extras_require={
+            'docker': ['docker>=2.1'],
+        },
+        entry_points={
+            'console_scripts': ['conductor = container.cli:conductor_commandline']
+        },
+        dependency_links=[
+            'git+https://github.com/ansible/ansible',
+            'git+https://github.com/docker/docker-py'
+        ],
+    )
+
+
 setup(
     name='ansible-container',
     version=container.__version__,
@@ -39,20 +76,5 @@ setup(
     author_email='jag@ansible.com',
     description=('Ansible Container empowers you to orchestrate, build, run, and ship '
                  'Docker images built from Ansible playbooks.'),
-    entry_points={
-        'console_scripts': ['ansible-container = container.cli:commandline']
-    },
-    install_requires=reqs,
-    tests_require=[
-        'ansible>=2.3.0',
-        'pytest>=3',
-        'docker>=2.1'
-    ],
-    extras_require={
-        'docker': ['docker>=2.1'],
-    },
-    dependency_links=[
-        'git+https//github.com/ansible/ansible'
-    ],
-    cmdclass={'test': PlaybookAsTests}
+
 )
