@@ -17,7 +17,7 @@ class PlaybookAsTests(TestCommand):
     def run_tests(self):
         import subprocess
         p = subprocess.Popen(
-            ['ansible-playbook', '-vv', '-e', '@distros.yml'] +
+            ['ansible-playbook', '-vvv'] +
             shlex.split(self.ansible_args) +
             ['run_tests.yml'],
             cwd=os.path.join(os.getcwd(), 'test'),

@@ -96,7 +96,7 @@ class Engine(BaseEngine):
     @property
     def client(self):
         if not self._client:
-            self._client = docker.from_env()
+            self._client = docker.from_env(version='auto')
         return self._client
 
     @property
@@ -571,9 +571,9 @@ class Engine(BaseEngine):
             except Exception:
                 raise
 
-            self.update_config_file(username, password, email, url, config_path)
+            self._update_config_file(username, password, email, url, config_path)
 
-        username, password = self.get_registry_auth(url, config_path)
+        username, password = self._get_registry_auth(url, config_path)
         if not username:
             raise exceptions.AnsibleContainerConductorException(
                 u'Please provide login credentials for registry {}.'.format(url))
@@ -581,7 +581,7 @@ class Engine(BaseEngine):
 
     @staticmethod
     @conductor_only
-    def update_config_file(username, password, email, url, config_path):
+    def _update_config_file(username, password, email, url, config_path):
         """Update the config file with the authorization."""
         try:
             # read the existing config
@@ -608,7 +608,7 @@ class Engine(BaseEngine):
 
     @staticmethod
     @conductor_only
-    def get_registry_auth(registry_url, config_path):
+    def _get_registry_auth(registry_url, config_path):
         """
         Retrieve from the config file the current authentication for a given URL, and
         return the username, password

@@ -1,3 +1,4 @@
+# defaults/main.yml
 ---
 distros:
   - name: "centos"
@@ -9,6 +10,7 @@ distros:
     httpd_pageroot: "/var/www/html/"
     httpd_bin: "/usr/sbin/httpd"
     httpd_user: "apache"
+
 #  - name: "ubuntu"
 #    base_image: "ubuntu:trusty"
 #    package_update_command: "apt-get update -y"
@@ -18,6 +20,7 @@ distros:
 #    httpd_pageroot: "/var/www/html/"
 #    httpd_bin: "/usr/sbin/apache2"
 #    httpd_user: "apache"
+
 #  - name: "alpine"
 #    base_image: "alpine:3.5"
 #    package_update_command: "apk update"

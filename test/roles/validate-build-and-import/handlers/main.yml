@@ -1,0 +1,7 @@
+# handlers/main.yml
+---
+- name: Cleanup temp dirs
+  file:
+    name: "{{ item.path }}"
+    state: absent
+  with_items: "{{ tempdirs.results }}"
