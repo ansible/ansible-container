@@ -89,7 +89,6 @@ class Engine(BaseEngine):
     display_name = u'Docker\u2122 daemon'
 
     _client = None
-    _api_client = None
 
     FINGERPRINT_LABEL_KEY = 'com.ansible.container.fingerprint'
     LAYER_COMMENT = 'Built with Ansible Container (https://github.com/ansible/ansible-container)'
@@ -99,12 +98,6 @@ class Engine(BaseEngine):
         if not self._client:
             self._client = docker.from_env()
         return self._client
-
-    @property
-    def api_client(self):
-        if not self._api_client:
-            self._api_client = docker.APIClient()
-        return self._api_client
 
     @property
     def ansible_args(self):
@@ -432,10 +425,10 @@ class Engine(BaseEngine):
             repository = "%s/%s" % (re.sub('/$', '', url), repository)
 
         logger.info('Tagging %s' % repository)
-        self.api_client.tag(image_id, repository, tag=tag)
+        self.client.api.tag(image_id, repository, tag=tag)
 
         logger.info('Pushing %s:%s...' % (repository, tag))
-        stream = self.api_client.push(repository, tag=tag, stream=True, auth_config=auth_config)
+        stream = self.client.api.push(repository, tag=tag, stream=True, auth_config=auth_config)
 
         last_status = None
         for data in stream:
