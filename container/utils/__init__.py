@@ -237,7 +237,7 @@ def get_content_from_role(role_name, relative_path):
     if os.path.exists(metadata_file):
         with open(metadata_file) as ifs:
             metadata = yaml.round_trip_load(ifs)
-        return metadata
+        return metadata or ordereddict.ordereddict()
     return ordereddict.ordereddict()
 
 @container.conductor_only
