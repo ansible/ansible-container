@@ -1,4 +1,4 @@
-ansible==2.4.0
+git+https://github.com/ansible/ansible
 asn1crypto==0.22.0
 backports.ssl-match-hostname==3.5.0.1
 cffi==1.10.0

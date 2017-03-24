@@ -1,5 +1,5 @@
 FROM {{ conductor_base }}
-
+ENV ANSIBLE_CONTAINER=1
 {% set distro = conductor_base.split(':')[0] %}
 {% if distro in ["fedora", "centos"] %}
 RUN yum update -y && \
@@ -19,8 +19,6 @@ RUN apk add --no-cache -U python2-dev git rsync libffi libffi-dev openssl openss
 ADD https://get.docker.com/builds/Linux/x86_64/docker-{{ docker_version }}.tgz /tmp/docker.tgz
 COPY /contrib/get-pip.py /get-pip.py
 RUN python /get-pip.py && \
-    pip install --no-cache-dir paramiko PyYAML Jinja2 httplib2 six ruamel.yaml cffi && \
-    pip install --no-cache-dir git+https://github.com/ansible/ansible.git@devel#egg=ansible && \
     mkdir -p /etc/ansible/roles /_ansible/src && \
     cd /usr/local/bin && \
     tar -xz --strip-components=1 -f /tmp/docker.tgz
@@ -32,10 +30,10 @@ RUN ( test -f /_ansible/build/ansible-requirements.txt && pip install --no-cache
     ( test -f /_ansible/build/ansible.cfg && cp /_ansible/build/ansible.cfg /etc/ansible/ansible.cfg || true)
 
 # The COPY here will break cache if the version of conductor changed
-COPY /conductor-src /_ansible/conductor
-RUN cd /_ansible/conductor && \
-    pip install --no-cache-dir -r requirements.txt && \
-    python setup.py develop
+COPY /container-src /_ansible/container
+RUN cd /_ansible && \
+    pip install -r container/conductor-build/conductor-requirements.txt && \
+    PYTHONPATH=. LC_ALL="en_US.UTF-8" python container/conductor-build/setup.py develop -v
 VOLUME /usr
 
 

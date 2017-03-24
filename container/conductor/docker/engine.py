@@ -17,12 +17,14 @@ import re
 import six
 import sys
 import tarfile
+import pkg_resources
 
 try:
     import httplib as StatusCodes
 except ImportError:
     from http import HTTPStatus as StatusCodes
 
+import container
 from ..engine import BaseEngine
 from .. import utils
 from .. import logmux
@@ -467,13 +469,16 @@ class Engine(BaseEngine):
             tarball.add(os.path.join(FILES_PATH, 'get-pip.py'),
                         arcname='contrib/get-pip.py')
 
-            tarball.add(utils.conductor_dir, arcname='conductor-src/conductor')
-            tarball.add(os.path.join(os.path.dirname(utils.conductor_dir),
-                                     'conductor-setup.py'),
-                        arcname='conductor-src/setup.py')
-            tarball.add(os.path.join(os.path.dirname(utils.conductor_dir),
-                                     'conductor-requirements.txt'),
-                        arcname='conductor-src/requirements.txt')
+            pkg_distribution = pkg_resources.working_set.by_key['ansible-container']
+            is_develop_install = pkg_distribution.precedence == pkg_resources.DEVELOP_DIST
+            container_dir = os.path.dirname(container.__file__)
+            tarball.add(container_dir, arcname='container-src')
+            if is_develop_install:
+                package_dir = os.path.dirname(container_dir)
+                tarball.add(os.path.join(package_dir, 'setup.py'),
+                            arcname='container-src/conductor-build/setup.py')
+                tarball.add(os.path.join(package_dir, 'conductor-requirements.txt'),
+                            arcname='container-src/conductor-build/conductor-requirements.txt')
 
             utils.jinja_render_to_temp(TEMPLATES_PATH,
                                        'conductor-dockerfile.j2', temp_dir,

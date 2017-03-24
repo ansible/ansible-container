@@ -39,28 +39,20 @@ if container.ENV == 'host':
             'docker': ['docker>=2.1'],
         },
         dependency_links=[
-            'git+https://github.com/ansible/ansible'
+            'git+https://github.com/ansible/ansible@develop#egg=ansible'
         ],
         cmdclass={'test': PlaybookAsTests},
         entry_points={
             'console_scripts': [
                 'ansible-container = container.cli:host_commandline']
         },
+        data_files=[('conductor-build', ['setup.py', 'conductor-requirements.txt'])]
     )
 else:
-    install_reqs = parse_requirements('conductor-requirements.txt', session=False)
     setup_kwargs = dict(
-        install_requires=[str(ir.req) for ir in install_reqs],
-        extras_require={
-            'docker': ['docker>=2.1'],
-        },
         entry_points={
             'console_scripts': ['conductor = container.cli:conductor_commandline']
         },
-        dependency_links=[
-            'git+https://github.com/ansible/ansible',
-            'git+https://github.com/docker/docker-py'
-        ],
     )
 
 
@@ -76,5 +68,5 @@ setup(
     author_email='jag@ansible.com',
     description=('Ansible Container empowers you to orchestrate, build, run, and ship '
                  'Docker images built from Ansible playbooks.'),
-
+    **setup_kwargs
 )

@@ -39,242 +39,244 @@ LOGGING = {
         }
     }
 
+class HostCommand(object):
 
-AVAILABLE_COMMANDS = {'help': 'Display this help message',
-                      'version': 'Display Ansible Container version information',
-                      'init': 'Initialize a new Ansible Container project',
-                      'install': 'Install a service from Ansible Galaxy',
-                      'build': 'Build new images based on ansible/container.yml',
-                      'run': 'Run and orchestrate built images based on container.yml',
-                      'stop': 'Stop the services defined in container.yml, if deployed',
-                      'restart': 'Restart the services defined in container.yml',
-                      # TODO: v----- replace with deploy
-                      'push': 'Push your built images to a Docker Hub compatible registry',
-                      'shipit': 'Generate a deployment playbook to your cloud of choice.',
-                      'import': 'Convert a Dockerfile to a container.yml and role.'}
+    AVAILABLE_COMMANDS = {'help': 'Display this help message',
+                          'version': 'Display Ansible Container version information',
+                          'init': 'Initialize a new Ansible Container project',
+                          'install': 'Install a service from Ansible Galaxy',
+                          'build': 'Build new images based on ansible/container.yml',
+                          'run': 'Run and orchestrate built images based on container.yml',
+                          'stop': 'Stop the services defined in container.yml, if deployed',
+                          'restart': 'Restart the services defined in container.yml',
+                          # TODO: v----- replace with deploy
+                          'push': 'Push your built images to a Docker Hub compatible registry',
+                          'shipit': 'Generate a deployment playbook to your cloud of choice.',
+                          'import': 'Convert a Dockerfile to a container.yml and role.'}
 
-
-def subcmd_common_parsers(parser, subparser, cmd):
-    if cmd in ('build', 'run', 'shipit', 'push'):
-        subparser.add_argument('--with-volumes', '-v', action='store', nargs='+',
-                               help=u'Mount one or more volumes to the Conductor. '
-                                    u'Specify volumes as strings using the Docker volume format.',
-                               default=[])
-        subparser.add_argument('--with-variables', '-e', action='store', nargs='+',
-                               help=u'Define one or more environment variables in the Ansible '
-                                    u'Conductor. Format each variable as a key=value string.',
-                               default=[])
-        subparser.add_argument('--roles-path', action='store', default=None,
-                               help=u'Specify a local path containing roles you want to '
-                                    u'use in the Conductor.')
-
-
-def subcmd_init_parser(parser, subparser):
-    subparser.add_argument('--server', '-s', action='store',
-                           default='https://galaxy.ansible.com/',
-                           help=u'Use a different Galaxy server URL')
-    subparser.add_argument('project', nargs='?', action='store',
-                           help=u'Use a project template instead of making a '
-                                u'blank project from an Ansible Container project '
-                                u'from Ansible Galaxy.')
+    def subcmd_common_parsers(self, parser, subparser, cmd):
+        if cmd in ('build', 'run', 'shipit', 'push'):
+            subparser.add_argument('--with-volumes', '-v', action='store', nargs='+',
+                                   help=u'Mount one or more volumes to the Conductor. '
+                                        u'Specify volumes as strings using the Docker volume format.',
+                                   default=[])
+            subparser.add_argument('--with-variables', '-e', action='store', nargs='+',
+                                   help=u'Define one or more environment variables in the Ansible '
+                                        u'Conductor. Format each variable as a key=value string.',
+                                   default=[])
+            subparser.add_argument('--roles-path', action='store', default=None,
+                                   help=u'Specify a local path containing roles you want to '
+                                        u'use in the Conductor.')
 
 
-def subcmd_build_parser(parser, subparser):
-    subparser.add_argument('--flatten', action='store_true',
-                           help=u'By default, Ansible Container will add a single '
-                                u'layer to your base images. Specify this to squash '
-                                u'the images down to a single layer.',
-                           dest='flatten', default=False)
-    subparser.add_argument('--no-purge-last', action='store_false',
-                           help=u'By default, Ansible Container will remove the '
-                                u'previously built image for your hosts. Disable '
-                                u'that with this flag.',
-                           dest='purge_last', default=True)
-    subparser.add_argument('--save-build-container', action='store_true',
-                           help=u'Leave the Ansible Builder Container intact upon build completion. '
-                                u'Use for debugging and testing.', default=False)
-    subparser.add_argument('--no-cache', action='store_false',
-                           help=u'Ansible Container caches image layers during builds '
-                                u'and reuses existing layers if it determines no '
-                                u'changes have been made necessitating rebuild. '
-                                u'You may disable layer caching with this flag.',
-                           dest='cache', default=True)
-    subparser.add_argument('--python-interpreter', action='store',
-                           help=u'Ansible Container brings its own Python runtime '
-                                u'into your target containers for Ansible to use. '
-                                u'If you would like to bring your own Python runtime '
-                                u'instead, use this to specify the path to that '
-                                u'runtime.', dest='python_interpreter', default=None)
-    subparser.add_argument('--services', action='store',
-                           help=u'Rather than build all services, only build specific services.',
-                           nargs='+', dest='services_to_build', default=None)
-    subparser.add_argument('ansible_options', action='store',
-                           help=u'Provide additional commandline arguments to '
-                                u'Ansible in executing your playbook. If you '
-                                u'use this argument, you will need to use -- to '
-                                u'prefix your extra options. Use this feature with '
-                                u'caution.', default=u'', nargs='*')
-    subcmd_common_parsers(parser, subparser, 'build')
+    def subcmd_init_parser(self, parser, subparser):
+        subparser.add_argument('--server', '-s', action='store',
+                               default='https://galaxy.ansible.com/',
+                               help=u'Use a different Galaxy server URL')
+        subparser.add_argument('project', nargs='?', action='store',
+                               help=u'Use a project template instead of making a '
+                                    u'blank project from an Ansible Container project '
+                                    u'from Ansible Galaxy.')
 
 
-def subcmd_run_parser(parser, subparser):
-    subparser.add_argument('service', action='store',
-                           help=u'The specific services you want to run',
-                           nargs='*')
-    subparser.add_argument('--production', action='store_true',
-                           help=u'Run the production configuration locally',
-                           default=False, dest='production')
-    subparser.add_argument('-d', '--detached', action='store_true',
-                           help=u'Run the application in detached mode', dest='detached')
-    subparser.add_argument('-o', '--remove-orphans', action='store_true',
-                           help=u'Remove containers for services not defined in container.yml',
-                           default=False, dest='remove_orphans')
-    subcmd_common_parsers(parser, subparser, 'run')
+    def subcmd_build_parser(self, parser, subparser):
+        subparser.add_argument('--flatten', action='store_true',
+                               help=u'By default, Ansible Container will add a single '
+                                    u'layer to your base images. Specify this to squash '
+                                    u'the images down to a single layer.',
+                               dest='flatten', default=False)
+        subparser.add_argument('--no-purge-last', action='store_false',
+                               help=u'By default, Ansible Container will remove the '
+                                    u'previously built image for your hosts. Disable '
+                                    u'that with this flag.',
+                               dest='purge_last', default=True)
+        subparser.add_argument('--save-build-container', action='store_true',
+                               help=u'Leave the Ansible Builder Container intact upon build completion. '
+                                    u'Use for debugging and testing.', default=False)
+        subparser.add_argument('--no-cache', action='store_false',
+                               help=u'Ansible Container caches image layers during builds '
+                                    u'and reuses existing layers if it determines no '
+                                    u'changes have been made necessitating rebuild. '
+                                    u'You may disable layer caching with this flag.',
+                               dest='cache', default=True)
+        subparser.add_argument('--python-interpreter', action='store',
+                               help=u'Ansible Container brings its own Python runtime '
+                                    u'into your target containers for Ansible to use. '
+                                    u'If you would like to bring your own Python runtime '
+                                    u'instead, use this to specify the path to that '
+                                    u'runtime.', dest='python_interpreter', default=None)
+        subparser.add_argument('--services', action='store',
+                               help=u'Rather than build all services, only build specific services.',
+                               nargs='+', dest='services_to_build', default=None)
+        subparser.add_argument('ansible_options', action='store',
+                               help=u'Provide additional commandline arguments to '
+                                    u'Ansible in executing your playbook. If you '
+                                    u'use this argument, you will need to use -- to '
+                                    u'prefix your extra options. Use this feature with '
+                                    u'caution.', default=u'', nargs='*')
+        self.subcmd_common_parsers(parser, subparser, 'build')
 
 
-def subcmd_stop_parser(parser, subparser):
-    subparser.add_argument('service', action='store',
-                           help=u'The specific services you want to stop',
-                           nargs='*')
-    subparser.add_argument('-f', '--force', action='store_true',
-                           help=u'Force stop running containers',
-                           dest='force')
+    def subcmd_run_parser(self, parser, subparser):
+        subparser.add_argument('service', action='store',
+                               help=u'The specific services you want to run',
+                               nargs='*')
+        subparser.add_argument('--production', action='store_true',
+                               help=u'Run the production configuration locally',
+                               default=False, dest='production')
+        subparser.add_argument('-d', '--detached', action='store_true',
+                               help=u'Run the application in detached mode', dest='detached')
+        subparser.add_argument('-o', '--remove-orphans', action='store_true',
+                               help=u'Remove containers for services not defined in container.yml',
+                               default=False, dest='remove_orphans')
+        self.subcmd_common_parsers(parser, subparser, 'run')
 
 
-def subcmd_restart_parser(parser, subparser):
-    subparser.add_argument('service', action='store',
-                           help=u'The specific services you want to restart',
-                           nargs='*')
+    def subcmd_stop_parser(self, parser, subparser):
+        subparser.add_argument('service', action='store',
+                               help=u'The specific services you want to stop',
+                               nargs='*')
+        subparser.add_argument('-f', '--force', action='store_true',
+                               help=u'Force stop running containers',
+                               dest='force')
 
 
-def subcmd_help_parser(parser, subparser):
-    return
+    def subcmd_restart_parser(self, parser, subparser):
+        subparser.add_argument('service', action='store',
+                               help=u'The specific services you want to restart',
+                               nargs='*')
 
 
-def subcmd_push_parser(parser, subparser):
-    subparser.add_argument('--username', action='store',
-                           help=u'If authentication with the registry is required, provide a valid username.',
-                           dest='username', default=None)
-    subparser.add_argument('--email', action='store',
-                           help=(u'If authentication with the registry requires an email address, provide a '
-                                 u'valid email address'),
-                           dest='email', default=None)
-    subparser.add_argument('--password', action='store',
-                           help=u'If authentication with the registry is required, provide a valid password.',
-                           dest='password', default=None)
-    subparser.add_argument('--push-to', action='store',
-                           help=(u'Name of a registry defined in container.yml or the actual URL of the registry, '
-                                 u'including the namespace. If passing a URL, an example would be: '
-                                 u'"https://registry.example.com:5000/myproject"'),
-                           dest='push_to', default=None)
-    subparser.add_argument('--tag', action='store',
-                           help=u'Tag the images before pushing.',
-                           dest='tag', default=None)
-    subcmd_common_parsers(parser, subparser, 'push')
+    def subcmd_help_parser(self, parser, subparser):
+        return
 
 
-def subcmd_version_parser(parser, subparser):
-    return
+    def subcmd_push_parser(self, parser, subparser):
+        subparser.add_argument('--username', action='store',
+                               help=u'If authentication with the registry is required, provide a valid username.',
+                               dest='username', default=None)
+        subparser.add_argument('--email', action='store',
+                               help=(u'If authentication with the registry requires an email address, provide a '
+                                     u'valid email address'),
+                               dest='email', default=None)
+        subparser.add_argument('--password', action='store',
+                               help=u'If authentication with the registry is required, provide a valid password.',
+                               dest='password', default=None)
+        subparser.add_argument('--push-to', action='store',
+                               help=(u'Name of a registry defined in container.yml or the actual URL of the registry, '
+                                     u'including the namespace. If passing a URL, an example would be: '
+                                     u'"https://registry.example.com:5000/myproject"'),
+                               dest='push_to', default=None)
+        subparser.add_argument('--tag', action='store',
+                               help=u'Tag the images before pushing.',
+                               dest='tag', default=None)
+        self.subcmd_common_parsers(parser, subparser, 'push')
 
 
-def subcmd_shipit_parser(parser, subparser):
-    se_subparser = subparser.add_subparsers(title='shipit-engine', dest='shipit_engine')
-    for engine_name, engine in AVAILABLE_SHIPIT_ENGINES.items():
-        engine_parser = se_subparser.add_parser(engine_name, help=engine['help'])
-        engine_obj = load_shipit_engine(engine['cls'], base_path=os.getcwd())
-        engine_obj.add_options(engine_parser)
-    subcmd_common_parsers(parser, subparser, 'shipit')
+    def subcmd_version_parser(self, parser, subparser):
+        return
 
 
-def subcmd_install_parser(parser, subparser):
-    subparser.add_argument('roles', nargs='+', action='store')
+    def subcmd_shipit_parser(self, parser, subparser):
+        se_subparser = subparser.add_subparsers(title='shipit-engine', dest='shipit_engine')
+        for engine_name, engine in AVAILABLE_SHIPIT_ENGINES.items():
+            engine_parser = se_subparser.add_parser(engine_name, help=engine['help'])
+            engine_obj = load_shipit_engine(engine['cls'], base_path=os.getcwd())
+            engine_obj.add_options(engine_parser)
+        self.subcmd_common_parsers(parser, subparser, 'shipit')
 
 
-def subcmd_import_parser(parser, subparser):
-    # Commenting out until we can solidify the "import" interface
-    # subparser.add_argument('--dockerfile', action='store',
-    #                       help=u"Name of the file to import. Defaults to 'Dockerfile'.",
-    #                       dest='dockerfile_name', default='Dockerfile')
-    subparser.add_argument('--bundle-files', action='store_true',
-                           help=u'By default, Ansible Container treats files '
-                                u'in the same path you\'re importing from as '
-                                u'the build context. If you wish those files to '
-                                u'be copied to the content of the role itself, '
-                                u'use this flag.', default=False)
-    subparser.add_argument('import_from', action='store',
-                           help=u'Path to project/context to import.')
+    def subcmd_install_parser(self, parser, subparser):
+        subparser.add_argument('roles', nargs='+', action='store')
 
 
-def commandline():
-    parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '
-                                                 u'ship Docker containers with '
-                                                 u'Ansible playbooks')
-    parser.add_argument('--debug', action='store_true', dest='debug',
-                        help=u'Enable debug output', default=False)
-    parser.add_argument('--devel', action='store_true', dest='devel',
-                        help=u'Enable developer-mode to aid in iterative '
-                             u'development on Ansible Container.', default=False)
-    parser.add_argument('--engine', action='store', dest='engine_name',
-                        help=u'Select your container engine and orchestrator',
-                        default='docker')
-    parser.add_argument('--project-path', '-p', action='store', dest='base_path',
-                        help=u'Specify a path to your project. Defaults to '
-                             u'current working directory.', default=os.getcwd())
-    parser.add_argument('--project-name', '-n', action='store', dest='project_name',
-                        help=u'Specify an alternate name for your project. Defaults '
-                             u'to the directory it lives in.', default=None)
-    parser.add_argument('--var-file', action='store',
-                        help=u'Path to a YAML or JSON formatted file providing variables for '
-                             u'Jinja2 templating in container.yml.', default=None)
-    parser.add_argument('--no-selinux', action='store_false', dest='selinux',
-                        help=u"Disables the 'Z' option from being set on volumes automatically "
-                             u"mounted to the build container.", default=True)
+    def subcmd_import_parser(self, parser, subparser):
+        # Commenting out until we can solidify the "import" interface
+        # subparser.add_argument('--dockerfile', action='store',
+        #                       help=u"Name of the file to import. Defaults to 'Dockerfile'.",
+        #                       dest='dockerfile_name', default='Dockerfile')
+        subparser.add_argument('--bundle-files', action='store_true',
+                               help=u'By default, Ansible Container treats files '
+                                    u'in the same path you\'re importing from as '
+                                    u'the build context. If you wish those files to '
+                                    u'be copied to the content of the role itself, '
+                                    u'use this flag.', default=False)
+        subparser.add_argument('import_from', action='store',
+                               help=u'Path to project/context to import.')
 
-    subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
-    subparsers.required = True
-    for subcommand in AVAILABLE_COMMANDS:
-        logger.debug('Registering subcommand', subcommand=subcommand)
-        subparser = subparsers.add_parser(subcommand, help=AVAILABLE_COMMANDS[subcommand])
-        globals()['subcmd_%s_parser' % subcommand](parser, subparser)
 
-    args = parser.parse_args()
+    def __call__(self):
+        parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '
+                                                     u'ship Docker containers with '
+                                                     u'Ansible playbooks')
+        parser.add_argument('--debug', action='store_true', dest='debug',
+                            help=u'Enable debug output', default=False)
+        parser.add_argument('--devel', action='store_true', dest='devel',
+                            help=u'Enable developer-mode to aid in iterative '
+                                 u'development on Ansible Container.', default=False)
+        parser.add_argument('--engine', action='store', dest='engine_name',
+                            help=u'Select your container engine and orchestrator',
+                            default='docker')
+        parser.add_argument('--project-path', '-p', action='store', dest='base_path',
+                            help=u'Specify a path to your project. Defaults to '
+                                 u'current working directory.', default=os.getcwd())
+        parser.add_argument('--project-name', '-n', action='store', dest='project_name',
+                            help=u'Specify an alternate name for your project. Defaults '
+                                 u'to the directory it lives in.', default=None)
+        parser.add_argument('--var-file', action='store',
+                            help=u'Path to a YAML or JSON formatted file providing variables for '
+                                 u'Jinja2 templating in container.yml.', default=None)
+        parser.add_argument('--no-selinux', action='store_false', dest='selinux',
+                            help=u"Disables the 'Z' option from being set on volumes automatically "
+                                 u"mounted to the build container.", default=True)
 
-    if args.subcommand == 'help':
-        parser.print_help()
-        sys.exit(0)
+        subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
+        subparsers.required = True
+        for subcommand in self.AVAILABLE_COMMANDS:
+            logger.debug('Registering subcommand', subcommand=subcommand)
+            subparser = subparsers.add_parser(subcommand, help=self.AVAILABLE_COMMANDS[subcommand])
+            getattr(self, 'subcmd_%s_parser' % subcommand)(parser, subparser)
 
-    if args.debug and args.subcommand != 'version':
-        LOGGING['loggers']['container']['level'] = 'DEBUG'
-    config.dictConfig(LOGGING)
+        args = parser.parse_args()
 
-    try:
-        getattr(core, u'cmdrun_{}'.format(args.subcommand))(**vars(args))
-    except exceptions.AnsibleContainerAlreadyInitializedException:
-        logger.error('Ansible Container is already initialized', exc_info=True)
-        sys.exit(1)
-    except exceptions.AnsibleContainerNotInitializedException:
-        logger.error('No Ansible Container project data found - do you need to '
-                'run "ansible-container init"?', exc_info=True)
-        sys.exit(1)
-    except exceptions.AnsibleContainerNoAuthenticationProvidedException:
-        logger.error('No authentication provided, unable to continue', exc_info=True)
-        sys.exit(1)
-    except conductor_exc.AnsibleContainerConductorException as e:
-        logger.error('Failure in conductor container: %s' % e.message, exc_info=True)
-        sys.exit(1)
-    except exceptions.AnsibleContainerNoMatchingHosts:
-        logger.error('No matching service found in ansible/container.yml', exc_info=True)
-        sys.exit(1)
-    except exceptions.AnsibleContainerHostNotTouchedByPlaybook:
-        logger.error('The requested service(s) is not referenced in ansible/main.yml. Nothing to build.', exc_info=True)
-        sys.exit(1)
-    except exceptions.AnsibleContainerConfigException as e:
-        logger.error('Invalid container.yml: {}'.format(e.message))
-    except requests.exceptions.ConnectionError:
-        logger.error('Could not connect to container host. Check your docker config', exc_info=True)
-    except Exception as e:
-        if args.debug:
-            logger.exception('Unknown exception %s' % e, exc_info=True)
-        else:
-            logger.error('Unknown exception', exc_info=True)
-        sys.exit(1)
+        if args.subcommand == 'help':
+            parser.print_help()
+            sys.exit(0)
+
+        if args.debug and args.subcommand != 'version':
+            LOGGING['loggers']['container']['level'] = 'DEBUG'
+        config.dictConfig(LOGGING)
+
+        try:
+            getattr(core, u'cmdrun_{}'.format(args.subcommand))(**vars(args))
+        except exceptions.AnsibleContainerAlreadyInitializedException:
+            logger.error('Ansible Container is already initialized', exc_info=True)
+            sys.exit(1)
+        except exceptions.AnsibleContainerNotInitializedException:
+            logger.error('No Ansible Container project data found - do you need to '
+                    'run "ansible-container init"?', exc_info=True)
+            sys.exit(1)
+        except exceptions.AnsibleContainerNoAuthenticationProvidedException:
+            logger.error('No authentication provided, unable to continue', exc_info=True)
+            sys.exit(1)
+        except conductor_exc.AnsibleContainerConductorException as e:
+            logger.error('Failure in conductor container: %s' % e.message, exc_info=True)
+            sys.exit(1)
+        except exceptions.AnsibleContainerNoMatchingHosts:
+            logger.error('No matching service found in ansible/container.yml', exc_info=True)
+            sys.exit(1)
+        except exceptions.AnsibleContainerHostNotTouchedByPlaybook:
+            logger.error('The requested service(s) is not referenced in ansible/main.yml. Nothing to build.', exc_info=True)
+            sys.exit(1)
+        except exceptions.AnsibleContainerConfigException as e:
+            logger.error('Invalid container.yml: {}'.format(e.message))
+        except requests.exceptions.ConnectionError:
+            logger.error('Could not connect to container host. Check your docker config', exc_info=True)
+        except Exception as e:
+            if args.debug:
+                logger.exception('Unknown exception %s' % e, exc_info=True)
+            else:
+                logger.error('Unknown exception', exc_info=True)
+            sys.exit(1)
+
+host_commandline = HostCommand()
