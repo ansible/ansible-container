@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
-from .visibility import getLogger
+from container.utils.visibility import getLogger
 logger = getLogger(__name__)
 
 from collections import Mapping
@@ -10,14 +10,18 @@ try:
 except ImportError:
     from StringIO import StringIO
 
-from ansible.template import Templar
+import container
+
+if container.ENV == 'conductor':
+    from ansible.template import Templar
 from ruamel import yaml, ordereddict
 
-from .utils import get_metadata_from_role, get_defaults_from_role
+from ..utils import get_metadata_from_role, get_defaults_from_role
 
 class AnsibleContainerConductorConfig(Mapping):
     _config = None
 
+    @container.conductor_only
     def __init__(self, container_config):
         self._config = container_config
         self._templar = Templar(loader=None, variables={})

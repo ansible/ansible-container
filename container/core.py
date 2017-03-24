@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, print_function
 
-import logging
-
-from .visibility import getLogger
+from .utils.visibility import getLogger
 logger = getLogger(__name__)
 
 import getpass
@@ -23,7 +21,7 @@ from .exceptions import AnsibleContainerException, \
                         AnsibleContainerRegistryAttributeException
 from .utils import *
 from . import __version__
-from .conductor.loader import load_engine
+from container.utils.loader import load_engine
 
 REMOVE_HTTP = re.compile('^https?://')
 DEFAULT_CONDUCTOR_BASE = 'centos:7'
@@ -102,7 +100,8 @@ def cmdrun_init(base_path, project=None, **kwargs):
                                         os.path.basename(base_path))
         }
         for tmpl_filename in os.listdir(template_dir):
-            jinja_render_to_temp(os.path.join('init', tmpl_filename),
+            jinja_render_to_temp(template_dir,
+                                 os.path.join('init', tmpl_filename),
                                  base_path,
                                  tmpl_filename.replace('.j2', ''),
                                  **context)
@@ -299,78 +298,82 @@ def cmdrun_push(base_path, project_name, engine_name, var_file=None, **kwargs):
             logger.info('Conductor terminated. Preserving as requested.')
 
 
-def cmdrun_shipit(base_path, engine_name, pull_from=None, **kwargs):
-    assert_initialized(base_path)
-    engine_args = kwargs.copy()
-    engine_args.update(locals())
-    engine_obj = load_engine(**engine_args)
-    shipit_engine_name = kwargs.pop('shipit_engine')
-    project_name = os.path.basename(base_path).lower()
-    local_images = kwargs.get('local_images')
-
-    # determine the registry url and namespace the cluster will use to pull images
-    config = engine_obj.config
-    url = None
-    namespace = None
-    if not local_images:
-        if not pull_from:
-            url = engine_obj.default_registry_url
-        elif config.get('registries', {}).get(pull_from):
-            url = config['registries'][pull_from].get('url')
-            namespace = config['registries'][pull_from].get('namespace')
-            if not url:
-                raise AnsibleContainerRegistryAttributeException("Registry %s missing required attribute 'url'."
-                                                                 % pull_from)
-            pull_from = None  # pull_from is now resolved to a url/namespace
-        if url and not namespace:
-            # try to get the username for the url from the container engine
-            try:
-                namespace = engine_obj.registry_login(url=url)
-            except Exception as exc:
-                if "Error while fetching server API version" in str(exc):
-                    msg = "Cannot connect to the Docker daemon. Is the daemon running?"
-                else:
-                    msg = "Unable to determine namespace for registry %s. Error: %s. Either authenticate with the " \
-                          "registry or provide a namespace for the registry in container.yml" % (url, str(exc))
-                raise AnsibleContainerRegistryAttributeException(msg)
-
-    config = engine_obj.get_config_for_shipit(pull_from=pull_from, url=url, namespace=namespace)
-
-    shipit_engine_obj = load_shipit_engine(AVAILABLE_SHIPIT_ENGINES[shipit_engine_name]['cls'],
-                                           config=config,
-                                           base_path=base_path,
-                                           project_name=project_name)
-
-    # create the role and sample playbook
-    shipit_engine_obj.run()
-    logger.info('Role %s created.' % project_name)
-
-    if kwargs.get('save_config'):
-        # generate and save the configuration templates
-        config_path = shipit_engine_obj.save_config()
-        logger.info('Saved configuration to %s' % config_path)
+# def cmdrun_shipit(base_path, engine_name, pull_from=None, **kwargs):
+#     assert_initialized(base_path)
+#     engine_args = kwargs.copy()
+#     engine_args.update(locals())
+#     engine_obj = load_engine(**engine_args)
+#     shipit_engine_name = kwargs.pop('shipit_engine')
+#     project_name = os.path.basename(base_path).lower()
+#     local_images = kwargs.get('local_images')
+#
+#     # determine the registry url and namespace the cluster will use to pull images
+#     config = engine_obj.config
+#     url = None
+#     namespace = None
+#     if not local_images:
+#         if not pull_from:
+#             url = engine_obj.default_registry_url
+#         elif config.get('registries', {}).get(pull_from):
+#             url = config['registries'][pull_from].get('url')
+#             namespace = config['registries'][pull_from].get('namespace')
+#             if not url:
+#                 raise AnsibleContainerRegistryAttributeException("Registry %s missing required attribute 'url'."
+#                                                                  % pull_from)
+#             pull_from = None  # pull_from is now resolved to a url/namespace
+#         if url and not namespace:
+#             # try to get the username for the url from the container engine
+#             try:
+#                 namespace = engine_obj.registry_login(url=url)
+#             except Exception as exc:
+#                 if "Error while fetching server API version" in str(exc):
+#                     msg = "Cannot connect to the Docker daemon. Is the daemon running?"
+#                 else:
+#                     msg = "Unable to determine namespace for registry %s. Error: %s. Either authenticate with the " \
+#                           "registry or provide a namespace for the registry in container.yml" % (url, str(exc))
+#                 raise AnsibleContainerRegistryAttributeException(msg)
+#
+#     config = engine_obj.get_config_for_shipit(pull_from=pull_from, url=url, namespace=namespace)
+#
+#     shipit_engine_obj = load_shipit_engine(AVAILABLE_SHIPIT_ENGINES[shipit_engine_name]['cls'],
+#                                            config=config,
+#                                            base_path=base_path,
+#                                            project_name=project_name)
+#
+#     # create the role and sample playbook
+#     shipit_engine_obj.run()
+#     logger.info('Role %s created.' % project_name)
+#
+#     if kwargs.get('save_config'):
+#         # generate and save the configuration templates
+#         config_path = shipit_engine_obj.save_config()
+#         logger.info('Saved configuration to %s' % config_path)
 
 
 def cmdrun_install(base_path, engine_name, roles=[], **kwargs):
-    assert_initialized(base_path)
-    engine_args = kwargs.copy()
-    engine_args.update(locals())
-    engine_obj = load_engine(**engine_args)
-
-    with make_temp_dir() as temp_dir:
-        engine_obj.orchestrate('install', temp_dir)
+    # FIXME: Refactor for Mk.II
+    # assert_initialized(base_path)
+    # engine_args = kwargs.copy()
+    # engine_args.update(locals())
+    # engine_obj = load_engine(**engine_args)
+    #
+    # with make_temp_dir() as temp_dir:
+    #     engine_obj.orchestrate('install', temp_dir)
+    pass
 
 
 def cmdrun_version(base_path, engine_name, debug=False, **kwargs):
-    print('Ansible Container, version', __version__)
-    if debug:
-        print(u', '.join(os.uname()))
-        print(sys.version, sys.executable)
-        assert_initialized(base_path)
-        engine_args = kwargs.copy()
-        engine_args.update(locals())
-        engine_obj = load_engine(**engine_args)
-        engine_obj.print_version_info()
+    # FIXME: Refactor for Mk.II
+    # print('Ansible Container, version', __version__)
+    # if debug:
+    #     print(u', '.join(os.uname()))
+    #     print(sys.version, sys.executable)
+    #     assert_initialized(base_path)
+    #     engine_args = kwargs.copy()
+    #     engine_args.update(locals())
+    #     engine_obj = load_engine(**engine_args)
+    #     engine_obj.print_version_info()
+    pass
 
 
 def cmdrun_import(base_path, project_name, engine_name, **kwargs):
@@ -392,17 +395,6 @@ def remove_existing_container(engine_obj, service_name):
         engine_obj.stop_container(conductor_container_id, forcefully=True)
     if conductor_container_id:
         engine_obj.delete_container(conductor_container_id)
-
-
-def create_build_container(container_engine_obj, base_path):
-    assert_initialized(base_path)
-    logger.info('(Re)building the Ansible Container image.')
-    build_output = container_engine_obj.build_buildcontainer_image()
-    for line in build_output:
-        logger.debug(line)
-    builder_img_id = container_engine_obj.get_builder_image_id()
-    logger.info('Ansible Container image has ID %s', builder_img_id)
-    return builder_img_id
 
 
 def resolve_push_to(push_to, default_url):

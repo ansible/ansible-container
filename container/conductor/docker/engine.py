@@ -4,7 +4,7 @@ from __future__ import absolute_import
 import logging
 plainLogger = logging.getLogger(__name__)
 
-from ..visibility import getLogger
+from ...utils.visibility import getLogger
 logger = getLogger(__name__)
 
 import base64
@@ -26,9 +26,8 @@ except ImportError:
 
 import container
 from ..engine import BaseEngine
-from .. import utils
-from .. import logmux
-from .. import exceptions
+from ... import utils, exceptions
+from ...utils import logmux
 
 try:
     import docker

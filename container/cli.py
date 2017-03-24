@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
-from .visibility import getLogger
+from .utils.visibility import getLogger
 logger = getLogger(__name__)
 
 import os
@@ -13,13 +13,11 @@ import json
 import requests.exceptions
 
 import container
-from .conductor import exceptions as conductor_exc
 
 if container.ENV == 'host':
     from . import core
     from . import config
     from . import exceptions
-    from .utils import load_shipit_engine, AVAILABLE_SHIPIT_ENGINES
 elif container.ENV == 'conductor':
     from .conductor.config import AnsibleContainerConductorConfig
     from .conductor import core as conductor_core
@@ -59,7 +57,7 @@ class HostCommand(object):
                           'restart': 'Restart the services defined in container.yml',
                           # TODO: v----- replace with deploy
                           'push': 'Push your built images to a Docker Hub compatible registry',
-                          'shipit': 'Generate a deployment playbook to your cloud of choice.',
+                          # 'shipit': 'Generate a deployment playbook to your cloud of choice.',
                           'import': 'Convert a Dockerfile to a container.yml and role.'}
 
     def subcmd_common_parsers(self, parser, subparser, cmd):
@@ -185,13 +183,13 @@ class HostCommand(object):
         return
 
 
-    def subcmd_shipit_parser(self, parser, subparser):
-        se_subparser = subparser.add_subparsers(title='shipit-engine', dest='shipit_engine')
-        for engine_name, engine in AVAILABLE_SHIPIT_ENGINES.items():
-            engine_parser = se_subparser.add_parser(engine_name, help=engine['help'])
-            engine_obj = load_shipit_engine(engine['cls'], base_path=os.getcwd())
-            engine_obj.add_options(engine_parser)
-        self.subcmd_common_parsers(parser, subparser, 'shipit')
+    # def subcmd_shipit_parser(self, parser, subparser):
+    #     se_subparser = subparser.add_subparsers(title='shipit-engine', dest='shipit_engine')
+    #     for engine_name, engine in AVAILABLE_SHIPIT_ENGINES.items():
+    #         engine_parser = se_subparser.add_parser(engine_name, help=engine['help'])
+    #         engine_obj = load_shipit_engine(engine['cls'], base_path=os.getcwd())
+    #         engine_obj.add_options(engine_parser)
+    #     self.subcmd_common_parsers(parser, subparser, 'shipit')
 
 
     def subcmd_install_parser(self, parser, subparser):
@@ -268,7 +266,7 @@ class HostCommand(object):
         except exceptions.AnsibleContainerNoAuthenticationProvidedException:
             logger.error('No authentication provided, unable to continue', exc_info=True)
             sys.exit(1)
-        except conductor_exc.AnsibleContainerConductorException as e:
+        except exceptions.AnsibleContainerConductorException as e:
             logger.error('Failure in conductor container: %s' % e.message, exc_info=True)
             sys.exit(1)
         except exceptions.AnsibleContainerNoMatchingHosts:

@@ -5,54 +5,62 @@ from .visibility import getLogger
 logger = getLogger(__name__)
 
 import os
-import importlib
-import tempfile
-import shutil
 import hashlib
 from datetime import datetime
 from distutils import dir_util
 
 from jinja2 import Environment, FileSystemLoader
 from ruamel import yaml, ordereddict
-try:
+
+from ..exceptions import AnsibleContainerException, \
+    AnsibleContainerNotInitializedException
+from ..config import AnsibleContainerConfig
+from .temp import MakeTempDir
+import container
+from container import conductor
+conductor_dir = os.path.dirname(conductor.__file__)
+
+if container.ENV == 'conductor':
     from ansible.playbook.role.include import RoleInclude
     from ansible.vars import VariableManager
     from ansible.parsing.dataloader import DataLoader
-    HAS_ANSIBLE = True
-except ImportError:
-    HAS_ANSIBLE = False
-
-from .exceptions import AnsibleContainerConductorException
-
-class MakeTempDir(object):
-    temp_dir = None
-
-    def __enter__(self):
-        self.temp_dir = tempfile.mkdtemp()
-        logger.debug('Using temporary directory', path=self.temp_dir)
-        return os.path.realpath(self.temp_dir)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        try:
-            logger.debug('Cleaning up temporary directory',
-                path=self.temp_dir)
-            shutil.rmtree(self.temp_dir)
-        except Exception:
-            logger.error('Failure cleaning up temp space', path=self.temp_dir,
-                    exc_info=True)
-
-conductor_dir = os.path.normpath(os.path.dirname(__file__))
 
 make_temp_dir = MakeTempDir
 
-def jinja_render_to_temp(templates_path, template_file, temp_dir, dest_file, **context):
-    j2_env = Environment(loader=FileSystemLoader(templates_path))
+def get_config(base_path, var_file=None):
+    return AnsibleContainerConfig(base_path, var_file=var_file)
+
+def assert_initialized(base_path):
+    ansible_dir = os.path.normpath(base_path)
+    container_file = os.path.join(ansible_dir, 'container.yml')
+    if not all((
+        os.path.exists(ansible_dir), os.path.isdir(ansible_dir),
+        os.path.exists(container_file), os.path.isfile(container_file),
+    )):
+        raise AnsibleContainerNotInitializedException()
+
+
+def create_path(path):
+    try:
+        os.makedirs(path)
+    except OSError:
+        pass
+    except Exception as exc:
+        raise AnsibleContainerException("Error: failed to create %s - %s" % (path, str(exc)))
+
+def jinja_template_path():
+    return os.path.normpath(
+        os.path.join(
+            os.path.dirname(__file__),
+            'templates'))
+
+def jinja_render_to_temp(template_dir, template_file, temp_dir, dest_file, **context):
+    j2_env = Environment(loader=FileSystemLoader(template_dir))
     j2_tmpl = j2_env.get_template(template_file)
     rendered = j2_tmpl.render(dict(temp_dir=temp_dir, **context))
-    logger.debug('Rendered Jinja Template:', rendered=rendered.encode('utf8'))
+    logger.debug('Rendered Jinja Template:', body=rendered.encode('utf8'))
     open(os.path.join(temp_dir, dest_file), 'wb').write(
         rendered.encode('utf8'))
-
 
 def metadata_to_image_config(metadata):
 
@@ -165,10 +173,8 @@ def create_role_from_templates(role_name=None, role_path=None,
     if os.path.exists(tasks_file):
         os.rename(tasks_file, new_tasks_file)
 
-
+@container.conductor_only
 def resolve_role_to_path(role_name):
-    if not HAS_ANSIBLE:
-        raise ImportError('Unable to import Ansible python API')
     loader, variable_manager = DataLoader(), VariableManager()
     role_obj = RoleInclude.load(data=role_name, play=None,
                                 variable_manager=variable_manager,
@@ -177,6 +183,7 @@ def resolve_role_to_path(role_name):
     return role_path
 
 
+@container.conductor_only
 def get_role_fingerprint(role_name):
 
     def hash_file(hash_obj, file_path):
@@ -216,7 +223,7 @@ def get_role_fingerprint(role_name):
     hash_role(hash_obj, resolve_role_to_path(role_name))
     return hash_obj.hexdigest()
 
-
+@container.conductor_only
 def get_content_from_role(role_name, relative_path):
     role_path = resolve_role_to_path(role_name)
     metadata_file = os.path.join(role_path, relative_path)
@@ -226,10 +233,10 @@ def get_content_from_role(role_name, relative_path):
         return metadata
     return ordereddict.ordereddict()
 
-
+@container.conductor_only
 def get_metadata_from_role(role_name):
     return get_content_from_role(role_name, os.path.join('meta', 'container.yml'))
 
-
+@container.conductor_only
 def get_defaults_from_role(role_name):
     return get_content_from_role(role_name, os.path.join('defaults', 'main.yml'))

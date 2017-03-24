@@ -4,7 +4,7 @@ from __future__ import absolute_import
 import logging
 plainLogger = logging.getLogger(__name__)
 
-from .visibility import getLogger
+from container.utils.visibility import getLogger
 logger = getLogger(__name__)
 
 import os
@@ -16,8 +16,8 @@ import subprocess
 
 import yaml
 
-from .loader import load_engine
-from .utils import get_role_fingerprint
+from container.utils.loader import load_engine
+from ..utils import get_role_fingerprint
 
 
 def run_playbook(playbook, engine, service_map, ansible_options='',
