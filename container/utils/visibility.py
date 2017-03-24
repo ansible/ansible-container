@@ -26,7 +26,7 @@ logging.basicConfig(
 def local_var_info(logger, call_name, event_dict):
     if logger.getEffectiveLevel() > logging.DEBUG or call_name != 'debug':
         return event_dict
-    caller = inspect.stack()[3]
+    caller = inspect.stack()[5]
     event_dict.update({
         'locals': caller[0].f_locals,
     })
@@ -46,7 +46,7 @@ def add_caller_info(logger, call_name, event_dict):
     elif event_dict.get('terse'):
         event_dict.pop('terse')
         return event_dict
-    caller = inspect.stack()[3]
+    caller = inspect.stack()[5]
 
     if 'caller_func' not in event_dict:
         event_dict['caller_func'] = caller[0].f_code.co_name
@@ -70,7 +70,6 @@ def getLogger(name):
     return wrap_logger(
         logging.getLogger(name),
         processors=[
-            PositionalArgumentsFormatter(),
             filter_by_level,
             add_logger_name,
             add_caller_info,
@@ -78,6 +77,7 @@ def getLogger(name):
             unorder_dict,
             TimeStamper(fmt="ISO", utc=False),
             format_exc_info,
+            PositionalArgumentsFormatter(),
             alternate_dev_formatter()
         ],
         wrapper_class=BoundLogger,
