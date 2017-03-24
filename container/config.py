@@ -9,9 +9,10 @@ import json
 import six
 
 from collections import Mapping
-from .exceptions import AnsibleContainerConfigException
-
 from ruamel import yaml, ordereddict
+
+import container
+from .exceptions import AnsibleContainerConfigException
 
 # TODO: Actually do some schema validation
 
@@ -30,6 +31,7 @@ class AnsibleContainerConfig(Mapping):
     _config = ordereddict.ordereddict()
     base_path = None
 
+    @container.host_only
     def __init__(self, base_path, var_file=None):
         self.base_path = base_path
         self.var_file = var_file

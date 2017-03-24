@@ -4,6 +4,8 @@ from __future__ import absolute_import
 from container.utils.visibility import getLogger
 logger = getLogger(__name__)
 
+from container import host_only, conductor_only
+
 CAPABILITIES = dict(
     BUILD='building container images',
     BUILD_CONDUCTOR='building the Conductor image',
@@ -68,6 +70,7 @@ class BaseEngine(object):
         """Path to config file where the engine stores registry authentication"""
         raise NotImplementedError()
 
+    @conductor_only
     def run_container(self,
                       image_id,
                       service_name,
@@ -76,6 +79,7 @@ class BaseEngine(object):
         parameter overrides from the service definition."""
         raise NotImplementedError()
 
+    @host_only
     def run_conductor(self, command, config, base_path, params):
         raise NotImplementedError()
 
@@ -109,6 +113,7 @@ class BaseEngine(object):
     def get_latest_image_id_for_service(self, service_name):
         raise NotImplementedError()
 
+    @conductor_only
     def commit_role_as_layer(self,
                              container_id,
                              service_name,
@@ -120,17 +125,20 @@ class BaseEngine(object):
     def tag_image_as_latest(self, service_name, image_id):
         raise NotImplementedError()
 
+    @conductor_only
     def generate_orchestration_playbook(self, repository_data=None):
         """If repository_data is specified, presume to pull images from that
         repository. If not, presume the images are already present."""
         raise NotImplementedError()
 
+    @conductor_only
     def push(self, image_id, service_name, repository_data):
         """
         Push an image to a registry.
         """
         raise NotImplementedError()
 
+    @host_only
     def build_conductor_image(self, base_path, base_image, cache=True):
         raise NotImplementedError()
 
@@ -138,9 +146,11 @@ class BaseEngine(object):
         """Get the volume ID for the portable python runtime."""
         raise NotImplementedError()
 
+    @host_only
     def import_project(self, base_path, import_from, bundle_files=False, **kwargs):
         raise NotImplementedError()
 
+    @conductor_only
     def login(self, username, password, email, url, config_path):
         """
         Authenticate with a registry, and update the engine's config file. Otherwise,
@@ -150,6 +160,7 @@ class BaseEngine(object):
         raise NotImplementedError()
 
     @staticmethod
+    @conductor_only
     def get_registry_username(registry_url, config_path):
         """
         Read authentication data stored at config_path for the regisrtry url, and

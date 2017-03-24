@@ -20,13 +20,14 @@ from .exceptions import AnsibleContainerException, \
                         AnsibleContainerAlreadyInitializedException,\
                         AnsibleContainerRegistryAttributeException
 from .utils import *
-from . import __version__
+from . import __version__, host_only
 from container.utils.loader import load_engine
 
 REMOVE_HTTP = re.compile('^https?://')
 DEFAULT_CONDUCTOR_BASE = 'centos:7'
 
 
+@host_only
 def cmdrun_init(base_path, project=None, **kwargs):
     if project:
         if os.listdir(base_path):
@@ -108,6 +109,7 @@ def cmdrun_init(base_path, project=None, **kwargs):
         logger.info('Ansible Container initialized.')
 
 
+@host_only
 def cmdrun_build(base_path, project_name, engine_name, var_file=None,
                  **kwargs):
     config = get_config(base_path, var_file=var_file)
@@ -152,6 +154,7 @@ def cmdrun_build(base_path, project_name, engine_name, var_file=None,
                                             exit_code)
 
 
+@host_only
 def cmdrun_run(base_path, project_name, engine_name, var_file=None, cache=True,
                **kwargs):
     logger.info('Got extra args to `run` command', arguments=kwargs)
@@ -195,6 +198,7 @@ def cmdrun_run(base_path, project_name, engine_name, var_file=None, cache=True,
             logger.info('Conductor terminated. Preserving as requested.', save_build_container=False, conductor_id=conductor_container_id)
 
 
+@host_only
 def cmdrun_stop(base_path, engine_name, service=[], **kwargs):
     assert_initialized(base_path)
     engine_args = kwargs.copy()
@@ -205,6 +209,7 @@ def cmdrun_stop(base_path, engine_name, service=[], **kwargs):
         engine_obj.terminate('stop', temp_dir, hosts=hosts)
 
 
+@host_only
 def cmdrun_restart(base_path, engine_name, service=[], **kwargs):
     assert_initialized(base_path)
     engine_args = kwargs.copy()
@@ -215,6 +220,7 @@ def cmdrun_restart(base_path, engine_name, service=[], **kwargs):
         engine_obj.restart('restart', temp_dir, hosts=hosts)
 
 
+@host_only
 def cmdrun_push(base_path, project_name, engine_name, var_file=None, **kwargs):
     """
     Push images to a registry. Requires authenticating with the registry prior to starting
@@ -350,6 +356,7 @@ def cmdrun_push(base_path, project_name, engine_name, var_file=None, **kwargs):
 #         logger.info('Saved configuration to %s' % config_path)
 
 
+@host_only
 def cmdrun_install(base_path, engine_name, roles=[], **kwargs):
     # FIXME: Refactor for Mk.II
     # assert_initialized(base_path)
@@ -362,6 +369,7 @@ def cmdrun_install(base_path, engine_name, roles=[], **kwargs):
     pass
 
 
+@host_only
 def cmdrun_version(base_path, engine_name, debug=False, **kwargs):
     # FIXME: Refactor for Mk.II
     # print('Ansible Container, version', __version__)
@@ -376,6 +384,7 @@ def cmdrun_version(base_path, engine_name, debug=False, **kwargs):
     pass
 
 
+@host_only
 def cmdrun_import(base_path, project_name, engine_name, **kwargs):
     engine_obj = load_engine(['IMPORT'],
                              engine_name,
@@ -386,6 +395,7 @@ def cmdrun_import(base_path, project_name, engine_name, **kwargs):
     logger.info('Project imported.')
 
 
+@host_only
 def remove_existing_container(engine_obj, service_name):
     """
     Remove a container for an existing service. Handy for removing an existing conductor.
@@ -397,6 +407,7 @@ def remove_existing_container(engine_obj, service_name):
         engine_obj.delete_container(conductor_container_id)
 
 
+@host_only
 def resolve_push_to(push_to, default_url):
     '''
     Given a push-to value, return the registry and namespace.

@@ -16,10 +16,12 @@ import subprocess
 
 import yaml
 
+from container import conductor_only
 from container.utils.loader import load_engine
 from ..utils import get_role_fingerprint
 
 
+@conductor_only
 def run_playbook(playbook, engine, service_map, ansible_options='',
                  python_interpreter=None, debug=False):
     try:
@@ -93,6 +95,7 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
             pass
 
 
+@conductor_only
 def apply_role_to_container(role, container_id, service_name, engine,
                             python_interpreter=None, ansible_options='',
                             debug=False):
@@ -113,6 +116,7 @@ def apply_role_to_container(role, container_id, service_name, engine,
     return rc
 
 
+@conductor_only
 def build(engine_name, project_name, services, cache=True,
           python_interpreter=None, ansible_options='', debug=False, **kwargs):
     engine = load_engine(['BUILD'], engine_name, project_name, services)
@@ -208,6 +212,7 @@ def build(engine_name, project_name, services, cache=True,
     logger.info(u'All images successfully built.')
 
 
+@conductor_only
 def run(engine_name, project_name, services, **kwargs):
     engine = load_engine(['RUN'], engine_name, project_name, services)
     logger.info(u'Engine integration loaded. Preparing run.',
@@ -226,6 +231,7 @@ def run(engine_name, project_name, services, **kwargs):
     rc = run_playbook(playbook, engine, services)
 
 
+@conductor_only
 def restart(engine_name, project_name, services, **kwargs):
     engine = load_engine(engine_name, project_name, services)
     logger.info(u'Engine integration loaded. Preparing to restart containers.',
@@ -234,6 +240,7 @@ def restart(engine_name, project_name, services, **kwargs):
     logger.info(u'All services restarted.')
 
 
+@conductor_only
 def stop(engine_name, project_name, services, **kwargs):
     engine = load_engine(engine_name, project_name, services)
     logger.info(u'Engine integration loaded. Preparing to stop all containers.',
@@ -246,6 +253,7 @@ def stop(engine_name, project_name, services, **kwargs):
     logger.info(u'All services stopped.')
 
 
+@conductor_only
 def deploy(engine_name, project_name, services, repository_data, playbook_dest, **kwargs):
     engine = load_engine(engine_name, project_name, services)
     logger.info(u'Engine integration loaded. Preparing deploy.',
@@ -277,11 +285,13 @@ def deploy(engine_name, project_name, services, repository_data, playbook_dest, 
         raise
 
 
+@conductor_only
 def install(engine_name, project_name, services, role, **kwargs):
     # FIXME: Port me from ac_galaxy.py
     pass
 
 
+@conductor_only
 def push(engine_name, project_name, services, **kwargs):
     """ Push images to a registry """
     username = kwargs.pop('username')

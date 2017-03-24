@@ -25,6 +25,7 @@ except ImportError:
     from http import HTTPStatus as StatusCodes
 
 import container
+from container import host_only, conductor_only
 from ..engine import BaseEngine
 from ... import utils, exceptions
 from ...utils import logmux
@@ -147,6 +148,7 @@ class Engine(BaseEngine):
         return to_return
 
     @log_runs
+    @conductor_only
     def run_container(self, image_id, service_name, **kwargs):
         """Run a particular container. The kwargs argument contains individual
         parameter overrides from the service definition."""
@@ -166,6 +168,7 @@ class Engine(BaseEngine):
         return container_obj.id
 
     @log_runs
+    @host_only
     def run_conductor(self, command, config, base_path, params):
         image_id = self.get_latest_image_id_for_service('conductor')
         if image_id is None:
@@ -350,6 +353,7 @@ class Engine(BaseEngine):
         return build_stamp
 
     @log_runs
+    @conductor_only
     def commit_role_as_layer(self,
                              container_id,
                              service_name,
@@ -372,6 +376,7 @@ class Engine(BaseEngine):
         image_obj = self.client.images.get(image_id)
         image_obj.tag(self.image_name_for_service(service_name), 'latest')
 
+    @conductor_only
     def generate_orchestration_playbook(self, repository_data=None):
         """If repository_data is specified, presume to pull images from that
         repository. If not, presume the images are already present."""
@@ -405,6 +410,7 @@ class Engine(BaseEngine):
         logger.debug('Created playbook to run project', playbook=playbook)
         return playbook
 
+    @conductor_only
     def push(self, image_id, service_name, repository_data):
         """
         Puse an image to a remote registry.
@@ -446,6 +452,7 @@ class Engine(BaseEngine):
                     plainLogger.debug(line)
 
     @log_runs
+    @host_only
     def build_conductor_image(self, base_path, base_image, cache=True):
         with utils.make_temp_dir() as temp_dir:
             logger.info('Building Docker Engine context...')
@@ -544,6 +551,7 @@ class Engine(BaseEngine):
             raise ValueError('Runtime volume not found on Conductor')
         return usr_mount['Name']
 
+    @host_only
     def import_project(self, base_path, import_from, bundle_files=False, **kwargs):
         from .importer import DockerfileImport
 
@@ -553,6 +561,7 @@ class Engine(BaseEngine):
                                bundle_files)
         dfi.run()
 
+    @conductor_only
     def login(self, username, password, email, url, config_path):
         """
         If username and password are provided, authenticate with the registry.
@@ -578,6 +587,7 @@ class Engine(BaseEngine):
         return username, password
 
     @staticmethod
+    @conductor_only
     def update_config_file(username, password, email, url, config_path):
         """Update the config file with the authorization."""
         try:
@@ -604,6 +614,7 @@ class Engine(BaseEngine):
             )
 
     @staticmethod
+    @conductor_only
     def get_registry_auth(registry_url, config_path):
         """
         Retrieve from the config file the current authentication for a given URL, and
