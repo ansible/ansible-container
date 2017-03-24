@@ -14,13 +14,10 @@ import requests.exceptions
 
 import container
 
-if container.ENV == 'host':
-    from . import core
-    from . import config
-    from . import exceptions
-elif container.ENV == 'conductor':
-    from .conductor.config import AnsibleContainerConductorConfig
-    from .conductor import core as conductor_core
+from . import core
+from . import config
+from . import exceptions
+from container.config import AnsibleContainerConductorConfig
 
 from logging import config
 LOGGING = {
@@ -255,7 +252,7 @@ class HostCommand(object):
         config.dictConfig(LOGGING)
 
         try:
-            getattr(core, u'cmdrun_{}'.format(args.subcommand))(**vars(args))
+            getattr(core, u'hostcmd_{}'.format(args.subcommand))(**vars(args))
         except exceptions.AnsibleContainerAlreadyInitializedException:
             logger.error('Ansible Container is already initialized', exc_info=True)
             sys.exit(1)
@@ -326,8 +323,9 @@ def conductor_commandline():
 
     logger.debug('Starting Ansible Container Conductor: %s', args.command,
         services=conductor_config.services)
-    getattr(conductor_core, args.command)(args.engine, args.project_name,
-                                          conductor_config.services,
-                                          volume_data=conductor_config.volumes,
-                                          repository_data=conductor_config.registries,
-                                          **params)
+    getattr(core, 'conductorcmd_%s' % args.command)(
+        args.engine, args.project_name,
+        conductor_config.services,
+        volume_data=conductor_config.volumes,
+        repository_data=conductor_config.registries,
+        **params)

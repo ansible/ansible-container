@@ -14,20 +14,27 @@ from ruamel import yaml, ordereddict
 
 from ..exceptions import AnsibleContainerException, \
     AnsibleContainerNotInitializedException
-from ..config import AnsibleContainerConfig
 from .temp import MakeTempDir
 import container
-from container import conductor
-conductor_dir = os.path.dirname(conductor.__file__)
 
 if container.ENV == 'conductor':
     from ansible.playbook.role.include import RoleInclude
     from ansible.vars import VariableManager
     from ansible.parsing.dataloader import DataLoader
 
+__all__ = ['conductor_dir', 'make_temp_dir', 'get_config', 'assert_initialized',
+           'create_path', 'jinja_template_path', 'jinja_render_to_temp',
+           'metadata_to_image_config', 'create_role_from_templates',
+           'resolve_role_to_path', 'get_role_fingerprint', 'get_content_from_role',
+           'get_metadata_from_role', 'get_defaults_from_role']
+
+conductor_dir = os.path.dirname(container.__file__)
 make_temp_dir = MakeTempDir
 
 def get_config(base_path, var_file=None):
+    # To avoid circular import
+    from ..config import AnsibleContainerConfig
+
     return AnsibleContainerConfig(base_path, var_file=var_file)
 
 def assert_initialized(base_path):

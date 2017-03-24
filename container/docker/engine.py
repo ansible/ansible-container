@@ -4,7 +4,7 @@ from __future__ import absolute_import
 import logging
 plainLogger = logging.getLogger(__name__)
 
-from ...utils.visibility import getLogger
+from container.utils.visibility import getLogger
 logger = getLogger(__name__)
 
 import base64
@@ -26,9 +26,9 @@ except ImportError:
 
 import container
 from container import host_only, conductor_only
-from ..engine import BaseEngine
-from ... import utils, exceptions
-from ...utils import logmux
+from container.engine import BaseEngine
+from container import utils, exceptions
+from container.utils import logmux
 
 try:
     import docker
@@ -195,10 +195,10 @@ class Engine(BaseEngine):
         environ['ANSIBLE_ROLES_PATH'] = '/src/roles:/etc/ansible/roles'
 
         if params.get('devel'):
-            from container import conductor
-            conductor_path = os.path.dirname(conductor.__file__)
-            logger.debug(u"Binding conductor at %s into conductor container", conductor_path)
-            volumes[conductor_path] = {'bind': '/_ansible/conductor/conductor', 'mode': 'rw'}
+            conductor_path = os.path.dirname(container.__file__)
+            logger.debug(u"Binding Ansible Container code at %s into conductor "
+                         u"container", conductor_path)
+            volumes[conductor_path] = {'bind': '/_ansible/container', 'mode': 'rw'}
 
         if command in ('login', 'push') and params.get('config_path'):
             config_path = params.get('config_path')

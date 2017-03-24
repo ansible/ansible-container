@@ -6,13 +6,13 @@ import importlib
 from .visibility import getLogger
 logger = getLogger(__name__)
 
-from ..conductor.engine import CAPABILITIES
-from . import conductor_dir
+from container.engine import CAPABILITIES
+
 
 def load_engine(capabilities_needed, engine_name, project_name, services=[], **kwargs):
     logger.debug(u"Loading engine capabilities", capabilities=capabilities_needed, engine=engine_name)
     mod = importlib.import_module('.%s.engine' % engine_name,
-                                  package='container.conductor')
+                                  package='container')
     engine_obj = mod.Engine(project_name, services, **kwargs)
     for capability in capabilities_needed:
         if not getattr(engine_obj, 'CAP_%s' % capability):
