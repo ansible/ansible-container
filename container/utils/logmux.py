@@ -8,6 +8,8 @@ logger = logging.getLogger(__name__)
 import threading
 import Queue
 
+from six import with_metaclass
+
 class Singleton(type):
     def __new__(cls, name, parents, params):
         try:
@@ -17,9 +19,7 @@ class Singleton(type):
             return cls.__singleton__
 
 
-class LogMultiplexer(object):
-
-    __metaclass__ = Singleton
+class LogMultiplexer(with_metaclass(Singleton, object)):
 
     def __init__(self):
         self.q = Queue.Queue()

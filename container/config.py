@@ -4,7 +4,7 @@ from __future__ import absolute_import
 from .utils.visibility import getLogger
 logger = getLogger(__name__)
 
-from cStringIO import StringIO
+from io import StringIO
 import os
 import json
 import six
@@ -130,7 +130,7 @@ class AnsibleContainerConfig(Mapping):
                 config = json.loads(open(abspath))
             except Exception as exc:
                 raise AnsibleContainerConfigException(u"JSON exception: %s" % unicode(exc))
-        return config.iteritems()
+        return six.iteritems(config)
 
     TOP_LEVEL_WHITELIST = [
         'version',

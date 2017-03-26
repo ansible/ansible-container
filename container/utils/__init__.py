@@ -11,6 +11,8 @@ from distutils import dir_util
 
 from jinja2 import Environment, FileSystemLoader
 from ruamel import yaml, ordereddict
+from six import iteritems
+
 
 from ..exceptions import AnsibleContainerException, \
     AnsibleContainerNotInitializedException
@@ -94,7 +96,7 @@ def metadata_to_image_config(metadata):
             environment = {k: v for (k, v) in
                            [item.split('=', 1) for item in environment]}
         to_return.update(environment)
-        return ['='.join(tpl) for tpl in to_return.iteritems()]
+        return ['='.join(tpl) for tpl in iteritems(to_return)]
 
     TRANSLATORS = {
         # Keys are the key found in the service_data
@@ -131,7 +133,7 @@ def metadata_to_image_config(metadata):
         OnBuild=[]
     )
 
-    for metadata_key, (key, translator) in TRANSLATORS.iteritems():
+    for metadata_key, (key, translator) in iteritems(TRANSLATORS):
         if metadata_key in metadata:
             config[key] = (translator(metadata[metadata_key]) if translator
                            else metadata[metadata_key])

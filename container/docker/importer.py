@@ -20,6 +20,8 @@ try:
     from ruamel.yaml.comments import CommentedMap, CommentedSeq
 except ImportError:
     raise ImportError('This engine requires you "pip install \'ruamel.yaml>=0.13.14\'" to import projects.')
+from six import iteritems
+
 
 from container.exceptions import AnsibleContainerConductorException
 from container.utils import create_role_from_templates
@@ -152,7 +154,7 @@ class DockerfileParser(object):
     def __iter__(self):
         self.escape_char = u'\\'
         self.variables = CommentedMap()
-        for k, v in self.default_vars.iteritems():
+        for k, v in iteritems(self.default_vars):
             self.variables[k] = v
         self.meta = CommentedMap()
         self.shell = None
@@ -481,7 +483,7 @@ class DockerfileImport(object):
                 with open(path, 'w') as ofs:
                     ruamel.yaml.round_trip_dump(data, ofs)
             self.copy_files_from_src()
-        except Exception, e:
+        except Exception as e:
             #try:
             #    shutil.rmtree(self.base_path)
             #except Exception, e:

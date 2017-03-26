@@ -13,7 +13,6 @@ import hashlib
 import io
 import os
 import re
-import sys
 import tarfile
 import time
 import shutil
@@ -23,6 +22,7 @@ import tempfile
 import requests
 from six.moves.urllib.parse import urljoin
 from ruamel import yaml
+from six import iteritems
 
 from .exceptions import AnsibleContainerAlreadyInitializedException,\
                         AnsibleContainerRegistryAttributeException, \
@@ -454,7 +454,7 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
             yaml.safe_dump(playbook, ofs)
         inventory_path = os.path.join(tmpdir, 'hosts')
         with open(inventory_path, 'w') as ofs:
-            for service_name, container_id in service_map.iteritems():
+            for service_name, container_id in iteritems(service_map):
                 ofs.write('%s ansible_host="%s" ansible_python_interpreter="%s"\n' % (
                     service_name, container_id,
                     python_interpreter or engine.python_interpreter_path))
@@ -546,7 +546,7 @@ def conductorcmd_build(engine_name, project_name, services, cache=True,
     logger.info(u'%s integration engine loaded. Build starting.',
         engine.display_name, project=project_name)
 
-    for service_name, service in services.iteritems():
+    for service_name, service in iteritems(services):
         logger.info(u'Building service...', service=service_name, project=project_name)
         cur_image_id = engine.get_image_id_by_tag(service['from'])
         # the fingerprint hash tracks cacheability
