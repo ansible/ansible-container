@@ -190,10 +190,11 @@ class AnsibleContainerConductorConfig(Mapping):
             elif isinstance(value, (list, dict)):
                 # if it's a dimensional structure, it's cheaper just to serialize
                 # it, treat it like a template, and then deserialize it again
-                buffer = BytesIO()
+                buffer = BytesIO() # use bytes explicitly, not unicode
                 yaml.round_trip_dump(value, buffer)
-                buffer = BytesIO(templar.template(buffer.getvalue()))
-                processed[key] = yaml.round_trip_load(buffer)
+                processed[key] = yaml.round_trip_load(
+                    templar.template(buffer.getvalue())
+                )
             else:
                 # ints, booleans, etc.
                 processed[key] = value
