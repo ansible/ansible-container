@@ -1,4 +1,4 @@
-git+https://github.com/ansible/ansible
+git+https://github.com/ansible/ansible.git@v2.3.0.0-0.1.rc1#egg=2.3.3.0
 asn1crypto==0.22.0
 backports.ssl-match-hostname==3.5.0.1
 cffi==1.10.0

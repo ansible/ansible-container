@@ -17,7 +17,7 @@ class PlaybookAsTests(TestCommand):
     def run_tests(self):
         import subprocess
         p = subprocess.Popen(
-            ['ansible-playbook', '-vvv'] +
+            ['ansible-playbook'] +
             shlex.split(self.ansible_args) +
             ['run_tests.yml'],
             cwd=os.path.join(os.getcwd(), 'test'),
@@ -31,7 +31,7 @@ if container.ENV == 'host':
     setup_kwargs = dict(
         install_requires=[str(ir.req) for ir in install_reqs],
         tests_require=[
-            'ansible==2.4.0',
+            'ansible==2.3.0.0',
             'pytest>=3',
             'docker>=2.1'
         ],
@@ -39,7 +39,7 @@ if container.ENV == 'host':
             'docker': ['docker>=2.1'],
         },
         dependency_links=[
-            'git+https://github.com/ansible/ansible@devel#egg=ansible-2.4.0'
+            'https://github.com/ansible/ansible/archive/v2.3.0.0-0.1.rc1.zip#egg=ansible-2.3.0.0'
         ],
         cmdclass={'test': PlaybookAsTests},
         entry_points={

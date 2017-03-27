@@ -8,7 +8,7 @@ import logging
 import sys
 import json
 
-from ruamel import ordereddict
+from ruamel.ordereddict import ordereddict
 
 from structlog import wrap_logger
 from structlog.processors import JSONRenderer
@@ -36,7 +36,7 @@ def unorder_dict(logger, call_name, event_dict):
     if logger.getEffectiveLevel() > logging.DEBUG:
         return event_dict
     for key, value in event_dict.items():
-        if isinstance(value, ordereddict.ordereddict):
+        if isinstance(value, ordereddict):
             event_dict[key] = json.dumps(value)
     return event_dict
 

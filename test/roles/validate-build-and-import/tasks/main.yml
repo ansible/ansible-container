@@ -58,8 +58,6 @@
   ignore_errors: yes
   tags: always
 
-- debug: var=output
-
 - include: show-output.yml output_file=./task.output return_code="{{ output.results[0].rc }}"
 
 - name: Validate import
@@ -78,22 +76,22 @@
 - include: show-output.yml output_file=./task.output return_code="{{ output.results[0].rc }}"
 
 - name: Run ansible-container build
-  command: >
+  shell: >
     ansible-container --debug --project-path
-    {{ item.1.path|quote }}/test-{{ item.0.name|quote }} build --no-cache
-  args:
-    chdir: "{{ playbook_dir}}/tests"
+    {{ item.1.path|quote }}/test-{{ item.0.name|quote }} build --no-cache >task.output 2>&1
   with_together:
     - "{{ distros }}"
     - "{{ tempdirs.results }}"
+  register: output
+  ignore_errors: yes
   tags:
     - build
     - build_no_validate
 
+- include: show-output.yml output_file=./task.output return_code="{{ output.results[0].rc }}"
+
 - name: Validate build
-  shell: pytest tests/validate_build.py >validate-build.output 2>&1
-  args:
-    chdir: "{{ playbook_dir}}/tests"
+  shell: pytest tests/validate_build.py >task.output 2>&1
   environment:
     TO_AC: "{{ item.1.path|quote }}/test-{{ item.0.name|quote }}"
     DISTRO_DATA: "{{ item.0|to_json }}"
@@ -106,4 +104,4 @@
     - build
     - validate_build
 
-- include: show-output.yml output_file=./validate-build.output return_code="{{ output.results[0].rc }}"
+- include: show-output.yml output_file=./task.output return_code="{{ output.results[0].rc }}"

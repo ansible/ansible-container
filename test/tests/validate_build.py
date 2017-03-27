@@ -33,7 +33,7 @@ role_tasks = yaml.round_trip_load(
                       'tasks', 'main.yml'))
 )
 
-docker_client = docker.from_env()
+docker_client = docker.from_env(version='auto')
 built_image_name = u'test-%s-%s:latest' % (distro_vars['name'], distro_vars['name'])
 built_image_info = docker_client.images.get(built_image_name).attrs
 base_image_info = docker_client.images.get(distro_vars['base_image']).attrs
