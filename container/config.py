@@ -237,7 +237,8 @@ class AnsibleContainerConductorConfig(Mapping):
                                         relax=True)
                 service_defaults.update(role_args, relax=True)
             processed.update(service_data, relax=True)
-            logger.debug('Rendering service keys from defaults', defaults=service_defaults)
+            logger.debug('Rendering service keys from defaults',
+                service=service, defaults=service_defaults)
             services[service] = self._process_section(
                 processed,
                 templar=Templar(loader=None, variables=service_defaults)
