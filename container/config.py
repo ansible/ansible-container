@@ -4,7 +4,7 @@ from __future__ import absolute_import
 from .utils.visibility import getLogger
 logger = getLogger(__name__)
 
-from io import StringIO
+from io import BytesIO
 import os
 import json
 import six
@@ -190,9 +190,9 @@ class AnsibleContainerConductorConfig(Mapping):
             elif isinstance(value, (list, dict)):
                 # if it's a dimensional structure, it's cheaper just to serialize
                 # it, treat it like a template, and then deserialize it again
-                buffer = StringIO()
+                buffer = BytesIO()
                 yaml.round_trip_dump(value, buffer)
-                buffer = StringIO(templar.template(buffer.getvalue()))
+                buffer = BytesIO(templar.template(buffer.getvalue()))
                 processed[key] = yaml.round_trip_load(buffer)
             else:
                 # ints, booleans, etc.
