@@ -7,11 +7,11 @@ import inspect
 import logging
 import sys
 import json
+from io import StringIO
 
 from ruamel.ordereddict import ordereddict
 
 from structlog import wrap_logger
-from structlog.processors import JSONRenderer
 from structlog.dev import ConsoleRenderer
 from structlog.stdlib import filter_by_level, add_logger_name
 from structlog.stdlib import BoundLogger, PositionalArgumentsFormatter
@@ -57,11 +57,38 @@ def add_caller_info(logger, call_name, event_dict):
 
     return event_dict
 
+def info_formatter(_, call_name, event_dict):
+    sio = StringIO()
+    for dont_care in ('timestamp', 'logger', 'level'):
+        event_dict.pop(dont_care, None)
+
+    if call_name not in ('info', 'debug', 'notset'):
+        sio.write(unicode(call_name.upper()))
+        sio.write(u'\t')
+
+    sio.write(unicode(event_dict.pop('event')))
+    sio.write(u'\t')
+
+    # make sure we don't put multiline exceptions in regular k/v
+    exc = event_dict.pop('exception', None)
+
+    sio.write(
+        u' '.join(
+            u'{0}={1}'.format(k, event_dict[k])
+            for k in sorted(event_dict.keys())
+        )
+    )
+
+    if exc is not None:
+        sio.write(u'\n' + exc)
+
+    return sio.getvalue()
+
 def alternate_dev_formatter():
     debugging = ConsoleRenderer()
-    standard = JSONRenderer(sort_keys=True)
     def with_memoized_loggers(logger, call_name, event_dict):
         if logger.getEffectiveLevel() > logging.DEBUG:
+            return info_formatter(logger, call_name, event_dict)
             return standard(logger, call_name, event_dict)
         return debugging(logger, call_name, event_dict)
     return with_memoized_loggers
