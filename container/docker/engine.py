@@ -89,7 +89,6 @@ class Engine(BaseEngine):
     display_name = u'Docker\u2122 daemon'
 
     _client = None
-    _api_client = None
 
     FINGERPRINT_LABEL_KEY = 'com.ansible.container.fingerprint'
     LAYER_COMMENT = 'Built with Ansible Container (https://github.com/ansible/ansible-container)'
@@ -97,14 +96,8 @@ class Engine(BaseEngine):
     @property
     def client(self):
         if not self._client:
-            self._client = docker.from_env()
+            self._client = docker.from_env(version='auto')
         return self._client
-
-    @property
-    def api_client(self):
-        if not self._api_client:
-            self._api_client = docker.APIClient()
-        return self._api_client
 
     @property
     def ansible_args(self):
@@ -432,10 +425,10 @@ class Engine(BaseEngine):
             repository = "%s/%s" % (re.sub('/$', '', url), repository)
 
         logger.info('Tagging %s' % repository)
-        self.api_client.tag(image_id, repository, tag=tag)
+        self.client.api.tag(image_id, repository, tag=tag)
 
         logger.info('Pushing %s:%s...' % (repository, tag))
-        stream = self.api_client.push(repository, tag=tag, stream=True, auth_config=auth_config)
+        stream = self.client.api.push(repository, tag=tag, stream=True, auth_config=auth_config)
 
         last_status = None
         for data in stream:
@@ -578,9 +571,9 @@ class Engine(BaseEngine):
             except Exception:
                 raise
 
-            self.update_config_file(username, password, email, url, config_path)
+            self._update_config_file(username, password, email, url, config_path)
 
-        username, password = self.get_registry_auth(url, config_path)
+        username, password = self._get_registry_auth(url, config_path)
         if not username:
             raise exceptions.AnsibleContainerConductorException(
                 u'Please provide login credentials for registry {}.'.format(url))
@@ -588,7 +581,7 @@ class Engine(BaseEngine):
 
     @staticmethod
     @conductor_only
-    def update_config_file(username, password, email, url, config_path):
+    def _update_config_file(username, password, email, url, config_path):
         """Update the config file with the authorization."""
         try:
             # read the existing config
@@ -615,7 +608,7 @@ class Engine(BaseEngine):
 
     @staticmethod
     @conductor_only
-    def get_registry_auth(registry_url, config_path):
+    def _get_registry_auth(registry_url, config_path):
         """
         Retrieve from the config file the current authentication for a given URL, and
         return the username, password
