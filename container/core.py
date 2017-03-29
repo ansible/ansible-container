@@ -11,7 +11,6 @@ import getpass
 import gzip
 import hashlib
 import io
-import json
 import os
 import re
 import shutil
@@ -23,7 +22,6 @@ import tempfile
 import requests
 from six.moves.urllib.parse import urljoin
 from ruamel import yaml
-import yaml as std_yaml
 
 from .exceptions import AnsibleContainerAlreadyInitializedException,\
                         AnsibleContainerRegistryAttributeException, \
@@ -452,7 +450,7 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
         tmpdir = tempfile.mkdtemp()
         playbook_path = os.path.join(tmpdir, 'playbook.yml')
         with open(playbook_path, 'w') as ofs:
-            std_yaml.safe_dump(playbook, ofs)
+            yaml.safe_dump(playbook, ofs, default_flow_style=False)
         inventory_path = os.path.join(tmpdir, 'hosts')
         with open(inventory_path, 'w') as ofs:
             for service_name, container_id in service_map.items():
