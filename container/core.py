@@ -120,7 +120,7 @@ def hostcmd_run(base_path, project=None, **kwargs):
 def hostcmd_build(base_path, project_name, engine_name, var_file=None,
                  **kwargs):
     config = get_config(base_path, var_file=var_file)
-    engine_obj = load_engine(['BUILD'],
+    engine_obj = load_engine(['BUILD', 'RUN'],
                              engine_name, project_name or os.path.basename(base_path),
                              config['services'], **kwargs)
 
@@ -206,26 +206,26 @@ def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
 
 
 @host_only
-def hostcmd_stop(base_path, engine_name, service=[], **kwargs):
-    assert_initialized(base_path)
-    engine_args = kwargs.copy()
-    engine_args.update(locals())
-    engine_obj = load_engine(**engine_args)
-    with make_temp_dir() as temp_dir:
-        hosts = service or (engine_obj.all_hosts_in_orchestration())
-        engine_obj.terminate('stop', temp_dir, hosts=hosts)
+def hostcmd_stop(base_path, project_name, engine_name, force=False, services=[],
+                 **kwargs):
+    config = get_config(base_path)
+    engine_obj = load_engine(['RUN'],
+                             engine_name, project_name or os.path.basename(base_path),
+                             config['services'], **kwargs)
+
+    for service in (services or config['services']):
+        engine_obj.stop_container(service, forcefully=force)
 
 
 @host_only
-def hostcmd_restart(base_path, engine_name, service=[], **kwargs):
-    assert_initialized(base_path)
-    engine_args = kwargs.copy()
-    engine_args.update(locals())
-    engine_obj = load_engine(**engine_args)
-    with make_temp_dir() as temp_dir:
-        hosts = service or (engine_obj.all_hosts_in_orchestration())
-        engine_obj.restart('restart', temp_dir, hosts=hosts)
+def hostcmd_restart(base_path, project_name, engine_name, services=[], **kwargs):
+    config = get_config(base_path)
+    engine_obj = load_engine(['RUN'],
+                             engine_name, project_name or os.path.basename(base_path),
+                             config['services'], **kwargs)
 
+    for service in (services or config['services']):
+        engine_obj.restart_container(service)
 
 @host_only
 def hostcmd_push(base_path, project_name, engine_name, var_file=None, **kwargs):

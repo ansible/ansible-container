@@ -52,13 +52,18 @@ class HostCommand(object):
                           'run': 'Run and orchestrate built images based on container.yml',
                           'stop': 'Stop the services defined in container.yml, if deployed',
                           'restart': 'Restart the services defined in container.yml',
-                          # TODO: v----- replace with deploy
                           'push': 'Push your built images to a Docker Hub compatible registry',
-                          # 'shipit': 'Generate a deployment playbook to your cloud of choice.',
-                          'import': 'Convert a Dockerfile to a container.yml and role.'}
+                          'import': 'Convert a Dockerfile to a container.yml and role.',
+                          # FIXME: implement purge command
+                          # 'purge': 'Delete all Ansible Container instances, volumes, and images',
+                          # FIXME: implement status command
+                          # 'status': 'Query the status of your project's containers/images',
+                          # FIXME: implement deploy command
+                          # 'deploy': 'Deploy your built images into production'
+                          }
 
     def subcmd_common_parsers(self, parser, subparser, cmd):
-        if cmd in ('build', 'run', 'shipit', 'push'):
+        if cmd in ('build', 'run', 'deploy', 'push'):
             subparser.add_argument('--with-volumes', '-v', action='store', nargs='+',
                                    help=u'Mount one or more volumes to the Conductor. '
                                         u'Specify volumes as strings using the Docker volume format.',
@@ -213,6 +218,7 @@ class HostCommand(object):
         parser = argparse.ArgumentParser(description=u'Build, orchestrate, run, and '
                                                      u'ship Docker containers with '
                                                      u'Ansible playbooks')
+        # FIXME: Write custom help text and command description for major/minor commands
         parser.add_argument('--debug', action='store_true', dest='debug',
                             help=u'Enable debug output', default=False)
         parser.add_argument('--devel', action='store_true', dest='devel',
