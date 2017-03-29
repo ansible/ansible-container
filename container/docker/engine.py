@@ -375,7 +375,7 @@ class Engine(BaseEngine):
         image_obj.tag(self.image_name_for_service(service_name), 'latest')
 
     @conductor_only
-    def generate_orchestration_playbook(self, container_config, repository_data=None):
+    def generate_orchestration_playbook(self, repository_data=None):
         """If repository_data is specified, presume to pull images from that
         repository. If not, presume the images are already present."""
         munged_services = {}
@@ -383,7 +383,7 @@ class Engine(BaseEngine):
         for service_name, service in self.services.items():
             image = self.get_latest_image_for_service(service_name)
             service_definition = {
-                u'image': str(image.tags[0]),
+                u'image': image.tags[0],
             }
             for extra in ('links', 'depends_on'):
                 if extra in service:
@@ -401,7 +401,7 @@ class Engine(BaseEngine):
                         u'project_name': self.project_name,
                         u'state': state,
                         u'definition': {
-                            u'version': container_config[u'version'],
+                            u'version': '2',
                             u'services': munged_services,
                         }
                     }

@@ -328,5 +328,4 @@ def conductor_commandline():
         conductor_config.services,
         volume_data=conductor_config.volumes,
         repository_data=conductor_config.registries,
-        container_config=containers_config,
         **params)

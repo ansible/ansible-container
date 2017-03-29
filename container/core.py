@@ -635,7 +635,7 @@ def conductorcmd_build(engine_name, project_name, services, cache=True,
 
 
 @conductor_only
-def conductorcmd_run(engine_name, project_name, services, container_config, **kwargs):
+def conductorcmd_run(engine_name, project_name, services, **kwargs):
     engine = load_engine(['RUN'], engine_name, project_name, services)
     logger.info(u'Engine integration loaded. Preparing run.',
                 engine=engine.display_name)
@@ -649,7 +649,7 @@ def conductorcmd_run(engine_name, project_name, services, container_config, **kw
                          u'to (re)create it.', service=service_name)
             raise RuntimeError('Run failed.')
 
-    playbook = engine.generate_orchestration_playbook(container_config=container_config)
+    playbook = engine.generate_orchestration_playbook()
     rc = run_playbook(playbook, engine, services)
 
 
