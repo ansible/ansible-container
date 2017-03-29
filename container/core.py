@@ -11,18 +11,19 @@ import getpass
 import gzip
 import hashlib
 import io
+import json
 import os
 import re
-import tarfile
-import time
 import shutil
 import subprocess
+import tarfile
+import time
 import tempfile
 
 import requests
 from six.moves.urllib.parse import urljoin
 from ruamel import yaml
-from six import iteritems
+import yaml as std_yaml
 
 from .exceptions import AnsibleContainerAlreadyInitializedException,\
                         AnsibleContainerRegistryAttributeException, \
@@ -451,10 +452,10 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
         tmpdir = tempfile.mkdtemp()
         playbook_path = os.path.join(tmpdir, 'playbook.yml')
         with open(playbook_path, 'w') as ofs:
-            yaml.safe_dump(playbook, ofs)
+            std_yaml.safe_dump(playbook, ofs)
         inventory_path = os.path.join(tmpdir, 'hosts')
         with open(inventory_path, 'w') as ofs:
-            for service_name, container_id in iteritems(service_map):
+            for service_name, container_id in service_map.items():
                 ofs.write('%s ansible_host="%s" ansible_python_interpreter="%s"\n' % (
                     service_name, container_id,
                     python_interpreter or engine.python_interpreter_path))
@@ -546,7 +547,7 @@ def conductorcmd_build(engine_name, project_name, services, cache=True,
     logger.info(u'%s integration engine loaded. Build starting.',
         engine.display_name, project=project_name)
 
-    for service_name, service in iteritems(services):
+    for service_name, service in services.items():
         logger.info(u'Building service...', service=service_name, project=project_name)
         cur_image_id = engine.get_image_id_by_tag(service['from'])
         # the fingerprint hash tracks cacheability
@@ -636,7 +637,7 @@ def conductorcmd_build(engine_name, project_name, services, cache=True,
 
 
 @conductor_only
-def conductorcmd_run(engine_name, project_name, services, **kwargs):
+def conductorcmd_run(engine_name, project_name, services, container_config, **kwargs):
     engine = load_engine(['RUN'], engine_name, project_name, services)
     logger.info(u'Engine integration loaded. Preparing run.',
                 engine=engine.display_name)
@@ -650,7 +651,7 @@ def conductorcmd_run(engine_name, project_name, services, **kwargs):
                          u'to (re)create it.', service=service_name)
             raise RuntimeError('Run failed.')
 
-    playbook = engine.generate_orchestration_playbook()
+    playbook = engine.generate_orchestration_playbook(container_config=container_config)
     rc = run_playbook(playbook, engine, services)
 
 

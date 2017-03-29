@@ -33,11 +33,13 @@ __all__ = ['conductor_dir', 'make_temp_dir', 'get_config', 'assert_initialized',
 conductor_dir = os.path.dirname(container.__file__)
 make_temp_dir = MakeTempDir
 
+
 def get_config(base_path, var_file=None):
     # To avoid circular import
     from ..config import AnsibleContainerConfig
 
     return AnsibleContainerConfig(base_path, var_file=var_file)
+
 
 def assert_initialized(base_path):
     ansible_dir = os.path.normpath(base_path)
@@ -57,11 +59,13 @@ def create_path(path):
     except Exception as exc:
         raise AnsibleContainerException("Error: failed to create %s - %s" % (path, str(exc)))
 
+
 def jinja_template_path():
     return os.path.normpath(
         os.path.join(
             os.path.dirname(__file__),
             'templates'))
+
 
 def jinja_render_to_temp(template_dir, template_file, temp_dir, dest_file, **context):
     j2_env = Environment(loader=FileSystemLoader(template_dir))
@@ -70,6 +74,7 @@ def jinja_render_to_temp(template_dir, template_file, temp_dir, dest_file, **con
     logger.debug('Rendered Jinja Template:', body=rendered.encode('utf8'))
     open(os.path.join(temp_dir, dest_file), 'wb').write(
         rendered.encode('utf8'))
+
 
 def metadata_to_image_config(metadata):
 
@@ -142,14 +147,14 @@ def metadata_to_image_config(metadata):
 
 def create_role_from_templates(role_name=None, role_path=None,
                                project_name=None, description=None):
-    '''
+    """
     Create a new role with initial files from templates.
     :param role_name: Name of the role
     :param role_path: Full path to the role
     :param project_name: Name of the project, or the base path name.
     :param description: One line description of the role.
     :return: None
-    '''
+    """
     context = locals()
     templates_path = os.path.join(conductor_dir, 'templates', 'role')
     timestamp = datetime.now().strftime('%Y%m%d%H%M%s')
@@ -181,6 +186,7 @@ def create_role_from_templates(role_name=None, role_path=None,
 
     if os.path.exists(tasks_file):
         os.rename(tasks_file, new_tasks_file)
+
 
 @container.conductor_only
 def resolve_role_to_path(role_name):
@@ -232,6 +238,7 @@ def get_role_fingerprint(role_name):
     hash_role(hash_obj, resolve_role_to_path(role_name))
     return hash_obj.hexdigest()
 
+
 @container.conductor_only
 def get_content_from_role(role_name, relative_path):
     role_path = resolve_role_to_path(role_name)
@@ -242,9 +249,11 @@ def get_content_from_role(role_name, relative_path):
         return metadata or ordereddict.ordereddict()
     return ordereddict.ordereddict()
 
+
 @container.conductor_only
 def get_metadata_from_role(role_name):
     return get_content_from_role(role_name, os.path.join('meta', 'container.yml'))
+
 
 @container.conductor_only
 def get_defaults_from_role(role_name):

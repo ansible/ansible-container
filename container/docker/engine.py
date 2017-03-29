@@ -130,7 +130,9 @@ class Engine(BaseEngine):
 
     def run_kwargs_for_service(self, service_name):
         to_return = self.services[service_name].copy()
-        for key in ['from', 'roles', 'shell']:
+        # remove keys that docker-compose format doesn't accept, or that can't
+        #  be used during the build phase
+        for key in ['from', 'roles', 'shell', 'links']:
             try:
                 to_return.pop(key)
             except KeyError:
@@ -373,31 +375,34 @@ class Engine(BaseEngine):
         image_obj.tag(self.image_name_for_service(service_name), 'latest')
 
     @conductor_only
-    def generate_orchestration_playbook(self, repository_data=None):
+    def generate_orchestration_playbook(self, container_config, repository_data=None):
         """If repository_data is specified, presume to pull images from that
         repository. If not, presume the images are already present."""
         munged_services = {}
 
         for service_name, service in self.services.items():
             image = self.get_latest_image_for_service(service_name)
-            runit = {
-                'image': image.tags[0],
+            service_definition = {
+                u'image': str(image.tags[0]),
             }
-            logger.debug('Adding new service to definition',
-                service=service_name, definition=runit)
-            munged_services[service_name] = runit
+            for extra in ('links', 'depends_on'):
+                if extra in service:
+                    service_definition[extra] = list(service[extra])
+            logger.debug(u'Adding new service to definition',
+                         service=service_name, definition=service_definition)
+            munged_services[service_name] = service_definition
 
         playbook = [{
-            'hosts': 'localhost',
-            'gather_facts': False,
-            'tasks': [
+            u'hosts': u'localhost',
+            u'gather_facts': False,
+            u'tasks': [
                 {
-                    'docker_service': {
-                        'project_name': self.project_name,
-                        'state': state,
-                        'definition': {
-                            'version': '2',
-                            'services': munged_services,
+                    u'docker_service': {
+                        u'project_name': self.project_name,
+                        u'state': state,
+                        u'definition': {
+                            u'version': container_config[u'version'],
+                            u'services': munged_services,
                         }
                     }
                 } for state in ('absent', 'present')

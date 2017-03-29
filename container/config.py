@@ -31,6 +31,7 @@ from .utils import get_metadata_from_role, get_defaults_from_role
 # conductor container, it is _then_ that we will do Jinja2 processing of the
 # given variable values
 
+
 class AnsibleContainerConfig(Mapping):
     _config = ordereddict.ordereddict()
     base_path = None
@@ -43,12 +44,12 @@ class AnsibleContainerConfig(Mapping):
         self.set_env('prod')
 
     def set_env(self, env):
-        '''
+        """
         Loads config from container.yml,  and stores the resulting dict to self._config.
 
         :param env: string of either 'dev' or 'prod'. Indicates 'dev_overrides' handling.
         :return: None
-        '''
+        """
         assert env in ['dev', 'prod']
         try:
             config = yaml.round_trip_load(open(self.config_path))
