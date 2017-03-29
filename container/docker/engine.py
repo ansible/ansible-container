@@ -59,6 +59,7 @@ DOCKER_CONFIG_FILEPATH_CASCADE = [
 
 REMOVE_HTTP = re.compile('^https?://')
 
+
 def log_runs(fn):
     @functools.wraps(fn)
     def __wrapped__(self, *args, **kwargs):
@@ -224,7 +225,7 @@ class Engine(BaseEngine):
             )
         except docker_errors.APIError as exc:
             if exc.response.status_code == StatusCodes.CONFLICT:
-               raise exceptions.AnsibleContainerConductorException(
+                raise exceptions.AnsibleContainerConductorException(
                     u"Can't start conductor container, another conductor for "
                     u"this project already exists or wasn't cleaned up.")
             six.reraise(*sys.exc_info())
@@ -236,28 +237,28 @@ class Engine(BaseEngine):
 
     def service_is_running(self, service):
         try:
-            container = self.client.containers.get(self.container_name_for_service(service))
-            return container.status == 'running' and container.id
+            running_container = self.client.containers.get(self.container_name_for_service(service))
+            return running_container.status == 'running' and running_container.id
         except docker_errors.NotFound:
             return False
 
     def service_exit_code(self, service):
         try:
-            container = self.client.api.inspect_container(self.container_name_for_service(service))
-            return container['State']['ExitCode']
+            container_info = self.client.api.inspect_container(self.container_name_for_service(service))
+            return container_info['State']['ExitCode']
         except docker_errors.APIError:
             return None
 
     def stop_container(self, container_id, forcefully=False):
         try:
-            container = self.client.containers.get(container_id)
+            to_stop = self.client.containers.get(container_id)
         except docker_errors.APIError:
             pass
         else:
             if forcefully:
-                container.kill()
+                to_stop.kill()
             else:
-                container.stop(timeout=60)
+                to_stop.stop(timeout=60)
 
     def restart_all_containers(self):
         raise NotImplementedError()
@@ -270,19 +271,19 @@ class Engine(BaseEngine):
 
     def delete_container(self, container_id):
         try:
-            container = self.client.containers.get(container_id)
+            to_delete = self.client.containers.get(container_id)
         except docker_errors.APIError:
             pass
         else:
-            container.remove()
+            to_delete.remove()
 
     def get_container_id_for_service(self, service_name):
         try:
-            container = self.client.containers.get(self.container_name_for_service(service_name))
+            container_info = self.client.containers.get(self.container_name_for_service(service_name))
         except docker_errors.NotFound:
             return None
         else:
-            return container.id
+            return container_info.id
 
     def get_image_id_by_fingerprint(self, fingerprint):
         try:
@@ -314,8 +315,9 @@ class Engine(BaseEngine):
                 '%s:latest' % self.image_name_for_service(service_name))
         except docker_errors.ImageNotFound:
             images = self.client.images.list(name=self.image_name_for_service(service_name))
-            logger.debug("Could not find the latest image for service, "
-                "searching for other tags with same image name",
+            logger.debug(
+                u"Could not find the latest image for service, "
+                u"searching for other tags with same image name",
                 image_name=self.image_name_for_service(service_name),
                 service=service_name)
 
@@ -327,8 +329,7 @@ class Engine(BaseEngine):
 
             images = sorted(images, key=tag_sort)
             logger.debug('Found images for service',
-                    service=service_name,
-                    images=images)
+                         service=service_name, images=images)
             return images[-1]
         else:
             return image
@@ -353,17 +354,19 @@ class Engine(BaseEngine):
                              fingerprint,
                              metadata,
                              with_name=False):
-        container = self.client.containers.get(container_id)
+        to_commit = self.client.containers.get(container_id)
         image_name = self.image_name_for_service(service_name)
         image_version = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
         image_config = utils.metadata_to_image_config(metadata)
         image_config.setdefault('Labels', {})[self.FINGERPRINT_LABEL_KEY] = fingerprint
-        commit_data = dict(repository=image_name if with_name else None,
+        commit_data = dict(
+            repository=image_name if with_name else None,
             tag=image_version if with_name else None,
             message=self.LAYER_COMMENT,
-            conf=image_config)
+            conf=image_config
+        )
         logger.debug('Committing new layer', params=commit_data)
-        return container.commit(**commit_data).id
+        return to_commit.commit(**commit_data).id
 
     def tag_image_as_latest(self, service_name, image_id):
         image_obj = self.client.images.get(image_id)
