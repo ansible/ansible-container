@@ -35,7 +35,7 @@ DEFAULT_CONDUCTOR_BASE = 'centos:7'
 
 
 @host_only
-def hostcmd_run(base_path, project=None, **kwargs):
+def hostcmd_init(base_path, project=None, **kwargs):
     if project:
         if os.listdir(base_path):
             raise AnsibleContainerAlreadyInitializedException(

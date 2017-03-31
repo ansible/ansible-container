@@ -291,8 +291,10 @@ class HostCommand(object):
 
 host_commandline = HostCommand()
 
+
 def decode_b64json(encoded_params):
     return json.loads(base64.decodestring(encoded_params))
+
 
 @container.conductor_only
 def conductor_commandline():
