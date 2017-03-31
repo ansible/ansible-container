@@ -453,7 +453,7 @@ class Engine(BaseEngine):
     @conductor_only
     def push(self, image_id, service_name, repository_data):
         """
-        Puse an image to a remote registry.
+        Push an image to a remote registry.
         """
         tag = repository_data.get('tag')
         namespace = repository_data.get('namespace')
