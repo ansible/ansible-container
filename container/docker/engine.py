@@ -255,6 +255,8 @@ class Engine(BaseEngine):
         try:
             to_stop = self.client.containers.get(container_id)
         except docker_errors.APIError:
+            logger.debug(u"Could not find container %s to stop", container_id,
+                         id=container_id, force=forcefully)
             pass
         else:
             if forcefully:
@@ -283,6 +285,9 @@ class Engine(BaseEngine):
         try:
             container_info = self.client.containers.get(self.container_name_for_service(service_name))
         except docker_errors.NotFound:
+            logger.debug("Could not find container for %s", service_name,
+                         container=self.container_name_for_service(service_name),
+                         all_containers=self.client.containers.list())
             return None
         else:
             return container_info.id

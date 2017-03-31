@@ -179,11 +179,11 @@ def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
 
     for service in engine_obj.services:
         if not engine_obj.service_is_running(service):
-            logger.debug(u'Service not running, will be started by `run`'
-                u' command', service=service)
+            logger.debug(u"Service not running, will be started by `run`"
+                         u" command", service=service)
             continue
-        logger.info(u'Service is already running, will stopped and'
-            u' restarted by `run` command', service=service)
+        logger.info(u"Service is already running, will stopped and"
+                    u" restarted by `run` command", service=service)
         engine_obj.stop_container(
             engine_obj.get_container_id_for_service(service),
             forcefully=True
