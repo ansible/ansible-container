@@ -163,7 +163,7 @@ def hostcmd_build(base_path, project_name, engine_name, var_file=None,
 
 @host_only
 def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
-               **kwargs):
+                **kwargs):
     logger.info('Got extra args to `run` command', arguments=kwargs)
     config = get_config(base_path, var_file=var_file)
     assert_initialized(base_path)
@@ -197,12 +197,14 @@ def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
             time.sleep(0.1)
     finally:
         if not config.get('save_build_container', False):
-            logger.info('Conductor terminated. Cleaning up.', save_build_container=False, conductor_id=conductor_container_id)
+            logger.info('Conductor terminated. Cleaning up.',
+                        save_build_container=False, conductor_id=conductor_container_id)
             if engine_obj.service_is_running('conductor'):
                 engine_obj.stop_container(conductor_container_id, forcefully=True)
             engine_obj.delete_container(conductor_container_id)
         else:
-            logger.info('Conductor terminated. Preserving as requested.', save_build_container=False, conductor_id=conductor_container_id)
+            logger.info('Conductor terminated. Preserving as requested.',
+                        save_build_container=False, conductor_id=conductor_container_id)
 
 
 @host_only
@@ -213,19 +215,41 @@ def hostcmd_stop(base_path, project_name, engine_name, force=False, services=[],
                              engine_name, project_name or os.path.basename(base_path),
                              config['services'], **kwargs)
 
-    for service in (services or config['services']):
-        engine_obj.stop_container(service, forcefully=force)
+    conductor_container_id = engine_obj.run_conductor(
+        'stop', dict(config), base_path, kwargs)
+
+    try:
+        while engine_obj.service_is_running('conductor'):
+            time.sleep(0.1)
+    finally:
+        logger.info('Conductor command finished. Cleaning up.',
+                    conductor_id=conductor_container_id)
+        if engine_obj.service_is_running('conductor'):
+            engine_obj.stop_container(conductor_container_id, forcefully=True)
+        engine_obj.delete_container(conductor_container_id)
 
 
 @host_only
-def hostcmd_restart(base_path, project_name, engine_name, services=[], **kwargs):
+def hostcmd_restart(base_path, project_name, engine_name, force=False, services=[],
+                    **kwargs):
     config = get_config(base_path)
     engine_obj = load_engine(['RUN'],
                              engine_name, project_name or os.path.basename(base_path),
                              config['services'], **kwargs)
 
-    for service in (services or config['services']):
-        engine_obj.restart_container(service)
+    conductor_container_id = engine_obj.run_conductor(
+        'restart', dict(config), base_path, kwargs)
+
+    try:
+        while engine_obj.service_is_running('conductor'):
+            time.sleep(0.1)
+    finally:
+        logger.info('Conductor command finished. Cleaning up.',
+                    conductor_id=conductor_container_id)
+        if engine_obj.service_is_running('conductor'):
+            engine_obj.stop_container(conductor_container_id, forcefully=True)
+        engine_obj.delete_container(conductor_container_id)
+
 
 @host_only
 def hostcmd_push(base_path, project_name, engine_name, var_file=None, **kwargs):
@@ -640,39 +664,31 @@ def conductorcmd_run(engine_name, project_name, services, **kwargs):
     logger.info(u'Engine integration loaded. Preparing run.',
                 engine=engine.display_name)
 
-    # Verify all images are built
-    for service_name in services:
-        logger.info(u'Verifying service image', service=service_name)
-        image_id = engine.get_latest_image_id_for_service(service_name)
-        if image_id is None:
-            logger.error(u'Missing image! Run "ansible-container build" '
-                         u'to (re)create it.', service=service_name)
-            raise RuntimeError('Run failed.')
+    engine.containers_built_for_services(services)
 
     playbook = engine.generate_orchestration_playbook()
     rc = run_playbook(playbook, engine, services)
+    logger.info(u'All services running.', playbook_rc=rc)
 
 
 @conductor_only
 def conductorcmd_restart(engine_name, project_name, services, **kwargs):
-    engine = load_engine(engine_name, project_name, services)
+    engine = load_engine(['RUN'], engine_name, project_name, services)
     logger.info(u'Engine integration loaded. Preparing to restart containers.',
-                engine=engine.display_name())
-    engine.restart_all_containers()
-    logger.info(u'All services restarted.')
+                engine=engine.display_name)
+    playbook = engine.generate_restart_playbook()
+    rc = run_playbook(playbook, engine, services)
+    logger.info(u'All services restarted.', playbook_rc=rc)
 
 
 @conductor_only
 def conductorcmd_stop(engine_name, project_name, services, **kwargs):
-    engine = load_engine(engine_name, project_name, services)
+    engine = load_engine(['RUN'], engine_name, project_name, services)
     logger.info(u'Engine integration loaded. Preparing to stop all containers.',
-                engine=engine.display_name())
-    for service_name in services:
-        container_id = engine.get_container_id_for_service(service_name)
-        if container_id:
-            logger.debug(u'Stopping %s...', service_name)
-            engine.stop_container(container_id)
-    logger.info(u'All services stopped.')
+                engine=engine.display_name)
+    playbook = engine.generate_stop_playbook()
+    rc = run_playbook(playbook, engine, services)
+    logger.info(u'All services stopped.', playbook_rc=rc)
 
 
 @conductor_only

@@ -336,6 +336,16 @@ class Engine(BaseEngine):
         else:
             return image
 
+    def containers_built_for_services(self, services):
+        # Verify all images are built
+        for service_name in services:
+            logger.info(u'Verifying service image', service=service_name)
+            image_id = self.get_latest_image_id_for_service(service_name)
+            if image_id is None:
+                logger.error(u'Missing image! Run "ansible-container build" '
+                             u'to (re)create it.', service=service_name)
+                raise RuntimeError(u'Run failed. Try running ansible-container build.')
+
     def get_build_stamp_for_image(self, image_id):
         build_stamp = None
         try:
@@ -378,8 +388,27 @@ class Engine(BaseEngine):
     def generate_orchestration_playbook(self, repository_data=None):
         """If repository_data is specified, presume to pull images from that
         repository. If not, presume the images are already present."""
-        munged_services = {}
+        return self._generate_service_playbook(('destroy', 'start'))
 
+    @conductor_only
+    def generate_restart_playbook(self):
+        return self._generate_service_playbook(('restart',))
+
+    @conductor_only
+    def generate_stop_playbook(self):
+        return self._generate_service_playbook(('stop',))
+
+    @conductor_only
+    def generate_destroy_playbook(self):
+        return self._generate_service_playbook(('destroy',))
+
+    def _generate_service_playbook(self, states):
+        if set(states) - {'start', 'stop', 'destroy', 'restart'}:
+            msg = u'start/stop/destroy/restart are the only valid states for a service'
+            logger.error(msg)
+            raise ValueError(msg)
+
+        service_def = {}
         for service_name, service in self.services.items():
             image = self.get_latest_image_for_service(service_name)
             service_definition = {
@@ -390,25 +419,35 @@ class Engine(BaseEngine):
                     service_definition[extra] = list(service[extra])
             logger.debug(u'Adding new service to definition',
                          service=service_name, definition=service_definition)
-            munged_services[service_name] = service_definition
+            service_def[service_name] = service_definition
+
+        tasks = []
+        for desired_state in states:
+            task_params = {
+                u'project_name': self.project_name,
+                u'definition': {
+                    u'version': u'2',
+                    u'services': service_def,
+                }
+            }
+
+            if desired_state in {'restart', 'start', 'stop'}:
+                task_params[u'state'] = u'present'
+                if desired_state == 'restart':
+                    task_params[u'restarted'] = True
+                if desired_state == 'stop':
+                    task_params[u'stopped'] = True
+            elif desired_state == 'destroy':
+                task_params[u'state'] = u'absent'
+
+            tasks.append({u'docker_service': task_params})
 
         playbook = [{
             u'hosts': u'localhost',
             u'gather_facts': False,
-            u'tasks': [
-                {
-                    u'docker_service': {
-                        u'project_name': self.project_name,
-                        u'state': state,
-                        u'definition': {
-                            u'version': '2',
-                            u'services': munged_services,
-                        }
-                    }
-                } for state in ('absent', 'present')
-            ]
+            u'tasks': tasks,
         }]
-        logger.debug('Created playbook to run project', playbook=playbook)
+        logger.debug(u'Created playbook to run project', playbook=playbook)
         return playbook
 
     @conductor_only
