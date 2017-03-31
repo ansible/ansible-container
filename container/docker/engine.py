@@ -10,6 +10,7 @@ logger = getLogger(__name__)
 import base64
 import datetime
 import functools
+import time
 import inspect
 import json
 import os
@@ -236,6 +237,26 @@ class Engine(BaseEngine):
             mux = logmux.LogMultiplexer()
             mux.add_iterator(log_iter, plainLogger)
             return container_obj.id
+
+    def await_conductor_command(self, command, config, base_path, params, save_container=False):
+        conductor_id = self.run_conductor(command, config, base_path, params)
+        try:
+            while self.service_is_running('conductor'):
+                time.sleep(0.1)
+        finally:
+            exit_code = self.service_exit_code('conductor')
+            if save_container:
+                logger.info('Conductor terminated. Preserving as requested.',
+                            save_container=True, conductor_id=conductor_id,
+                            command_rc=exit_code)
+            else:
+                logger.info('Conductor terminated. Cleaning up.',
+                            save_container=False, conductor_id=conductor_id,
+                            command_rc=exit_code)
+                self.delete_container(conductor_id)
+            if exit_code:
+                raise exceptions.AnsibleContainerException(
+                    u'Conductor exited with status %s' % exit_code)
 
     def service_is_running(self, service):
         try:

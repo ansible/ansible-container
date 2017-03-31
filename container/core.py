@@ -142,23 +142,10 @@ def hostcmd_build(base_path, project_name, engine_name, var_file=None,
     if conductor_container_id:
         engine_obj.delete_container(conductor_container_id)
 
-    conductor_container_id = engine_obj.run_conductor('build', dict(config),
-                                                      base_path, kwargs)
-    try:
-        while engine_obj.service_is_running('conductor'):
-            time.sleep(0.1)
-    finally:
-        exit_code = engine_obj.service_exit_code('conductor')
-        if not kwargs['save_build_container']:
-            logger.info('Conductor terminated. Cleaning up.', save_build_container=False, conductor_id=conductor_container_id)
-            if engine_obj.service_is_running('conductor'):
-                engine_obj.stop_container(conductor_container_id, forcefully=True)
-            engine_obj.delete_container(conductor_container_id)
-        else:
-            logger.info('Conductor terminated. Preserving as requested.', save_build_container=False, conductor_id=conductor_container_id)
-        if exit_code:
-            raise AnsibleContainerException(u'Conductor exited with status %s' %
-                                            exit_code)
+    engine_obj.await_conductor_command(
+        'build', dict(config), base_path, kwargs,
+        save_container=config.get('save_build_container', False))
+
 
 
 @host_only
@@ -189,22 +176,9 @@ def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
             forcefully=True
         )
 
-    conductor_container_id = engine_obj.run_conductor(
-        'run', dict(config), base_path, kwargs)
-
-    try:
-        while engine_obj.service_is_running('conductor'):
-            time.sleep(0.1)
-    finally:
-        if not config.get('save_build_container', False):
-            logger.info('Conductor terminated. Cleaning up.',
-                        save_build_container=False, conductor_id=conductor_container_id)
-            if engine_obj.service_is_running('conductor'):
-                engine_obj.stop_container(conductor_container_id, forcefully=True)
-            engine_obj.delete_container(conductor_container_id)
-        else:
-            logger.info('Conductor terminated. Preserving as requested.',
-                        save_build_container=False, conductor_id=conductor_container_id)
+    engine_obj.await_conductor_command(
+        'run', dict(config), base_path, kwargs,
+        save_container=config.get('save_build_container', False))
 
 
 @host_only
@@ -215,18 +189,9 @@ def hostcmd_stop(base_path, project_name, engine_name, force=False, services=[],
                              engine_name, project_name or os.path.basename(base_path),
                              config['services'], **kwargs)
 
-    conductor_container_id = engine_obj.run_conductor(
-        'stop', dict(config), base_path, kwargs)
-
-    try:
-        while engine_obj.service_is_running('conductor'):
-            time.sleep(0.1)
-    finally:
-        logger.info('Conductor command finished. Cleaning up.',
-                    conductor_id=conductor_container_id)
-        if engine_obj.service_is_running('conductor'):
-            engine_obj.stop_container(conductor_container_id, forcefully=True)
-        engine_obj.delete_container(conductor_container_id)
+    engine_obj.await_conductor_command(
+        'stop', dict(config), base_path, kwargs,
+        save_container=config.get('save_build_container', False))
 
 
 @host_only
@@ -237,18 +202,9 @@ def hostcmd_restart(base_path, project_name, engine_name, force=False, services=
                              engine_name, project_name or os.path.basename(base_path),
                              config['services'], **kwargs)
 
-    conductor_container_id = engine_obj.run_conductor(
-        'restart', dict(config), base_path, kwargs)
-
-    try:
-        while engine_obj.service_is_running('conductor'):
-            time.sleep(0.1)
-    finally:
-        logger.info('Conductor command finished. Cleaning up.',
-                    conductor_id=conductor_container_id)
-        if engine_obj.service_is_running('conductor'):
-            engine_obj.stop_container(conductor_container_id, forcefully=True)
-        engine_obj.delete_container(conductor_container_id)
+    engine_obj.await_conductor_command(
+        'restart', dict(config), base_path, kwargs,
+        save_container=config.get('save_build_container', False))
 
 
 @host_only
