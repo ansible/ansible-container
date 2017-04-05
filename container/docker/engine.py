@@ -30,6 +30,7 @@ from container import host_only, conductor_only
 from container.engine import BaseEngine
 from container import utils, exceptions
 from container.utils import logmux
+from container.utils import text
 
 try:
     import docker
@@ -591,7 +592,7 @@ class Engine(BaseEngine):
                         pass
                     # this bypasses the fancy colorized logger for things that
                     # are just STDOUT of a process
-                    plainLogger.debug(line_json.get('stream', json.dumps(line_json)).rstrip())
+                    plainLogger.debug(text.to_text(line_json.get('stream', json.dumps(line_json))).rstrip())
                 return self.get_latest_image_id_for_service('conductor')
             else:
                 image = self.client.images.build(fileobj=tarball_file,

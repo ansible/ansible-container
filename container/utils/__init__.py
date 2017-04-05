@@ -17,6 +17,7 @@ from six import iteritems
 from ..exceptions import AnsibleContainerException, \
     AnsibleContainerNotInitializedException
 from .temp import MakeTempDir
+from . import _text as text
 import container
 
 if container.ENV == 'conductor':
@@ -28,7 +29,7 @@ __all__ = ['conductor_dir', 'make_temp_dir', 'get_config', 'assert_initialized',
            'create_path', 'jinja_template_path', 'jinja_render_to_temp',
            'metadata_to_image_config', 'create_role_from_templates',
            'resolve_role_to_path', 'get_role_fingerprint', 'get_content_from_role',
-           'get_metadata_from_role', 'get_defaults_from_role']
+           'get_metadata_from_role', 'get_defaults_from_role', 'text']
 
 conductor_dir = os.path.dirname(container.__file__)
 make_temp_dir = MakeTempDir

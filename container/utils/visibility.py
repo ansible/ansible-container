@@ -9,6 +9,8 @@ import sys
 import json
 from io import StringIO
 
+from ._text import to_text
+
 from ruamel.yaml.compat import ordereddict
 
 from structlog import wrap_logger
@@ -63,10 +65,10 @@ def info_formatter(_, call_name, event_dict):
         event_dict.pop(dont_care, None)
 
     if call_name not in ('info', 'debug', 'notset'):
-        sio.write(unicode(call_name.upper()))
+        sio.write(to_text(call_name.upper()))
         sio.write(u'\t')
 
-    sio.write(unicode(event_dict.pop('event')))
+    sio.write(to_text(event_dict.pop('event')))
     sio.write(u'\t')
 
     # make sure we don't put multiline exceptions in regular k/v

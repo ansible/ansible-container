@@ -9,6 +9,7 @@ import threading
 
 from six import with_metaclass
 from six.moves import queue
+from ._text import to_text
 
 class Singleton(type):
     def __new__(cls, name, parents, params):
@@ -37,11 +38,10 @@ class LogMultiplexer(with_metaclass(Singleton, object)):
 
     def produce(self, iterator, log_obj):
         for message in iterator:
-            self.q.put((log_obj, message.rstrip()))
+            self.q.put((log_obj, to_text(message).rstrip()))
 
     def add_iterator(self, iterator, log_obj):
         producer_thread = threading.Thread(target=self.produce,
                                            args=(iterator, log_obj))
         producer_thread.daemon = True
         producer_thread.start()
-

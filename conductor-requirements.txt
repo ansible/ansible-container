@@ -1,7 +1,7 @@
 git+https://github.com/ansible/ansible.git@v2.3.0.0-0.1.rc1#egg=2.3.3.0
 PyYAML>=3.12
-requests>=2.13.0
+docker-compose>=1.7
+requests>=2.13
 ruamel.yaml>=0.14.2
-six>=1.10.0
-structlog[dev]>=16.1.0
-docker-compose>=1.7.0
+six>=1.10
+structlog[dev]>=16.1
