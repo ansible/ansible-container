@@ -29,7 +29,7 @@ class PlaybookAsTests(TestCommand):
 if container.ENV == 'host':
     install_reqs = parse_requirements('requirements.txt', session=False)
     setup_kwargs = dict(
-        install_requires=[str(ir.req) for ir in install_reqs],
+        install_requires=[str(ir.req) for ir in install_reqs if ir.match_markers()],
         tests_require=[
             'ansible==2.3.0.0',
             'pytest>=3',
