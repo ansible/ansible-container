@@ -37,6 +37,7 @@ if container.ENV == 'host':
         ],
         extras_require={
             'docker': ['docker>=2.1'],
+            'docbuild': ['Sphinx>=1.5.0'],
         },
         dependency_links=[
             'https://github.com/ansible/ansible/archive/v2.3.0.0-0.1.rc1.zip#egg=ansible-2.3.0.0'
