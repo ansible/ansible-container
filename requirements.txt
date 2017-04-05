@@ -1,7 +1,6 @@
-Jinja2>=2.8
-PyYAML>=3.11
-six
-requests
-ruamel.ordereddict==0.4.9; python_version <= '2.7'
-ruamel.yaml==0.14.2
-structlog[dev]
+Jinja2>=2.9
+PyYAML>=3.12
+six>=1.10
+requests>=2.13
+ruamel.yaml>=0.14.2
+structlog[dev]>=16.1

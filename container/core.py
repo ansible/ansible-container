@@ -151,7 +151,7 @@ def hostcmd_build(base_path, project_name, engine_name, var_file=None,
 @host_only
 def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
                 **kwargs):
-    logger.info('Got extra args to `run` command', arguments=kwargs)
+    logger.debug('Got extra args to `run` command', arguments=kwargs)
     config = get_config(base_path, var_file=var_file)
     assert_initialized(base_path)
 
