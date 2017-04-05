@@ -7,7 +7,7 @@
 
 - name: Make temporary workspace
   tempfile:
-    path: "{{ lookup('env', 'TMPDIR')|default(omit) }}"
+    path: "{{ lookup('env', 'TMPDIR')|default(omit, boolean=True) }}"
     state: directory
     suffix: "{{ item.name }}"
   with_items: "{{ distros }}"
