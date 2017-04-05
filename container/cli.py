@@ -261,28 +261,33 @@ class HostCommand(object):
         try:
             getattr(core, u'hostcmd_{}'.format(args.subcommand))(**vars(args))
         except exceptions.AnsibleContainerAlreadyInitializedException:
-            logger.error('Ansible Container is already initialized', exc_info=True)
+            logger.error('Ansible Container is already initialized', exc_info=False)
             sys.exit(1)
         except exceptions.AnsibleContainerNotInitializedException:
             logger.error('No Ansible Container project data found - do you need to '
-                    'run "ansible-container init"?', exc_info=True)
+                    'run "ansible-container init"?', exc_info=False)
             sys.exit(1)
         except exceptions.AnsibleContainerNoAuthenticationProvidedException:
-            logger.error('No authentication provided, unable to continue', exc_info=True)
+            logger.error('No authentication provided, unable to continue', exc_info=False)
             sys.exit(1)
         except exceptions.AnsibleContainerConductorException as e:
-            logger.error('Failure in conductor container: %s' % e, exc_info=True)
+            logger.error('Failure in conductor container: %s' % e, exc_info=False)
             sys.exit(1)
         except exceptions.AnsibleContainerNoMatchingHosts:
-            logger.error('No matching service found in ansible/container.yml', exc_info=True)
+            logger.error('No matching service found in ansible/container.yml', exc_info=False)
             sys.exit(1)
         except exceptions.AnsibleContainerHostNotTouchedByPlaybook:
-            logger.error('The requested service(s) is not referenced in ansible/main.yml. Nothing to build.', exc_info=True)
+            logger.error('The requested service(s) is not referenced in ansible/main.yml. Nothing to build.',
+                         exc_info=False)
+            sys.exit(1)
+        except exceptions.AnsibleContainerDockerConnectionRefused:
+            logger.error('The connection to Docker was refused. Check your Docker environment configuration.',
+                         exc_info=False)
             sys.exit(1)
         except exceptions.AnsibleContainerConfigException as e:
             logger.error('Invalid container.yml: {}'.format(e))
         except requests.exceptions.ConnectionError:
-            logger.error('Could not connect to container host. Check your docker config', exc_info=True)
+            logger.error('Could not connect to container host. Check your docker config', exc_info=False)
         except Exception as e:
             if args.debug:
                 logger.exception('Unknown exception %s' % e, exc_info=True)

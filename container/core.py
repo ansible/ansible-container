@@ -13,6 +13,7 @@ import hashlib
 import io
 import os
 import re
+import ruamel
 import shutil
 import subprocess
 import tarfile
@@ -21,7 +22,6 @@ import tempfile
 
 import requests
 from six.moves.urllib.parse import urljoin
-from ruamel import yaml
 
 from .exceptions import AnsibleContainerAlreadyInitializedException,\
                         AnsibleContainerRegistryAttributeException, \
@@ -32,6 +32,7 @@ from container.utils.loader import load_engine
 
 REMOVE_HTTP = re.compile('^https?://')
 DEFAULT_CONDUCTOR_BASE = 'centos:7'
+DEFAULT_DEPLOYMENT_PATH = '~/ansible-deployment/'
 
 
 @host_only
@@ -105,7 +106,9 @@ def hostcmd_init(base_path, project=None, **kwargs):
         context = {
             u'ansible_container_version': __version__,
             u'project_name': kwargs.get('project_name',
-                                        os.path.basename(base_path))
+                                        os.path.basename(base_path)),
+            u'default_base': DEFAULT_CONDUCTOR_BASE,
+            u'deployment_output_path': DEFAULT_DEPLOYMENT_PATH
         }
         for tmpl_filename in os.listdir(template_dir):
             jinja_render_to_temp(template_dir,
@@ -129,6 +132,7 @@ def hostcmd_build(base_path, project_name, engine_name, var_file=None,
         engine_obj.stop_container(conductor_container_id, forcefully=True)
 
     if conductor_container_id is None or not kwargs.get('devel'):
+        #TODO once we get a conductor running, figure out how to know it's running
         if engine_obj.CAP_BUILD_CONDUCTOR:
             engine_obj.build_conductor_image(
                 base_path,
@@ -144,36 +148,38 @@ def hostcmd_build(base_path, project_name, engine_name, var_file=None,
 
     engine_obj.await_conductor_command(
         'build', dict(config), base_path, kwargs,
-        save_container=config.get('save_build_container', False))
+        save_container=config.get('settings', {}).get('save_build_container', False))
 
 
 
 @host_only
 def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
                 **kwargs):
+    assert_initialized(base_path)
     logger.debug('Got extra args to `run` command', arguments=kwargs)
     config = get_config(base_path, var_file=var_file)
-    assert_initialized(base_path)
-
+    logger.debug('Load engine: {}'.format(engine_name))
     engine_obj = load_engine(['RUN'],
                              engine_name, project_name or os.path.basename(base_path),
                              config['services'], **kwargs)
     if not engine_obj.CAP_RUN:
-        msg = u'{} does not support building the Conductor image.'.format(
-            engine_obj.display_name)
+        msg = u'{} does not support the `run` command'.format(engine_obj.display_name)
         logger.error(msg, engine=engine_obj.display_name)
         raise Exception(msg)
 
-    engine_obj.await_conductor_command(
-        'run', dict(config), base_path, kwargs,
-        save_container=config.get('save_build_container', False))
+    deployment_path = config.get('settings', {}).get('deployment_output_path', DEFAULT_DEPLOYMENT_PATH)
+    deployment_path = os.path.normpath(os.path.expanduser(deployment_path))
+    params = dict()
+    if kwargs:
+        params.update(kwargs)
+    params['deployment_output_path'] = deployment_path
 
 @host_only
 def hostcmd_destroy(base_path, project_name, engine_name, var_file=None, cache=True,
                   **kwargs):
+    assert_initialized(base_path)
     logger.debug('Got extra args to `destroy` command', arguments=kwargs)
     config = get_config(base_path, var_file=var_file)
-    assert_initialized(base_path)
 
     engine_obj = load_engine(['RUN'],
                              engine_name, project_name or os.path.basename(base_path),
@@ -186,8 +192,7 @@ def hostcmd_destroy(base_path, project_name, engine_name, var_file=None, cache=T
 
     engine_obj.await_conductor_command(
         'destroy', dict(config), base_path, kwargs,
-        save_container=config.get('save_build_container', False))
-
+        save_container=config.get('settings', {}).get('save_build_container', False))
 
 @host_only
 def hostcmd_stop(base_path, project_name, engine_name, force=False, services=[],
@@ -199,7 +204,7 @@ def hostcmd_stop(base_path, project_name, engine_name, force=False, services=[],
 
     engine_obj.await_conductor_command(
         'stop', dict(config), base_path, kwargs,
-        save_container=config.get('save_build_container', False))
+        save_container=config.get('settings', {}).get('save_build_container', False))
 
 
 @host_only
@@ -212,7 +217,7 @@ def hostcmd_restart(base_path, project_name, engine_name, force=False, services=
 
     engine_obj.await_conductor_command(
         'restart', dict(config), base_path, kwargs,
-        save_container=config.get('save_build_container', False))
+        save_container=config.get('settings', {}).get('save_build_container', False))
 
 
 @host_only
@@ -290,7 +295,7 @@ def hostcmd_push(base_path, project_name, engine_name, var_file=None, **kwargs):
         while engine_obj.service_is_running('conductor'):
             time.sleep(0.1)
     finally:
-        if not config.get('save_build_container', False):
+        if not config.get('settings', {}).get('save_build_container', False):
             logger.info('Conductor terminated. Cleaning up.')
             if engine_obj.service_is_running('conductor'):
                 engine_obj.stop_container(conductor_container_id, forcefully=True)
@@ -433,26 +438,36 @@ def resolve_push_to(push_to, default_url):
 
 @conductor_only
 def run_playbook(playbook, engine, service_map, ansible_options='',
-                 python_interpreter=None, debug=False):
+                 python_interpreter=None, debug=False, deployment_output_path=None, **kwargs):
     try:
-        tmpdir = tempfile.mkdtemp()
-        playbook_path = os.path.join(tmpdir, 'playbook.yml')
+        if deployment_output_path:
+            remove_tmpdir = False
+            output_dir = deployment_output_path
+        else:
+            remove_tmpdir = True
+            output_dir = tempfile.mkdtemp()
+        playbook_path = os.path.join(output_dir, 'playbook.yml')
+        logger.debug("writing playbook to {}".format(playbook_path))
         with open(playbook_path, 'w') as ofs:
-            yaml.safe_dump(playbook, ofs, default_flow_style=False)
-        inventory_path = os.path.join(tmpdir, 'hosts')
+            ofs.write(ruamel.yaml.round_trip_dump(playbook, indent=4, block_seq_indent=2, default_flow_style=False))
+
+        inventory_path = os.path.join(output_dir, 'hosts')
         with open(inventory_path, 'w') as ofs:
             for service_name, container_id in service_map.items():
                 ofs.write('%s ansible_host="%s" ansible_python_interpreter="%s"\n' % (
                     service_name, container_id,
                     python_interpreter or engine.python_interpreter_path))
-        os.mkdir(os.path.join(tmpdir, 'files'))
-        os.mkdir(os.path.join(tmpdir, 'templates'))
+
+        if not os.path.exists(os.path.join(output_dir, 'files')):
+            os.mkdir(os.path.join(output_dir, 'files'))
+        if not os.path.exists(os.path.join(output_dir, 'templates')):
+            os.mkdir(os.path.join(output_dir, 'templates'))
         rc = subprocess.call(['mount', '--bind', '/src',
-                              os.path.join(tmpdir, 'files')])
+                              os.path.join(output_dir, 'files')])
         if rc:
             raise OSError('Could not bind-mount /src into tmpdir')
         rc = subprocess.call(['mount', '--bind', '/src',
-                              os.path.join(tmpdir, 'templates')])
+                              os.path.join(output_dir, 'templates')])
         if rc:
             raise OSError('Could not bind-mount /src into tmpdir')
 
@@ -494,13 +509,14 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
     finally:
         try:
             rc = subprocess.call(['unmount',
-                                  os.path.join(tmpdir, 'files')])
+                                  os.path.join(output_dir, 'files')])
             rc = subprocess.call(['unmount',
-                                  os.path.join(tmpdir, 'templates')])
+                                  os.path.join(output_dir, 'templates')])
         except Exception:
             pass
         try:
-            shutil.rmtree(tmpdir, ignore_errors=True)
+            if remove_tmpdir:
+                shutil.rmtree(output_dir, ignore_errors=True)
         except Exception:
             pass
 
@@ -629,9 +645,10 @@ def conductorcmd_run(engine_name, project_name, services, **kwargs):
                 engine=engine.display_name)
 
     engine.containers_built_for_services(services)
-
+    logger.debug("In conductorcmd_run", kwargs=kwargs)
     playbook = engine.generate_orchestration_playbook()
-    rc = run_playbook(playbook, engine, services)
+    logger.debug("in conductorcmd_run", playbook=playbook)
+    rc = run_playbook(playbook, engine, services, **kwargs)
     logger.info(u'All services running.', playbook_rc=rc)
 
 
@@ -707,7 +724,8 @@ def conductorcmd_deploy(engine_name, project_name, services, repository_data, pl
 
     try:
         with open(os.path.join(playbook_dest, '%s.yml' % project_name), 'w') as ofs:
-            yaml.safe_dump(playbook, ofs)
+            ofs.write(ruamel.yaml.round_trip_dump(playbook, indent=4, block_seq_indent=2, default_flow_style=False))
+
     except OSError:
         logger.error(u'Failure writing deployment playbook', exc_info=True)
         raise
