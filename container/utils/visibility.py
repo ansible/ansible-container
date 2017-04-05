@@ -9,7 +9,7 @@ import sys
 import json
 from io import StringIO
 
-from ruamel.ordereddict import ordereddict
+from ruamel.yaml.compat import ordereddict
 
 from structlog import wrap_logger
 from structlog.dev import ConsoleRenderer

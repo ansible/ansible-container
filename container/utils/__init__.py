@@ -10,7 +10,7 @@ from datetime import datetime
 from distutils import dir_util
 
 from jinja2 import Environment, FileSystemLoader
-from ruamel import yaml, ordereddict
+from ruamel import yaml
 from six import iteritems
 
 
@@ -246,8 +246,8 @@ def get_content_from_role(role_name, relative_path):
     if os.path.exists(metadata_file):
         with open(metadata_file) as ifs:
             metadata = yaml.round_trip_load(ifs)
-        return metadata or ordereddict.ordereddict()
-    return ordereddict.ordereddict()
+        return metadata or yaml.compat.ordereddict()
+    return yaml.compat.ordereddict()
 
 
 @container.conductor_only

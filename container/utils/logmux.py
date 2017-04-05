@@ -6,9 +6,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 import threading
-import Queue
 
 from six import with_metaclass
+from six.moves import queue
 
 class Singleton(type):
     def __new__(cls, name, parents, params):
@@ -22,7 +22,7 @@ class Singleton(type):
 class LogMultiplexer(with_metaclass(Singleton, object)):
 
     def __init__(self):
-        self.q = Queue.Queue()
+        self.q = queue.Queue()
         self.start()
 
     def consumer(self):

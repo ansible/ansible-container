@@ -9,7 +9,6 @@ import os
 import re
 import subprocess
 import shlex
-import urlparse
 import tarfile
 import glob
 import shutil
@@ -21,7 +20,7 @@ try:
 except ImportError:
     raise ImportError('This engine requires you "pip install \'ruamel.yaml>=0.13.14\'" to import projects.')
 from six import iteritems
-
+from six.moves.urllib.parse import urlparse
 
 from container.exceptions import AnsibleContainerConductorException
 from container.utils import create_role_from_templates
@@ -204,10 +203,10 @@ class DockerfileParser(object):
             [safe_service_name])
         return container_yml
 
-    PLAIN_VARIABLE_RE = re.compile(ur'(?<!\\)\$(?P<var>[a-zA-Z_]\w*)')
-    BRACED_VARIABLE_RE = re.compile(ur'(?<!\\)\$\{(?P<var>[a-zA-Z_]\w*)\}')
-    DEFAULT_VARIABLE_RE = re.compile(ur'(?<!\\)\$\{(?P<var>[a-zA-Z_]\w*)'
-                                     ur':(?P<plus_minus>[+-])(?P<default>[^}]+)\}')
+    PLAIN_VARIABLE_RE = re.compile(r'(?<!\\)\$(?P<var>[a-zA-Z_]\w*)')
+    BRACED_VARIABLE_RE = re.compile(r'(?<!\\)\$\{(?P<var>[a-zA-Z_]\w*)\}')
+    DEFAULT_VARIABLE_RE = re.compile(r'(?<!\\)\$\{(?P<var>[a-zA-Z_]\w*)'
+                                     r':(?P<plus_minus>[+-])(?P<default>[^}]+)\}')
 
     def do_variable_syntax_substitution(self, string):
         def simple_variable_sub(match_obj):
@@ -271,7 +270,7 @@ class DockerfileParser(object):
 
     def parse_EXPOSE(self, payload, comments):
         # Ensure all variable references are quoted, so we can use shlex
-        payload = re.sub(ur'(\{\{[^}]+\}\})', ur'"\1"', payload)
+        payload = re.sub(r'(\{\{[^}]+\}\})', r'"\1"', payload)
         ports = shlex.split(payload)
         self.meta.setdefault('ports', CommentedSeq()).extend(ports)
         self.meta.yaml_set_comment_before_after_key('ports',
@@ -288,7 +287,7 @@ class DockerfileParser(object):
                                                                        before=u'\n'.join(comments))
         else:
             # Ensure all variable references are quoted, so we can use shlex
-            payload = re.sub(ur'=(\{\{[^}]+\}\})', ur'="\1"', payload)
+            payload = re.sub(r'=(\{\{[^}]+\}\})', r'="\1"', payload)
             kv_parts = shlex.split(payload)
             kv_pairs = [part.split(u'=', 1) for part in kv_parts]
             self.meta.setdefault('environment', CommentedMap()).update(kv_pairs)
@@ -321,12 +320,12 @@ class DockerfileParser(object):
 
         for src_spec in src_list:
             # ADD src can be a URL - look for a scheme
-            if url_and_tarball and urlparse.urlparse(src_spec).scheme in ['http', 'https']:
+            if url_and_tarball and urlparse(src_spec).scheme in ['http', 'https']:
                 task = CommentedMap()
                 if comments:
                     task['name'] = u' '.join(comments)
                 task['get_url'] = CommentedMap([
-                    ('url', src_spec), ('dest', dest), ('mode', 0600), ('validate_certs', 'no')])
+                    ('url', src_spec), ('dest', dest), ('mode', 0o600), ('validate_certs', 'no')])
                 tasks.append(task)
             else:
                 real_path = os.path.join(self.path, src_spec)

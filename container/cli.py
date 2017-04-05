@@ -270,7 +270,7 @@ class HostCommand(object):
             logger.error('No authentication provided, unable to continue', exc_info=True)
             sys.exit(1)
         except exceptions.AnsibleContainerConductorException as e:
-            logger.error('Failure in conductor container: %s' % e.message, exc_info=True)
+            logger.error('Failure in conductor container: %s' % e, exc_info=True)
             sys.exit(1)
         except exceptions.AnsibleContainerNoMatchingHosts:
             logger.error('No matching service found in ansible/container.yml', exc_info=True)
@@ -279,7 +279,7 @@ class HostCommand(object):
             logger.error('The requested service(s) is not referenced in ansible/main.yml. Nothing to build.', exc_info=True)
             sys.exit(1)
         except exceptions.AnsibleContainerConfigException as e:
-            logger.error('Invalid container.yml: {}'.format(e.message))
+            logger.error('Invalid container.yml: {}'.format(e))
         except requests.exceptions.ConnectionError:
             logger.error('Could not connect to container host. Check your docker config', exc_info=True)
         except Exception as e:
@@ -293,7 +293,7 @@ host_commandline = HostCommand()
 
 
 def decode_b64json(encoded_params):
-    return json.loads(base64.decodestring(encoded_params))
+    return json.loads(base64.b64decode(encoded_params))
 
 
 @container.conductor_only

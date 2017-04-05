@@ -2,6 +2,6 @@ Jinja2>=2.8
 PyYAML>=3.11
 six
 requests
-ruamel.ordereddict==0.4.9
+ruamel.ordereddict==0.4.9; python_version <= '2.7'
 ruamel.yaml==0.14.2
 structlog[dev]

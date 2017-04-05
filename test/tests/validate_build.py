@@ -48,7 +48,7 @@ def test_image_fingerprint():
 def test_image_environment():
     if isinstance(role_meta['environment'], dict):
         role_env = [u'='.join([k, templar.template(v)])
-                    for (k, v) in role_meta['environment'].iteritems()]
+                    for (k, v) in role_meta['environment'].items()]
     else:
         role_env = [templar.template(s) for s in role_meta['environment']]
     assert all([item in built_image_info['Config']['Env'] for item in role_env])

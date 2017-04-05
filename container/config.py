@@ -10,7 +10,7 @@ import json
 import six
 
 from collections import Mapping
-from ruamel import yaml, ordereddict
+from ruamel import yaml
 
 import container
 if container.ENV == 'conductor':
@@ -33,7 +33,7 @@ from .utils import get_metadata_from_role, get_defaults_from_role
 
 
 class AnsibleContainerConfig(Mapping):
-    _config = ordereddict.ordereddict()
+    _config = yaml.compat.ordereddict()
     base_path = None
 
     @container.host_only
@@ -80,11 +80,11 @@ class AnsibleContainerConfig(Mapping):
         :param config: Loaded YAML config
         :return: None
         """
-        defaults = config.setdefault('defaults', ordereddict.ordereddict())
+        defaults = config.setdefault('defaults', yaml.compat.ordereddict())
         if self.var_file:
             defaults.update(self._get_variables_from_file(), relax=True)
         logger.debug('The default type is', defaults=str(type(defaults)), config=str(type(config)))
-        if type(defaults) == ordereddict.ordereddict:
+        if six.PY2 and type(defaults) == yaml.compat.ordereddict:
             defaults.update(self._get_environment_variables(), relax=True)
         else:
             defaults.update(self._get_environment_variables())
@@ -96,10 +96,10 @@ class AnsibleContainerConfig(Mapping):
         key is the result of removing 'AC_' from the variable name and converting the remainder to lowercase.
         For example, 'AC_DEBUG=1' becomes 'debug: 1'.
 
-        :return ruamel.ordereddict.ordereddict
+        :return ruamel.yaml.compat.ordereddict
         '''
         logger.debug(u'Getting environment variables...')
-        env_vars = ordereddict.ordereddict()
+        env_vars = yaml.compat.ordereddict()
         for var, value in [(k, v) for k, v in six.iteritems(os.environ)
                            if k.startswith('AC_')]:
             env_vars[var[3:].lower()] = value
@@ -111,7 +111,7 @@ class AnsibleContainerConfig(Mapping):
         Looks for file relative to base_path. If not found, checks relative to base_path/ansible.
         If file extension is .yml | .yaml, parses as YAML, otherwise parses as JSON.
 
-        :return: ruamel.ordereddict.ordereddict
+        :return: ruamel.yaml.compat.ordereddict
         """
         abspath = os.path.abspath(self.var_file)
         if not os.path.exists(abspath):
@@ -183,7 +183,7 @@ class AnsibleContainerConductorConfig(Mapping):
     def _process_section(self, section_value, callback=None, templar=None):
         if not templar:
             templar = self._templar
-        processed = ordereddict.ordereddict()
+        processed = yaml.compat.ordereddict()
         for key, value in section_value.items():
             if isinstance(value, basestring):
                 # strings can be templated
@@ -206,7 +206,7 @@ class AnsibleContainerConductorConfig(Mapping):
     def _process_defaults(self):
         logger.debug('Processing defaults section...')
         self.defaults = self._process_section(
-            self._config.get('defaults', ordereddict.ordereddict()),
+            self._config.get('defaults', yaml.compat.ordereddict()),
             callback=lambda processed: self._templar.set_available_variables(
                 dict(processed)))
 
@@ -215,14 +215,14 @@ class AnsibleContainerConductorConfig(Mapping):
             logger.debug('Processing section...', section=section)
             setattr(self, section,
                     self._process_section(self._config.get(
-                        section, ordereddict.ordereddict())))
+                        section, yaml.compat.ordereddict())))
 
     def _process_services(self):
-        services = ordereddict.ordereddict()
+        services = yaml.compat.ordereddict()
         for service, service_data in self._config.get(
-                'services', ordereddict.ordereddict()).items():
+                'services', yaml.compat.ordereddict()).items():
             logger.debug('Processing service...', service=service)
-            processed = ordereddict.ordereddict()
+            processed = yaml.compat.ordereddict()
             service_defaults = self.defaults.copy()
             for role_spec in service_data.get('roles', []):
                 if isinstance(role_spec, dict):
