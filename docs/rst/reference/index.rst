@@ -14,3 +14,4 @@ Command Reference
    shipit
    shipit/index
    stop
+   destroy

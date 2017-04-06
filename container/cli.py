@@ -52,6 +52,7 @@ class HostCommand(object):
                           'run': 'Run and orchestrate built images based on container.yml',
                           'stop': 'Stop the services defined in container.yml, if deployed',
                           'restart': 'Restart the services defined in container.yml',
+                          'destroy': 'Stop all services and delete their containers & all built images',
                           'push': 'Push your built images to a Docker Hub compatible registry',
                           'import': 'Convert a Dockerfile to a container.yml and role.',
                           # FIXME: implement purge command
@@ -148,16 +149,16 @@ class HostCommand(object):
                                help=u'Force stop running containers',
                                dest='force')
 
-
     def subcmd_restart_parser(self, parser, subparser):
         subparser.add_argument('service', action='store',
                                help=u'The specific services you want to restart',
                                nargs='*')
 
+    def subcmd_destroy_parser(self, parser, subparser):
+        pass
 
     def subcmd_help_parser(self, parser, subparser):
         return
-
 
     def subcmd_push_parser(self, parser, subparser):
         subparser.add_argument('--username', action='store',
@@ -304,7 +305,7 @@ def conductor_commandline():
                                                  u'Ansible Container.')
     parser.add_argument('command', action='store', help=u'Command to run.',
                         choices=['build', 'deploy', 'install', 'push', 'run', 'restart',
-                                 'stop'])
+                                 'stop', 'destroy'])
     parser.add_argument('--project-name', action='store', help=u'Project name.', required=True)
     parser.add_argument('--engine', action='store', help=u'Engine name.', required=True)
     parser.add_argument('--params', action='store', required=False,

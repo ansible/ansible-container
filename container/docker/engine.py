@@ -438,6 +438,10 @@ class Engine(BaseEngine):
         service_def = {}
         for service_name, service in self.services.items():
             image = self.get_latest_image_for_service(service_name)
+            if image is None:
+                raise exceptions.AnsibleContainerConductorException(
+                    u"No container found for service {}, make sure you've run `ansible-container build`".format(service_name)
+                )
             service_definition = {
                 u'image': image.tags[0],
             }

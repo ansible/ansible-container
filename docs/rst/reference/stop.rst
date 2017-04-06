@@ -1,5 +1,5 @@
 stop
-=======
+====
 
 **New in version 0.2.0**
 
