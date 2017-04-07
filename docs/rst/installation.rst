@@ -10,7 +10,7 @@ Getting Ansible Container
 
 Prerequisites:
 
-* Python 2.7
+* Python 2.7 or Python 3.5+
 * `pip <https://pip.pypa.io/en/stable/installing/>`_
 * `setuptools 20.0.0+ <https://pypi.python.org/pypi/setuptools>`_
 * `Docker Engine <https://docs.docker.com/engine/installation/>`_, `Docker for Mac <https://docs.docker.com/engine/installation/mac/>`_,
