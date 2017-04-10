@@ -151,14 +151,24 @@ class Deployment(object):
         self._services = services
         self._project_name = project_name
         self._volumes = volumes
+        self._auth = None
+
+    def set_authorization(self, auth):
+        self._auth = auth
+
+    @property
+    def namespace_task(self, state='present'):
+        task = CommentedMap()
+        task_name = 'Create namespace' if state == 'present' else 'Remove namespace'
+        task['name'] = '{} {}'.format(task_name, self._project_name)
+        task['k8s_v1_namespace'] = CommentedMap()
+        task['k8s_v1_namespace']['name'] = self._project_name
+        task['k8s_v1_namespace']['state'] = state
+        return task
 
     @property
     def services(self):
-        '''
-        Generate an Openshift service configuration or playbook task.
-        :param request_type:
-        '''
-
+        """ Generate a service configuration """
         def _create_service(name, service):
             template = CommentedMap()
             state = 'present'
@@ -175,6 +185,7 @@ class Deployment(object):
                     ])
                     template['metadata'] = CommentedMap([
                         ('name', name),
+                        ('namespace', self._project_name),
                         ('labels', copy.deepcopy(labels))
                     ])
                     template['spec'] = CommentedMap([
@@ -208,15 +219,18 @@ class Deployment(object):
         return templates
 
     @property
-    def service_tasks(self):
+    def service_tasks(self, module_name='k8s_v1_service'):
         # TODO Support state 'absent'
         tasks = CommentedSeq()
         for template in self.services:
             task = CommentedMap()
             task['name'] = 'Create service'
-            task['k8s_v1_service'] = CommentedMap()
-            task['k8s_v1_service']['state'] = 'present'
-            task['k8s_v1_service']['service_definition'] = template
+            task[module_name] = CommentedMap()
+            task[module_name]['state'] = 'present'
+            if self._auth:
+                for key in self._auth:
+                    task[module_name][key] = self._auth[key]
+            task[module_name]['resource_definition'] = template
             tasks.append(task)
         return tasks
 
@@ -389,62 +403,76 @@ class Deployment(object):
             return container, volumes, pod
 
         templates = CommentedSeq()
-        if self._services:
-            for name, service_config in self._services.items():
+        for name, service_config in self._services.items():
 
-                container, volumes, pod = _service_to_container(name, service_config)
+            container, volumes, pod = _service_to_container(name, service_config)
 
-                labels = CommentedMap([
-                    ('app', self._project_name),
-                    ('service', name)
+            labels = CommentedMap([
+                ('app', self._project_name),
+                ('service', name)
+            ])
+
+            state = 'present'
+            if pod.get('state'):
+                state = pod.pop('state')
+
+            if state == 'present':
+                template = CommentedMap()
+                template['apiVersion'] = "extensions/v1beta1"
+                template['kind'] = 'Deployment'
+                template['metadata'] = CommentedMap([
+                    ('name', name),
+                    ('labels', copy.deepcopy(labels)),
+                    ('namespace', self._project_name)
                 ])
+                template['spec'] = CommentedMap()
+                template['spec']['template'] = CommentedMap()
+                template['spec']['template']['metadata'] = CommentedMap([('labels', copy.deepcopy(labels))])
+                template['spec']['template']['spec'] = CommentedMap([
+                    ('containers', [container])    # TODO: allow multiple pods in a container
+                ])
+                template['spec']['template']['replicas'] = 1
+                template['spec']['template']['strategy'] = CommentedMap([('type', 'RollingUpate')])
 
-                state = 'present'
-                if pod.get('state'):
-                    state = pod.pop('state')
+                if volumes:
+                    template['spec']['template']['spec']['volumes'] = volumes
 
-                if state == 'present':
-                    template = CommentedMap()
-                    template['apiVersion'] = "extensions/v1beta1"
-                    template['kind'] = 'Deployment'
-                    template['metadata'] = CommentedMap([
-                        ('name', name),
-                        ('labels', copy.deepcopy(labels)),
-                        ('namespace', self._project_name)
-                    ])
-                    template['spec'] = CommentedMap()
-                    template['spec']['template'] = CommentedMap()
-                    template['spec']['template']['metadata'] = CommentedMap([('labels', copy.deepcopy(labels))])
-                    template['spec']['template']['spec'] = CommentedMap([
-                        ('containers', [container])    # TODO: allow multiple pods in a container
-                    ])
-                    template['spec']['template']['replicas'] = 1
-                    template['spec']['template']['strategy'] = CommentedMap([('type', 'RollingUpate')])
+                if pod:
+                    for key, value in pod.items():
+                        if key == 'replicas':
+                            template['spec'][key] = value
+                            break
 
-                    if volumes:
-                        template['spec']['template']['spec']['volumes'] = volumes
-
-                    if pod:
-                        for key, value in pod.items():
-                            if key == 'replicas':
-                                template['spec'][key] = value
-                                break
-
-                    templates.append(template)
+                templates.append(template)
         return templates
 
     @property
-    def deployment_tasks(self):
+    def deployment_tasks(self, module_name='k8s_v1beta1_deployment'):
         # TODO Support state 'absent'
         tasks = CommentedSeq()
         for template in self.deployments:
             task = CommentedMap()
 
             task['name'] = 'Create deployment'
-            task['k8s_v1_deployment'] = CommentedMap()
-            task['k8s_v1_deployment']['state'] = 'present'
-            task['k8s_v1_deployment']['service_definition'] = template
+            task[module_name] = CommentedMap()
+            task[module_name]['state'] = 'present'
+            if self._auth:
+                for key in self._auth:
+                    task[module_name][key] = self._auth[key]
+            task[module_name]['resource_definition'] = template
             tasks.append(task)
+        for name, service_config in self._services.items():
+            # Include any services where k8s.state is 'absent'
+            if service_config.get('k8s', {}).get('state', 'present') == 'absent':
+                task['name'] = 'Remove deployment'
+                task[module_name] = CommentedMap()
+                task[module_name]['state'] = 'absent'
+                if self._auth:
+                    for key in self._auth:
+                        task[module_name][key] = self._auth[key]
+                task[module_name]['name'] = name
+                task[module_name]['namespace'] = self._project_name
+                tasks.append(task)
         return tasks
 
     @property

@@ -176,7 +176,7 @@ class Engine(BaseEngine):
 
     @log_runs
     @host_only
-    def run_conductor(self, command, config, base_path, params, engine_name=None):
+    def run_conductor(self, command, config, base_path, params, engine_name=None, volumes=None):
         image_id = self.get_latest_image_id_for_service('conductor')
         if image_id is None:
             raise exceptions.AnsibleContainerConductorException(
@@ -184,7 +184,10 @@ class Engine(BaseEngine):
                     u"`ansible-container build` first")
         serialized_params = base64.b64encode(json.dumps(params).encode("utf-8")).decode()
         serialized_config = base64.b64encode(json.dumps(config).encode("utf-8")).decode()
-        volumes = {base_path: {'bind': '/src', 'mode': 'ro'}}
+
+        if not volumes:
+            volumes = {}
+        volumes[base_path] = {'bind': '/src', 'mode': 'ro'}
 
         if params.get('deployment_output_path'):
             deployment_path = params['deployment_output_path']
@@ -429,9 +432,14 @@ class Engine(BaseEngine):
         image_obj.tag(self.image_name_for_service(service_name), 'latest')
 
     @conductor_only
-    def generate_orchestration_playbook(self, repository_data=None):
-        """If repository_data is specified, presume to pull images from that
-        repository. If not, presume the images are already present."""
+    def generate_orchestration_playbook(self, url=None, namespace=None, local_images=True, **kwargs):
+        """
+        Generate an Ansible playbook to orchestrate services.
+        :param url: registry URL where images will be pulled from
+        :param namespace: registry namespace
+        :param local_images: bypass pulling images, and use local copies
+        :return: playbook dict
+        """
         return self._generate_service_playbook(('destroy', 'start'))
 
     @conductor_only

@@ -146,11 +146,47 @@ def hostcmd_build(base_path, project_name, engine_name, var_file=None,
     if conductor_container_id:
         engine_obj.delete_container(conductor_container_id)
 
+    save_container=config.get('settings', {}).get('save_conductor_container', False)
+    if kwargs.get('save_conductor_container'):
+        # give precedence to CLI option
+        save_container = True
+
     engine_obj.await_conductor_command(
-        'build', dict(config), base_path, kwargs,
-        save_container=config.get('settings', {}).get('save_build_container', False))
+        'build', dict(config), base_path, kwargs, save_container=save_container)
 
 
+@host_only
+def hostcmd_deploy(base_path, project_name, engine_name, var_file=None, cache=True,
+                **kwargs):
+    assert_initialized(base_path)
+    logger.debug('Got extra args to `deploy` command', arguments=kwargs)
+    config = get_config(base_path, var_file=var_file)
+    local_images = kwargs.get('local_images')
+    output_path = kwargs.get('deployment_output_path')
+
+    engine_obj = load_engine(['LOGIN', 'PUSH', 'DEPLOY'],
+                             engine_name, project_name or os.path.basename(base_path),
+                             config['services'], **kwargs)
+    params = dict()
+    if kwargs:
+        params.update(kwargs)
+
+    if not output_path:
+        output_path = config.get('settings', {}).get('deployment_output_path', DEFAULT_DEPLOYMENT_PATH)
+    output_path = os.path.normpath(os.path.expanduser(output_path))
+    params['deployment_output_path'] = output_path
+
+    if not local_images:
+        url, namespace = push_images(base_path, engine_obj, config, save_conductor=False, **params)
+        params['url'] = url
+        params['namespace'] = namespace
+
+    if config.get('settings', {}).get('k8s_auth'):
+        params['k8s_auth'] = config['settings']['k8s_auth']
+
+    engine_obj.await_conductor_command(
+        'deploy', dict(config), base_path, params,
+        save_container=config.get('settings', {}).get('save_conductor_container', False))
 
 @host_only
 def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
@@ -158,21 +194,30 @@ def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
     assert_initialized(base_path)
     logger.debug('Got extra args to `run` command', arguments=kwargs)
     config = get_config(base_path, var_file=var_file)
-    logger.debug('Load engine: {}'.format(engine_name))
+    devel = kwargs.get('devel', False)
     engine_obj = load_engine(['RUN'],
                              engine_name, project_name or os.path.basename(base_path),
                              config['services'], **kwargs)
-    if not engine_obj.CAP_RUN:
-        msg = u'{} does not support the `run` command'.format(engine_obj.display_name)
-        logger.error(msg, engine=engine_obj.display_name)
-        raise Exception(msg)
 
-    deployment_path = config.get('settings', {}).get('deployment_output_path', DEFAULT_DEPLOYMENT_PATH)
-    deployment_path = os.path.normpath(os.path.expanduser(deployment_path))
     params = dict()
     if kwargs:
         params.update(kwargs)
-    params['deployment_output_path'] = deployment_path
+
+    if devel:
+        deployment_path = config.get('settings', {}).get('deployment_output_path', DEFAULT_DEPLOYMENT_PATH)
+        deployment_path = os.path.normpath(os.path.expanduser(deployment_path))
+        params['deployment_output_path'] = deployment_path
+
+    if config.get('settings', {}).get('k8s_auth'):
+        params['k8s_auth'] = config['settings']['k8s_auth']
+
+    # If you ran build with --save-build-container, then you're broken without first removing
+    #  the old build container.
+    remove_existing_container(engine_obj, 'conductor')
+
+    engine_obj.await_conductor_command(
+        'run', dict(config), base_path, params,
+        save_container=config.get('settings', {}).get('save_conductor_container', False))
 
 @host_only
 def hostcmd_destroy(base_path, project_name, engine_name, var_file=None, cache=True,
@@ -192,7 +237,7 @@ def hostcmd_destroy(base_path, project_name, engine_name, var_file=None, cache=T
 
     engine_obj.await_conductor_command(
         'destroy', dict(config), base_path, kwargs,
-        save_container=config.get('settings', {}).get('save_build_container', False))
+        save_container=config.get('settings', {}).get('save_conductor_container', False))
 
 @host_only
 def hostcmd_stop(base_path, project_name, engine_name, force=False, services=[],
@@ -204,7 +249,7 @@ def hostcmd_stop(base_path, project_name, engine_name, force=False, services=[],
 
     engine_obj.await_conductor_command(
         'stop', dict(config), base_path, kwargs,
-        save_container=config.get('settings', {}).get('save_build_container', False))
+        save_container=config.get('settings', {}).get('save_conductor_container', False))
 
 
 @host_only
@@ -217,7 +262,7 @@ def hostcmd_restart(base_path, project_name, engine_name, force=False, services=
 
     engine_obj.await_conductor_command(
         'restart', dict(config), base_path, kwargs,
-        save_container=config.get('settings', {}).get('save_build_container', False))
+        save_container=config.get('settings', {}).get('save_conductor_container', False))
 
 
 @host_only
@@ -233,15 +278,24 @@ def hostcmd_push(base_path, project_name, engine_name, var_file=None, **kwargs):
     engine_obj = load_engine(['LOGIN', 'PUSH'],
                              engine_name, project_name or os.path.basename(base_path),
                              config['services'], **kwargs)
+    push_images(base_path,
+                engine_obj,
+                config,
+                save_conductor=config.get('settings', {}).get('save_conductor_container', False),
+                **kwargs)
 
+
+@host_only
+def push_images(base_path, engine_obj, config, save_conductor=False, **kwargs):
+    """ Pushes images to a Docker registry. Returns (url, namespace) used to push images. """
     config_path = kwargs.get('config_path', engine_obj.auth_config_path)
     username = kwargs.get('username')
     password = kwargs.get('password')
     push_to = kwargs.get('push_to')
-
     url = engine_obj.default_registry_url
     registry_name = engine_obj.default_registry_name
     namespace = None
+
     if push_to:
         if config.get('registries', dict()).get(push_to):
             url = config['registries'][push_to].get('url')
@@ -289,20 +343,10 @@ def hostcmd_push(base_path, project_name, engine_name, var_file=None, **kwargs):
     push_params['url'] = url
     push_params['namespace'] = namespace
 
-    conductor_container_id = engine_obj.run_conductor('push', dict(config), base_path, push_params)
+    engine_obj.await_conductor_command(
+        'push', dict(config), base_path, push_params, save_container=save_conductor)
 
-    try:
-        while engine_obj.service_is_running('conductor'):
-            time.sleep(0.1)
-    finally:
-        if not config.get('settings', {}).get('save_build_container', False):
-            logger.info('Conductor terminated. Cleaning up.')
-            if engine_obj.service_is_running('conductor'):
-                engine_obj.stop_container(conductor_container_id, forcefully=True)
-            engine_obj.delete_container(conductor_container_id)
-        else:
-            logger.info('Conductor terminated. Preserving as requested.')
-
+    return url, namespace
 
 # def hostcmd_shipit(base_path, engine_name, pull_from=None, **kwargs):
 #     assert_initialized(base_path)
@@ -646,7 +690,7 @@ def conductorcmd_run(engine_name, project_name, services, **kwargs):
 
     engine.containers_built_for_services(services)
     logger.debug("In conductorcmd_run", kwargs=kwargs)
-    playbook = engine.generate_orchestration_playbook()
+    playbook = engine.generate_orchestration_playbook(**kwargs)
     logger.debug("in conductorcmd_run", playbook=playbook)
     rc = run_playbook(playbook, engine, services, **kwargs)
     logger.info(u'All services running.', playbook_rc=rc)
@@ -699,10 +743,10 @@ def conductorcmd_destroy(engine_name, project_name, services, **kwargs):
 
 
 @conductor_only
-def conductorcmd_deploy(engine_name, project_name, services, repository_data, playbook_dest, **kwargs):
-    engine = load_engine(engine_name, project_name, services)
+def conductorcmd_deploy(engine_name, project_name, services, **kwargs):
+    engine = load_engine(['DEPLOY'], engine_name, project_name, services)
     logger.info(u'Engine integration loaded. Preparing deploy.',
-                engine=engine.display_name())
+                engine=engine.display_name)
 
     # Verify all images are built
     for service_name in services:
@@ -712,18 +756,11 @@ def conductorcmd_deploy(engine_name, project_name, services, repository_data, pl
             logger.error(u'Missing image. Run "ansible-container build" '
                          u'to (re)create it.', service=service_name)
             raise RuntimeError(u'Run failed.')
-
-    for service_name in services:
-        logger.info(u'Pushing image for service', service=service_name, repo_name=repository_data['name'])
-        image_id = engine.get_latest_image_id_for_service(service_name)
-        engine.push_image(image_id, service_name, repository_data)
-
-    logger.info(u'All images pushed.')
-
-    playbook = engine.generate_orchestration_playbook(repository=repository_data)
+    deployment_output_path = kwargs.get('deployment_output_path')
+    playbook = engine.generate_orchestration_playbook(**kwargs)
 
     try:
-        with open(os.path.join(playbook_dest, '%s.yml' % project_name), 'w') as ofs:
+        with open(os.path.join(deployment_output_path, '%s.yml' % project_name), 'w') as ofs:
             ofs.write(ruamel.yaml.round_trip_dump(playbook, indent=4, block_seq_indent=2, default_flow_style=False))
 
     except OSError:

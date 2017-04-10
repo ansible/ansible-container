@@ -1,13 +1,34 @@
 version: "2"
 settings:
-  # The deployment_output_path is mounted to the Conductor container, so
-  # that the `run` and `deployment` commands can write generated Ansible
-  # playbooks to it.
+  # The deployment_output_path is mounted to the conductor, allowing the `deploy` command
+  # to write deployment artificats to it.
   deployment_output_path: {{ deployment_output_path }}
   # The Conductor container does the heavy lifting, and provides a portable
   # Python runtime for building your target containers. It should be derived
   # from the same distribution as you're building your target containers with.
   conductor_base: {{ default_base }}
+
+  # When using the k8s or openshift engines, use the following to authorize with the API.
+  # Values set here will be passed to the Ansible modules. Any file paths will be mounted
+  # to the conductor container, allowing the `run` command to access the API.
+  #k8s_auth:
+    # path to a K8s config file
+    #config_file:
+    # name of a context found within the config.json file
+    #context:
+    # URL for accessing the K8s API
+    #host:
+    # An API authentication token
+    #api_key:
+    # Path to a ca cert file
+    #ssl_ca_cert:
+    # Path to a cert file
+    #cert_file:
+    # Path to a key file
+    #key_file:
+    #boolean, indicating if SSL certs should be validated
+    #verify_ssl:
+
 services: {}
   # Add your containers here, specifying the base image you want to build from
   # For example:
