@@ -98,7 +98,7 @@ class BaseEngine(object):
     def inspect_container(self, container_id):
         raise NotImplementedError()
 
-    def delete_container(self, container_id):
+    def delete_container(self, container_id, remove_volumes=False):
         raise NotImplementedError()
 
     def get_container_id_for_service(self, service_name):

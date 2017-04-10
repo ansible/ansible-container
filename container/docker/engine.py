@@ -274,7 +274,7 @@ class Engine(BaseEngine):
                 logger.info('Conductor terminated. Cleaning up.',
                             save_container=False, conductor_id=conductor_id,
                             command_rc=exit_code)
-                self.delete_container(conductor_id)
+                self.delete_container(conductor_id, remove_volumes=True)
             if exit_code:
                 raise exceptions.AnsibleContainerException(
                     u'Conductor exited with status %s' % exit_code)
@@ -315,13 +315,13 @@ class Engine(BaseEngine):
         except docker_errors.APIError:
             return None
 
-    def delete_container(self, container_id):
+    def delete_container(self, container_id, remove_volumes=False):
         try:
             to_delete = self.client.containers.get(container_id)
         except docker_errors.APIError:
             pass
         else:
-            to_delete.remove()
+            to_delete.remove(v=remove_volumes)
 
     def get_container_id_for_service(self, service_name):
         try:

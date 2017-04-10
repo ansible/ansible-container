@@ -30,5 +30,19 @@ class Deploy(K8sBaseDeploy):
         task[module_name]['state'] = state
         return task
 
+    def get_deployment_templates(self, default_api=None, defualt_kind=None, default_strategy=None):
+        return super(Deploy, self).get_deployment_templates(default_api='v1',
+                                                            default_kind='deployment_config',
+                                                            default_strategy='Rolling')
+
     def get_deployment_tasks(self, module_name=None):
-        return super(Deploy, self).get_deployment_tasks(module_name='openshift_v1_deployment_config')
+        tasks = super(Deploy, self).get_deployment_tasks(module_name='openshift_v1_deployment_config')
+        # Override default strategy type
+        for task in tasks:
+            task_details = task.get('openshift_v1_deployment_config')
+            if task_details.get('state', 'present') != 'absent':
+                if task_details.get('resource_definition', {}) \
+                        .get('spec', {}).get('strategy', {}).get('type') == 'RollingUpdate':
+                    task['openshift_v1_deployment_config']['resource_definition']['spec'] \
+                        ['strategy']['type'] = 'Rolling'
+        return tasks

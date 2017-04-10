@@ -224,7 +224,8 @@ class K8sBaseDeploy(object):
         BLOCK_SUSPEND='CAP_BLOCK_SUSPEND'
     )
 
-    def get_deployment_templates(self):
+    @abstractmethod
+    def get_deployment_templates(self, default_api=None, default_kind=None, default_strategy=None):
 
         def _service_to_container(name, service):
             container = CommentedMap()
@@ -320,8 +321,8 @@ class K8sBaseDeploy(object):
 
             if state == 'present':
                 template = CommentedMap()
-                template['apiVersion'] = "extensions/v1beta1"
-                template['kind'] = 'Deployment'
+                template['apiVersion'] = default_api
+                template['kind'] = default_kind
                 template['metadata'] = CommentedMap([
                     ('name', name),
                     ('labels', copy.deepcopy(labels)),
@@ -333,8 +334,8 @@ class K8sBaseDeploy(object):
                 template['spec']['template']['spec'] = CommentedMap([
                     ('containers', [container])    # TODO: allow multiple pods in a container
                 ])
-                template['spec']['template']['replicas'] = 1
-                template['spec']['template']['strategy'] = CommentedMap([('type', 'RollingUpate')])
+                template['spec']['replicas'] = 1
+                template['spec']['strategy'] = CommentedMap([('type', default_strategy)])
 
                 if volumes:
                     template['spec']['template']['spec']['volumes'] = volumes
@@ -343,7 +344,8 @@ class K8sBaseDeploy(object):
                     for key, value in pod.items():
                         if key == 'replicas':
                             template['spec'][key] = value
-                            break
+                        elif key == 'strategy_type':
+                            template['spec']['strategy']['type'] = value
 
                 templates.append(template)
         return templates
@@ -433,7 +435,7 @@ class K8sBaseDeploy(object):
                     port=int(port),
                     targetPort=int(port),
                     protocol=protocol,
-                    name='port-%s-%s' % (port, protocol.upper())
+                    name='port-%s-%s' % (port, protocol.lower())
                 ))
 
         for port in service.get('ports', []):

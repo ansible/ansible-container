@@ -213,7 +213,7 @@ def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
 
     # If you ran build with --save-build-container, then you're broken without first removing
     #  the old build container.
-    remove_existing_container(engine_obj, 'conductor')
+    remove_existing_container(engine_obj, 'conductor', remove_volumes=True)
 
     engine_obj.await_conductor_command(
         'run', dict(config), base_path, params,
@@ -334,7 +334,7 @@ def push_images(base_path, engine_obj, config, save_conductor=False, **kwargs):
 
     # If you ran build with --save-build-container, then you're broken without first removing
     #  the old build container.
-    remove_existing_container(engine_obj, 'conductor')
+    remove_existing_container(engine_obj, 'conductor', remove_volumes=True)
 
     push_params = {}
     push_params.update(kwargs)
@@ -440,7 +440,7 @@ def hostcmd_import(base_path, project_name, engine_name, **kwargs):
 
 
 @host_only
-def remove_existing_container(engine_obj, service_name):
+def remove_existing_container(engine_obj, service_name, remove_volumes=False):
     """
     Remove a container for an existing service. Handy for removing an existing conductor.
     """
@@ -448,7 +448,7 @@ def remove_existing_container(engine_obj, service_name):
     if engine_obj.service_is_running(service_name):
         engine_obj.stop_container(conductor_container_id, forcefully=True)
     if conductor_container_id:
-        engine_obj.delete_container(conductor_container_id)
+        engine_obj.delete_container(conductor_container_id, remove_volumes=remove_volumes)
 
 
 @host_only
