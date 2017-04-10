@@ -32,7 +32,6 @@ from container.utils.loader import load_engine
 
 REMOVE_HTTP = re.compile('^https?://')
 DEFAULT_CONDUCTOR_BASE = 'centos:7'
-DEFAULT_DEPLOYMENT_PATH = '~/ansible-deployment/'
 
 
 @host_only
@@ -146,14 +145,15 @@ def hostcmd_build(base_path, project_name, engine_name, var_file=None,
     if conductor_container_id:
         engine_obj.delete_container(conductor_container_id)
 
-    save_container=config.get('settings', {}).get('save_conductor_container', False)
+    logger.debug('Config settings', config=config, rawsettings=config.get('settings'),
+                 tconf=type(config), settings=config.get('settings', {}))
+    save_container = config.get('settings', {}).get('save_conductor_container', False)
     if kwargs.get('save_conductor_container'):
         # give precedence to CLI option
         save_container = True
 
     engine_obj.await_conductor_command(
         'build', dict(config), base_path, kwargs, save_container=save_container)
-
 
 @host_only
 def hostcmd_deploy(base_path, project_name, engine_name, var_file=None, cache=True,
@@ -172,7 +172,7 @@ def hostcmd_deploy(base_path, project_name, engine_name, var_file=None, cache=Tr
         params.update(kwargs)
 
     if not output_path:
-        output_path = config.get('settings', {}).get('deployment_output_path', DEFAULT_DEPLOYMENT_PATH)
+        output_path = config.deployment_path
     output_path = os.path.normpath(os.path.expanduser(output_path))
     params['deployment_output_path'] = output_path
 
@@ -194,26 +194,24 @@ def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
     assert_initialized(base_path)
     logger.debug('Got extra args to `run` command', arguments=kwargs)
     config = get_config(base_path, var_file=var_file)
-    devel = kwargs.get('devel', False)
+
     engine_obj = load_engine(['RUN'],
                              engine_name, project_name or os.path.basename(base_path),
                              config['services'], **kwargs)
 
-    params = dict()
-    if kwargs:
-        params.update(kwargs)
-
-    if devel:
-        deployment_path = config.get('settings', {}).get('deployment_output_path', DEFAULT_DEPLOYMENT_PATH)
-        deployment_path = os.path.normpath(os.path.expanduser(deployment_path))
-        params['deployment_output_path'] = deployment_path
-
-    if config.get('settings', {}).get('k8s_auth'):
-        params['k8s_auth'] = config['settings']['k8s_auth']
-
     # If you ran build with --save-build-container, then you're broken without first removing
     #  the old build container.
     remove_existing_container(engine_obj, 'conductor', remove_volumes=True)
+
+    params = {
+        'deployment_output_path': config.deployment_path,
+        'host_user_uid': os.getuid(),
+        'host_user_gid': os.getgid(),
+    }
+    if config.get('settings', {}).get('k8s_auth'):
+        params['k8s_auth'] = config['settings']['k8s_auth']
+    if kwargs:
+        params.update(kwargs)
 
     engine_obj.await_conductor_command(
         'run', dict(config), base_path, params,
@@ -483,6 +481,8 @@ def resolve_push_to(push_to, default_url):
 @conductor_only
 def run_playbook(playbook, engine, service_map, ansible_options='',
                  python_interpreter=None, debug=False, deployment_output_path=None, **kwargs):
+    uid, gid = kwargs.get('host_user_uid', 1), kwargs.get('host_user_gid', 1)
+
     try:
         if deployment_output_path:
             remove_tmpdir = False
@@ -490,6 +490,9 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
         else:
             remove_tmpdir = True
             output_dir = tempfile.mkdtemp()
+
+        os.chown(output_dir, uid, gid)
+
         playbook_path = os.path.join(output_dir, 'playbook.yml')
         logger.debug("writing playbook to {}".format(playbook_path))
         with open(playbook_path, 'w') as ofs:
@@ -506,6 +509,16 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
             os.mkdir(os.path.join(output_dir, 'files'))
         if not os.path.exists(os.path.join(output_dir, 'templates')):
             os.mkdir(os.path.join(output_dir, 'templates'))
+
+        for root, dirs, files in os.walk(output_dir):
+            for d in dirs:
+                logger.debug('found dir %s', os.path.join(root, d))
+                os.chown(os.path.join(root, d), uid, gid)
+            for f in files:
+                logger.debug('found file %s', os.path.join(root, f))
+                os.chown(os.path.join(root, f), uid, gid)
+
+
         rc = subprocess.call(['mount', '--bind', '/src',
                               os.path.join(output_dir, 'files')])
         if rc:
@@ -702,7 +715,7 @@ def conductorcmd_restart(engine_name, project_name, services, **kwargs):
     logger.info(u'Engine integration loaded. Preparing to restart containers.',
                 engine=engine.display_name)
     playbook = engine.generate_restart_playbook()
-    rc = run_playbook(playbook, engine, services)
+    rc = run_playbook(playbook, engine, {})
     logger.info(u'All services restarted.', playbook_rc=rc)
 
 
@@ -712,7 +725,7 @@ def conductorcmd_stop(engine_name, project_name, services, **kwargs):
     logger.info(u'Engine integration loaded. Preparing to stop all containers.',
                 engine=engine.display_name)
     playbook = engine.generate_stop_playbook()
-    rc = run_playbook(playbook, engine, services)
+    rc = run_playbook(playbook, engine, {})
     logger.info(u'All services stopped.', playbook_rc=rc)
 
 
@@ -738,7 +751,7 @@ def conductorcmd_destroy(engine_name, project_name, services, **kwargs):
                     }
                 })
 
-    rc = run_playbook(playbook, engine, services)
+    rc = run_playbook(playbook, engine, {})
     logger.info(u'All services destroyed.', playbook_rc=rc)
 
 

@@ -6,6 +6,7 @@ logger = getLogger(__name__)
 
 from io import BytesIO
 import os
+from os import path
 import json
 import six
 
@@ -40,8 +41,21 @@ class AnsibleContainerConfig(Mapping):
     def __init__(self, base_path, var_file=None):
         self.base_path = base_path
         self.var_file = var_file
-        self.config_path = os.path.join(self.base_path, 'container.yml')
+        self.config_path = path.join(self.base_path, 'container.yml')
         self.set_env('prod')
+
+    @property
+    def deployment_path(self):
+        return (self['settings'] or {}).get(
+            'deployment_output_path',
+            path.normpath(
+                path.abspath(
+                    path.expanduser(
+                        path.join(self.base_path, 'ansible-deployment/')
+                    )
+                )
+            )
+        )
 
     def set_env(self, env):
         """
@@ -92,7 +106,8 @@ class AnsibleContainerConfig(Mapping):
             defaults.update(self._get_environment_variables())
         logger.debug(u'Resolved template variables', template_vars=defaults)
 
-    def _get_environment_variables(self):
+    @staticmethod
+    def _get_environment_variables():
         '''
         Look for any environment variables that start with 'AC_'. Returns dict of key:value pairs, where the
         key is the result of removing 'AC_' from the variable name and converting the remainder to lowercase.
@@ -102,8 +117,8 @@ class AnsibleContainerConfig(Mapping):
         '''
         logger.debug(u'Getting environment variables...')
         env_vars = yaml.compat.ordereddict()
-        for var, value in [(k, v) for k, v in six.iteritems(os.environ)
-                           if k.startswith('AC_')]:
+        for var, value in ((k, v) for k, v in os.environ.items()
+                           if k.startswith('AC_')):
             env_vars[var[3:].lower()] = value
         logger.debug(u'Read environment variables', env_vars=env_vars)
         return env_vars
@@ -115,15 +130,15 @@ class AnsibleContainerConfig(Mapping):
 
         :return: ruamel.yaml.compat.ordereddict
         """
-        abspath = os.path.abspath(self.var_file)
-        if not os.path.exists(abspath):
-            dirname, filename = os.path.split(abspath)
+        abspath = path.abspath(self.var_file)
+        if not path.exists(abspath):
+            dirname, filename = path.split(abspath)
             raise AnsibleContainerConfigException(
                 u'Variables file "%s" not found. (I looked in "%s" for it.)' % (
                     filename, dirname))
         logger.debug("Use variable file: %s", abspath, file=abspath)
 
-        if os.path.splitext(abspath)[-1].lower().endswith(('yml', 'yaml')):
+        if path.splitext(abspath)[-1].lower().endswith(('yml', 'yaml')):
             try:
                 config = yaml.round_trip_load(open(abspath))
             except yaml.YAMLError as exc:
@@ -161,7 +176,7 @@ class AnsibleContainerConfig(Mapping):
                     logger.warning("Version '1' is deprecated. Consider upgrading to version '2'.")
 
     def __getitem__(self, item):
-        return self._config.get(item)
+        return self._config.get(item, yaml.compat.ordereddict())
 
     def __iter__(self):
         return iter(self._config)

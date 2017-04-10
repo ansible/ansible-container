@@ -90,6 +90,18 @@ class Engine(BaseEngine):
     CAP_PUSH = True
     CAP_RUN = True
 
+    COMPOSE_WHITELIST = (
+        'links', 'depends_on', 'cap_add', 'cap_drop', 'command', 'devices',
+        'dns', 'dns_opt', 'tmpfs', 'entrypoint', 'external_links', 'labels',
+        'links', 'logging', 'log_opt', 'networks', 'network_mode',
+        'pids_limit', 'ports', 'security_opt', 'stop_grace_period',
+        'stop_signal', 'sysctls', 'ulimits', 'userns_mode', 'volumes',
+        'volume_driver', 'volumes_from', 'cpu_shares', 'cpu_quota', 'cpuset',
+        'domainname', 'hostname', 'ipc', 'mac_address', 'mem_limit',
+        'memswap_limit', 'mem_swappiness', 'mem_reservation', 'oom_score_adj',
+        'privileged', 'read_only', 'restart', 'shm_size', 'stdin_open', 'tty',
+        'user', 'working_dir',
+    )
     display_name = u'Docker\u2122 daemon'
 
     _client = None
@@ -107,8 +119,6 @@ class Engine(BaseEngine):
                     raise exceptions.AnsibleContainerDockerConnectionRefused()
                 else:
                     raise
-            except:
-                raise
         return self._client
 
     @property
@@ -470,9 +480,9 @@ class Engine(BaseEngine):
             service_definition = {
                 u'image': image.tags[0],
             }
-            for extra in ('links', 'depends_on'):
+            for extra in self.COMPOSE_WHITELIST:
                 if extra in service:
-                    service_definition[extra] = list(service[extra])
+                    service_definition[extra] = service[extra]
             logger.debug(u'Adding new service to definition',
                          service=service_name, definition=service_definition)
             service_def[service_name] = service_definition

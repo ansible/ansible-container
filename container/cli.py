@@ -17,7 +17,6 @@ import container
 from . import core
 from . import config
 from . import exceptions
-from .core import DEFAULT_DEPLOYMENT_PATH
 from container.config import AnsibleContainerConductorConfig
 
 from logging import config
@@ -151,8 +150,8 @@ class HostCommand(object):
         #                        nargs='*')
         subparser.add_argument('--output-path', action='store',
                                help=u'Path where deployment artifacts will be written. '
-                                    u'Defaults to {}'.format(DEFAULT_DEPLOYMENT_PATH),
-                               default=DEFAULT_DEPLOYMENT_PATH, dest='deployment_output_path')
+                                    u'Defaults to [project path]/ansible-deployment',
+                               default=None, dest='deployment_output_path')
         subparser.add_argument('--local-images', action='store_true',
                                help=u'Prevents images from being pushed to the default registry',
                                default=False, dest='local_images')
