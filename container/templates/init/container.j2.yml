@@ -29,6 +29,14 @@ settings:
     #boolean, indicating if SSL certs should be validated
     #verify_ssl:
 
+  # When using the k8s or openshift engines, use the following to set the namespace.
+  # If not set, the project name will be used. For openshift, the namespace maps to a project,
+  # and description and display_name are supported.
+  #k8s_namespace:
+  #  name:
+  #  description:
+  #  display_name:
+
 services: {}
   # Add your containers here, specifying the base image you want to build from
   # For example:

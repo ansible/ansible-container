@@ -80,7 +80,7 @@ class BaseEngine(object):
         raise NotImplementedError()
 
     @host_only
-    def run_conductor(self, command, config, base_path, params):
+    def run_conductor(self, command, config, base_path, params, engine_name=None, volumes=None):
         raise NotImplementedError()
 
     def service_is_running(self, service):
