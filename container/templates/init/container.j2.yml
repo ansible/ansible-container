@@ -3,7 +3,7 @@ settings:
   # The deployment_output_path is mounted to the Conductor container, so
   # that the `run` and `deployment` commands can write generated Ansible
   # playbooks to it.
-  deployment_output_path: {{ deployment_output_path }}
+  # deployment_output_path: ~/ansible-deployment
   # The Conductor container does the heavy lifting, and provides a portable
   # Python runtime for building your target containers. It should be derived
   # from the same distribution as you're building your target containers with.
