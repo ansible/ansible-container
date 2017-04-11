@@ -174,9 +174,12 @@ class AnsibleContainerConfig(Mapping):
                     raise AnsibleContainerConfigException("requested version is not supported")
                 if config['version'] == '1':
                     logger.warning("Version '1' is deprecated. Consider upgrading to version '2'.")
+            else:
+                if config[top_level] is None:
+                    config[top_level] = yaml.compat.ordereddict()
 
     def __getitem__(self, item):
-        return self._config.get(item, yaml.compat.ordereddict())
+        return self._config[item]
 
     def __iter__(self):
         return iter(self._config)

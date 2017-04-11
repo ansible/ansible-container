@@ -134,7 +134,7 @@ def hostcmd_build(base_path, project_name, engine_name, var_file=None,
         if engine_obj.CAP_BUILD_CONDUCTOR:
             engine_obj.build_conductor_image(
                 base_path,
-                (config['settings'] or {}).get('conductor_base', DEFAULT_CONDUCTOR_BASE),
+                config.get('settings', {}).get('conductor_base', DEFAULT_CONDUCTOR_BASE),
                 cache=kwargs['cache']
             )
         else:
