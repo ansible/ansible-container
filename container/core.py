@@ -156,13 +156,13 @@ def hostcmd_build(base_path, project_name, engine_name, var_file=None,
         'build', dict(config), base_path, kwargs, save_container=save_container)
 
 @host_only
-def hostcmd_deploy(base_path, project_name, engine_name, var_file=None, cache=True,
-                **kwargs):
+def hostcmd_deploy(base_path, project_name, engine_name, var_file=None,
+                   cache=True, **kwargs):
     assert_initialized(base_path)
     logger.debug('Got extra args to `deploy` command', arguments=kwargs)
     config = get_config(base_path, var_file=var_file)
     local_images = kwargs.get('local_images')
-    output_path = kwargs.get('deployment_output_path')
+    output_path = kwargs.get('deployment_output_path') or config.deployment_path
 
     engine_obj = load_engine(['LOGIN', 'PUSH', 'DEPLOY'],
                              engine_name, project_name or os.path.basename(base_path),
@@ -171,10 +171,7 @@ def hostcmd_deploy(base_path, project_name, engine_name, var_file=None, cache=Tr
     if kwargs:
         params.update(kwargs)
 
-    if not output_path:
-        output_path = config.deployment_path
-    output_path = os.path.normpath(os.path.expanduser(output_path))
-    params['deployment_output_path'] = output_path
+    params['deployment_output_path'] = os.path.normpath(os.path.expanduser(output_path))
 
     if not local_images:
         url, namespace = push_images(base_path, engine_obj, config, save_conductor=False, **params)
