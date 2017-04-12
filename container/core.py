@@ -497,7 +497,7 @@ def resolve_push_to(push_to, default_url):
 
 @conductor_only
 def run_playbook(playbook, engine, service_map, ansible_options='',
-                 python_interpreter=None, debug=False, deployment_output_path=None, **kwargs):
+                 python_interpreter=None, debug=False, deployment_output_path=None, tags=None, **kwargs):
     uid, gid = kwargs.get('host_user_uid', 1), kwargs.get('host_user_gid', 1)
 
     try:
@@ -551,6 +551,10 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
                             engine_args=engine.ansible_args,
                             ansible_playbook=engine.ansible_exec_path,
                             ansible_options=ansible_options or '')
+        if tags:
+            ansible_args['ansible_options'] += ' --tags={} '.format(','.join(tags))
+        else:
+            pass
         # env = os.environ.copy()
         # env['ANSIBLE_REMOTE_TEMP'] = '/tmp/.ansible-${USER}/tmp'
 
@@ -717,12 +721,12 @@ def conductorcmd_run(engine_name, project_name, services, **kwargs):
     engine = load_engine(['RUN'], engine_name, project_name, services, **kwargs)
     logger.info(u'Engine integration loaded. Preparing run.',
                 engine=engine.display_name)
-
     engine.containers_built_for_services(services)
+
     logger.debug("In conductorcmd_run", kwargs=kwargs)
     playbook = engine.generate_orchestration_playbook(**kwargs)
     logger.debug("in conductorcmd_run", playbook=playbook)
-    rc = run_playbook(playbook, engine, services, **kwargs)
+    rc = run_playbook(playbook, engine, services, tags=['start'], **kwargs)
     logger.info(u'All services running.', playbook_rc=rc)
 
 
@@ -731,8 +735,8 @@ def conductorcmd_restart(engine_name, project_name, services, **kwargs):
     engine = load_engine(['RUN'], engine_name, project_name, services, **kwargs)
     logger.info(u'Engine integration loaded. Preparing to restart containers.',
                 engine=engine.display_name)
-    playbook = engine.generate_restart_playbook(**kwargs)
-    rc = run_playbook(playbook, engine, {}, **kwargs)
+    playbook = engine.generate_orchestration_playbook(**kwargs)
+    rc = run_playbook(playbook, engine, services, tags=['restart'])
     logger.info(u'All services restarted.', playbook_rc=rc)
 
 
@@ -741,8 +745,8 @@ def conductorcmd_stop(engine_name, project_name, services, **kwargs):
     engine = load_engine(['RUN'], engine_name, project_name, services, **kwargs)
     logger.info(u'Engine integration loaded. Preparing to stop all containers.',
                 engine=engine.display_name)
-    playbook = engine.generate_stop_playbook(**kwargs)
-    rc = run_playbook(playbook, engine, {}, **kwargs)
+    playbook = engine.generate_orchestration_playbook(**kwargs)
+    rc = run_playbook(playbook, engine, services, tags=['stop'])
     logger.info(u'All services stopped.', playbook_rc=rc)
 
 
@@ -752,24 +756,8 @@ def conductorcmd_destroy(engine_name, project_name, services, **kwargs):
     logger.info(u'Engine integration loaded. Preparing to stop+delete all '
                 u'containers and built images.',
                 engine=engine.display_name)
-
-    playbook = engine.generate_destroy_playbook(**kwargs)
-
-    for service in list(services.keys()) + ['conductor']:
-        image_name = engine.image_name_for_service(service)
-        for image in engine.client.images.list(name=image_name):
-            logger.debug('Found image for service', tags=image.tags, id=image.short_id)
-            for tag in image.tags:
-                logger.debug('Adding task to destroy image', tag=tag)
-                playbook[0][u'tasks'].append({
-                    u'docker_image': {
-                        u'name': tag,
-                        u'state': u'absent',
-                        u'force': u'yes'
-                    }
-                })
-
-    rc = run_playbook(playbook, engine, {}, **kwargs)
+    playbook = engine.generate_orchestration_playbook(**kwargs)
+    rc = run_playbook(playbook, engine, services, tags=['destroy'])
     logger.info(u'All services destroyed.', playbook_rc=rc)
 
 

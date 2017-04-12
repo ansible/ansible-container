@@ -453,25 +453,7 @@ class Engine(BaseEngine):
         :param local_images: bypass pulling images, and use local copies
         :return: playbook dict
         """
-        return self._generate_service_playbook(('destroy', 'start'))
-
-    @conductor_only
-    def generate_restart_playbook(self):
-        return self._generate_service_playbook(('restart',))
-
-    @conductor_only
-    def generate_stop_playbook(self):
-        return self._generate_service_playbook(('stop',))
-
-    @conductor_only
-    def generate_destroy_playbook(self):
-        return self._generate_service_playbook(('destroy',))
-
-    def _generate_service_playbook(self, states):
-        if set(states) - {'start', 'stop', 'destroy', 'restart'}:
-            msg = u'start/stop/destroy/restart are the only valid states for a service'
-            logger.error(msg)
-            raise ValueError(msg)
+        states = ['start', 'restart', 'stop', 'destroy']
 
         service_def = {}
         for service_name, service in self.services.items():
@@ -509,13 +491,32 @@ class Engine(BaseEngine):
             elif desired_state == 'destroy':
                 task_params[u'state'] = u'absent'
 
-            tasks.append({u'docker_service': task_params})
+            if desired_state == 'stop':
+                tasks.append({u'docker_service': task_params, u'tags': ['stop', 'destroy']})
+            else:
+                tasks.append({u'docker_service': task_params, u'tags': [desired_state]})
 
         playbook = [{
             u'hosts': u'localhost',
             u'gather_facts': False,
             u'tasks': tasks,
         }]
+
+        for service in list(self.services.keys()) + ['conductor']:
+            image_name = self.image_name_for_service(service)
+            for image in self.client.images.list(name=image_name):
+                logger.debug('Found image for service', tags=image.tags, id=image.short_id)
+                for tag in image.tags:
+                    logger.debug('Adding task to destroy image', tag=tag)
+                    playbook[0][u'tasks'].append({
+                        u'docker_image': {
+                            u'name': tag,
+                            u'state': u'absent',
+                            u'force': u'yes'
+                        },
+                        u'tags': u'destroy'
+                    })
+
         logger.debug(u'Created playbook to run project', playbook=playbook)
         return playbook
 
