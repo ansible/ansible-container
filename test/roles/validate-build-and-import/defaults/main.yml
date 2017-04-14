@@ -8,6 +8,8 @@ distros:
     httpd_conf_src: "centos7/httpd.conf"
     httpd_conf_dest: "/etc/httpd/conf/httpd.conf"
     httpd_pageroot: "/var/www/html/"
+    httpd_logdir: "/var/log/httpd"
+    httpd_rundir: "/run/httpd"
     httpd_bin: "/usr/sbin/httpd"
     httpd_user: "apache"
 
@@ -18,10 +20,10 @@ distros:
     httpd_conf_src: "trusty/ports.conf"
     httpd_conf_dest: "/etc/apache2/ports.conf"
     httpd_pageroot: "/var/www/html/"
+    httpd_logdir: "/var/log/apache2"
+    httpd_rundir: "/run/apache2"
     httpd_bin: "/usr/sbin/apache2"
-    httpd_user: "apache"
-
-# Synchronize module not quite working on Alpine
+    httpd_user: "www-data"
 
 #  - name: "alpine"
 #    base_image: "alpine:3.5"
@@ -30,6 +32,7 @@ distros:
 #    httpd_conf_src: "alpine35/httpd.conf"
 #    httpd_conf_dest: "/etc/apache2/httpd.conf"
 #    httpd_pageroot: "/var/www/localhost/htdocs/"
+#    httpd_logdir: "/var/log/httpd"
 #    httpd_bin: "/usr/sbin/httpd"
 #    httpd_user: "apache"
 

@@ -6,4 +6,5 @@
   any_errors_fatal: true
   roles:
     - validate-build-and-import
+    - validate-start-stop-restart
 

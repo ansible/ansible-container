@@ -131,4 +131,4 @@ def test_run_with_newline():
 # ROLE DEFAULTS
 
 def test_apache_port_in_defaults():
-    assert role_defaults['apache_port'] == '80'
+    assert role_defaults['apache_port'] == '8000'

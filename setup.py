@@ -14,6 +14,14 @@ class PlaybookAsTests(TestCommand):
         self.ansible_args = u''
         TestCommand.initialize_options(self)
 
+    def run(self):
+        if sys.platform == 'darwin':
+            # Docker for Mac exports certain paths into the virtual machine
+            # actually running Docker. The default tempdir isn't one of them,
+            # but /tmp is.
+            os.environ['TMPDIR'] = '/tmp'
+        return TestCommand.run(self)
+
     def run_tests(self):
         import subprocess
         p = subprocess.Popen(
@@ -31,16 +39,17 @@ if container.ENV == 'host':
     setup_kwargs = dict(
         install_requires=[str(ir.req) for ir in install_reqs if ir.match_markers()],
         tests_require=[
-            'ansible==2.3.0.0',
+            'ansible==2.4.0',
             'pytest>=3',
-            'docker>=2.1'
+            'docker>=2.1',
+            'jmespath>=0.9'
         ],
         extras_require={
             'docker': ['docker>=2.1'],
             'docbuild': ['Sphinx>=1.5.0'],
         },
         dependency_links=[
-            'https://github.com/ansible/ansible/archive/v2.3.0.0-0.1.rc1.zip#egg=ansible-2.3.0.0'
+            'git+https://github.com/ansible/ansible@devel'
         ],
         cmdclass={'test': PlaybookAsTests},
         entry_points={

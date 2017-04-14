@@ -2,7 +2,10 @@ FROM {{ item.0.base_image }}
 
 # Uses shell module - should be two tasks
 RUN {{ item.0.package_update_command }} && \
-    {{ item.0.httpd_install_command }}
+    {{ item.0.httpd_install_command }} && \
+    chown -R {{ item.0.httpd_user }} {{ item.0.httpd_logdir }} && \
+    mkdir -p {{ item.0.httpd_rundir }} && \
+    chown -R {{ item.0.httpd_user }} {{ item.0.httpd_rundir }}
 
 # Install dumb-init from URL - get_url module
 ADD https://github.com/Yelp/dumb-init/releases/download/v1.0.2/dumb-init_1.0.2_amd64 /usr/sbin/dumb-init
@@ -20,7 +23,7 @@ COPY foo /
 RUN ["chmod", "755", "/usr/sbin/dumb-init"]
 
 # I am defaults
-ARG apache_port=80
+ARG apache_port=8000
 ENV APACHE_PORT=${apache_port}
 
 # Single label

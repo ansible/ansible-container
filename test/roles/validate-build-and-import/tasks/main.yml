@@ -12,7 +12,7 @@
     suffix: "{{ item.name }}"
   with_items: "{{ distros }}"
   register: tempdirs
-  notify: "Cleanup temp dirs"
+  # notify: "Cleanup temp dirs"
   tags: always
 
 - name: Make context dirs
