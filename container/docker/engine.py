@@ -38,7 +38,11 @@ try:
     from docker.utils.ports import build_port_bindings
     from docker.errors import DockerException
 except ImportError:
-    raise ImportError('Use of this engine requires you "pip install \'docker>=2.1\'" first.')
+    raise ImportError(
+        u'You must install Ansible Container with Docker\u2122 support. '
+        u'Try:\npip install ansible-container==%s[docker]' % (
+        container.__version__
+    ))
 
 TEMPLATES_PATH = os.path.normpath(
     os.path.join(

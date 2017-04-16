@@ -1,40 +1,40 @@
 Getting Started
 ===============
 
-A project in Ansible Container is called an **app**. It contains all of the source and
-files for use inside of your project, as well as the Ansible Container build and orchestration
-instructions. The Ansible Container files are contained in the ``ansible/`` directory.
+Projects in Ansible Container are identified by their path in the filesystem.
+The project path contains all of the source and files for use inside of your
+project, as well as the Ansible Container build and orchestration
+instructions.
 
 
 Dipping a Toe In - Starting from Scratch
 ----------------------------------------
 
-Ansible Container provides a convenient way to start your app by simply running ``ansible-container init`` from within
-your project directory, which creates:
+Ansible Container provides a convenient way to start your app by simply running
+``ansible-container init`` from within your project directory, which creates:
 
 .. code-block:: bash
 
-    ansible/
+    ./
        container.yml
-       main.yml
        meta.yml
-       requirements.txt
+       ansible-requirements.txt
        requirements.yml
        ansible.cfg
 
 Other ``ansible-container`` subcommands enable the container development workflow:
 
-* ``ansible-container build`` initiates the build process. It uses an Ansible Container Builder
-  container and also runs instances of your base container images as
-  specified in ``container.yml``. The Builder container runs the playbook ``main.yml`` against them,
-  committing the results as new images. Ansible communicates with the other containers through the
-  container engine, not through SSH.
+* ``ansible-container build`` initiates the build process. It builds and launches
+  a special container called the Conductor container. The Conductor then runs
+  instances of your base container images as specified in ``container.yml``.
+  The Conductor container applies `Ansible roles <https://docs.ansible.com/ansible/playbooks_roles.html>`_
+  against them, committing each role as new image layers. Ansible communicates
+  with the other containers through the container engine, not through SSH.
 * ``ansible-container run`` orchestrates containers from your built images together as described
-  by the ``container.yml`` file. In your development environment, the ``container.yml``
-  can specify overrides to make development faster without having to rebuild images
-  for every code change.
-* ``ansible-container push`` uploads your built images to a container registry of your choice.
-* ``ansible-container shipit`` generates an Ansible Role to orchestrate containers from
+  by the ``container.yml`` file. The ``container.yml`` can specify overrides to
+  make development faster without having to rebuild images for every code change.
+* ``ansible-container deploy`` uploads your built images to a container registry
+  of your choice and generates an Ansible playbook to orchestrate containers from
   your built images in production container platforms, like Kubernetes or Red Hat OpenShift.
 
 So what goes into the files that make this work?
@@ -42,11 +42,9 @@ So what goes into the files that make this work?
 container.yml
 `````````````
 
-The ``container.yml`` file is very similar to the Docker Compose version 1 schema. Much like
-Docker Compose, this file describes the orchestration of your app. Ansible Container uses this file to determine
-what images to build, what containers to run and connect, and what images to push to your repository. Additionally, when
-Ansible Container generates an Ansible role to ship and orchestrate your images in the cloud, this file describes the
-configuration that role ensures is met.
+The ``container.yml`` file is a file in YAML-syntax that describes the services
+in your project, how to build and run them, the repositories to push them to,
+and more.
 
 By way of an example, consider the below ``container.yml`` file:
 
@@ -80,48 +78,32 @@ Things to note:
    a BrowserSync server for those assets, whereas in production Gulp would build those assets
    and exit.
 
-
-
-main.yml
-````````
-
-The ``main.yml`` file contains the playbook to use in building your containers. Ansible Container automatically provides an
-inventory with the hosts defined in your ``container.yml`` file. All Ansible features are available, and the ``ansible/``
-directory is the proper place to put any roles or modules that your playbook requires.
-
-For convenience the environment variable ``ANSIBLE_CONTAINER=1`` is set in any containers where ``main.yml`` executes. This
-may be useful in roles or includes where task execution needs to be conditional. For example:
-
-.. code-block:: yaml
-
-  - name: Only say hello when running via Ansible Container
-    command: echo "Hello!"
-    when: ansible_env.ANSIBLE_CONTAINER is defined
-
-Visit :doc:`roles/index` for best practices around writing and using roles within
-Ansible Container.
-
 meta.yml
 ````````
-Share your app on `Ansible Galaxy <https://galaxy.ansible.com>`_. Provide the requested information in ``meta.yml``, and
-then log into Galaxy and use the import feature to let the world know about your project.
+You can share your project on `Ansible Galaxy <https://galaxy.ansible.com>`_ for
+others to use as a template for building projects of their own. Provide the
+requested information in ``meta.yml``, and then log into Galaxy to import it into
+the Ansible Container project template registry.
 
-requirements.txt
-````````````````
-Running Ansible inside of your build container may have Python library dependencies that your modules require. Use
-the ``requirements.txt`` file to specify those dependencies. This file follows the standard `pip <https://pip.pypa.io/>`_
-format for Python dependencies. When your Ansible build container is created, these dependencies are installed prior
-to executing the playbook.
+ansible-requirements.txt
+````````````````````````
+Running Ansible inside of the Conductor container may have Python library
+dependencies that your modules require. Use the ``ansible-requirements.txt``
+file to specify those dependencies. This file follows the standard `pip <https://pip.pypa.io/>`_
+format for Python dependencies. When your Conductor container image is created,
+these dependencies are installed.
 
 requirements.yml
 ````````````````
-If your playbook has role dependencies, and you want the roles automatically installed from Galaxy or directly from
-version control, add them to ``requirements.yml``. For more information about ``requirements.yml`` see
+If the roles in your ``container.yml`` file are in Ansible Galaxy or a remote
+SCM repository, and your project depends upon them, add them to ``requirements.yml``.
+For more information about ``requirements.yml`` see
 `Installing Roles From a File <http://docs.ansible.com/ansible/galaxy.html#installing-multiple-roles-from-a-file>`_.
 
 ansible.cfg
 ```````````
-Set Ansible configuration settings within the build container. For more information see `Configuration File <http://docs.ansible.com/ansible/intro_configuration.html>`_.
+Set Ansible configuration settings within the build container. For more
+information see `Configuration File <http://docs.ansible.com/ansible/intro_configuration.html>`_.
 
 .. _example-project:
 

@@ -47,9 +47,12 @@ if container.ENV == 'host':
         extras_require={
             'docker': ['docker>=2.1'],
             'docbuild': ['Sphinx>=1.5.0'],
+            'openshift': ['openshift==1.0.0'],
+            'k8s': ['openshift==1.0.0']
         },
         dependency_links=[
-            'git+https://github.com/ansible/ansible@devel'
+            'https://github.com/ansible/ansible/archive/devel.tar.gz#egg=ansible-2.4.0',
+            'https://github.com/openshift/openshift-restclient-python/archive/master.tar.gz#egg=openshift-1.0.0'
         ],
         cmdclass={'test': PlaybookAsTests},
         entry_points={

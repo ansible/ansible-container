@@ -4,7 +4,7 @@ from __future__ import absolute_import
 from .deploy import Deploy
 from ..k8s.base_engine import K8sBaseEngine
 
-from container import conductor_only
+from container import conductor_only, __version__
 
 from container.utils.visibility import getLogger
 logger = getLogger(__name__)
@@ -13,12 +13,15 @@ logger = getLogger(__name__)
 try:
     from openshift.helper.openshift import OpenShiftObjectHelper, OpenShiftException
 except ImportError:
-    raise ImportError('Use of this engine requires you "pip install \'openshift\'" first.')
-
+    raise ImportError(
+        u'You must install Ansible Container with OpenShift\u2122 support. '
+        u'Try:\npip install ansible-container==%s[openshift]' % (
+        __version__
+    ))
 
 class Engine(K8sBaseEngine):
 
-    display_name = u'OpenShift'
+    display_name = u'OpenShift\u2122'
 
     @property
     def deploy(self):

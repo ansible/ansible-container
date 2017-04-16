@@ -10,27 +10,41 @@ Getting Ansible Container
 
 Prerequisites:
 
-* Python 2.7 or Python 3.5+
+* Python 2.7 or Python 3.5
 * `pip <https://pip.pypa.io/en/stable/installing/>`_
 * `setuptools 20.0.0+ <https://pypi.python.org/pypi/setuptools>`_
-* `Docker Engine <https://docs.docker.com/engine/installation/>`_, `Docker for Mac <https://docs.docker.com/engine/installation/mac/>`_,
-  or access to a Docker daemon.
 
-Then simply:
+Ansible Container relies upon supported container engines for building, running,
+and deploying your project. When you install Ansible Container, you must
+specify which engines you want your installation to support. Currently supported
+engines are:
+
+* ``docker`` - The `Docker Engine <https://docs.docker.com/engine/installation/>`_
+* ``k8s`` - `Kubernetes <https://kubernetes.io/docs/setup/pick-right-solution/>`_, on a
+  remote service or in a local installation using
+  `MiniKube <https://kubernetes.io/docs/getting-started-guides/minikube/>`_
+* ``openshift`` - `Red Hat OpenShift <https://developers.openshift.com/getting-started/index.html>`_,
+  on a remote service or in a local installation using
+  `MiniShift<https://www.openshift.org/minishift/>`_
+
+Specify the engines you wish supported by listing them comma separated in square
+brackets as part of your ``pip install`` command. For example, if you intended to
+use Docker for local container development but deploy your project into Kubernetes,
+you would want to install the ``docker`` and ``k8s`` engines like so:
 
 .. code-block:: bash
 
-    $ sudo pip install ansible-container
+    $ sudo pip install ansible-container[docker,k8s]
 
-If you do not have root privileges, you'll need to use a `virtualenv` to create a Python sandbox:
+If you do not have root privileges, you'll need to use a ``virtualenv`` to create a Python sandbox:
 
 .. code-block:: bash
 
-    $ virtualenv ansible-container
-    $ source ansible-container/bin/activate
-    $ pip install ansible-container
+    $ virtualenv venv
+    $ source venv/bin/activate
+    $ pip install ansible-container[docker,openshift]
 
-You'll need to run the `activate` script in each shell session prior to invoking `ansible-container`.
+You'll need to run the ``activate`` script in each shell session prior to invoking ``ansible-container``.
 See `the virtualenv docs <https://virtualenv.pypa.io/en/stable/>`_ for details.
 
 .. _running_from_source:
@@ -84,7 +98,7 @@ Use the following to upgrade to the latest release, and then run the install com
 
     $ pip install --upgrade setuptools
 
-You may need to run the above command with `sudo` if you're not using a `virtualenv`.
+You may need to run the above command with ``sudo`` if you're not using a ``virtualenv``.
 
 
 
