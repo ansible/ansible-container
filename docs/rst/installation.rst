@@ -25,7 +25,7 @@ engines are:
   `MiniKube <https://kubernetes.io/docs/getting-started-guides/minikube/>`_
 * ``openshift`` - `Red Hat OpenShift <https://developers.openshift.com/getting-started/index.html>`_,
   on a remote service or in a local installation using
-  `MiniShift<https://www.openshift.org/minishift/>`_
+  `MiniShift <https://www.openshift.org/minishift/>`_
 
 Specify the engines you wish supported by listing them comma separated in square
 brackets as part of your ``pip install`` command. For example, if you intended to

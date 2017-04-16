@@ -6,6 +6,28 @@ The project path contains all of the source and files for use inside of your
 project, as well as the Ansible Container build and orchestration
 instructions.
 
+.. _conductor_container:
+
+Conductor Container
+-------------------
+
+The heavy lifting of Ansible Container happens within a special container,
+generated during the ``build`` process, called the Conductor.
+
+It contains everything you need to build your target container images, including
+Ansible Core itself. Since Ansible requires a Python runtime on the hosts it
+is configuring, and so that you don't need to install Python on those target
+container images you are building, the Python runtime and all library dependencies
+are mounted from the build container into the target containers during builds.
+
+Because of this, the Conductor container is built upon a base image of your
+choice, and it's recommended that you select the same flavor of Linux distribution
+that your  target containers will be built from. For example, if you're building
+container images based on Alpine Linux, it's a good idea to use Alpine Linux as
+your Conductor container base image as well, so that what the Conductor exports
+to your target containers contains ``apk`` and other binary dependencies you will
+like need.
+
 
 Dipping a Toe In - Starting from Scratch
 ----------------------------------------
@@ -25,7 +47,7 @@ Ansible Container provides a convenient way to start your app by simply running
 Other ``ansible-container`` subcommands enable the container development workflow:
 
 * ``ansible-container build`` initiates the build process. It builds and launches
-  a special container called the Conductor container. The Conductor then runs
+  the :ref:`conductor_container`. The Conductor then runs
   instances of your base container images as specified in ``container.yml``.
   The Conductor container applies `Ansible roles <https://docs.ansible.com/ansible/playbooks_roles.html>`_
   against them, committing each role as new image layers. Ansible communicates
@@ -110,28 +132,28 @@ information see `Configuration File <http://docs.ansible.com/ansible/intro_confi
 Real World Usage - Starting from a Working Base Setup
 -----------------------------------------------------
 
-Most of the time, when you're starting a new app, you're probably using a fairly standard set of components
+Most of the time, when you're starting a new project, you're probably using a fairly standard set of components
 that all link together to form a working system. For example, if you're starting a new Wordpress app, you will
-likely want a container for Apache, one for MySQL, one for Memcache, and one for Wordpress itself. Ansible
-Container enables you to bootstrap a new app based on such skeletons, hosted on `Ansible Galaxy <http://galaxy.ansible.com/>`_.
+likely want a container for Apache, one for MySQL/MariaDB, one for Memcache, and one for Wordpress itself. Ansible
+Container enables you to bootstrap a new project based on such templates, hosted on `Ansible Galaxy <http://galaxy.ansible.com/>`_.
 
-Let's look at a working example. A basic `Django <http://djangoproject.com>`_ application would have the Django
+Let's look at a working example. A basic `Django <http://djangoproject.com>`_ application might have the Django
 application server, a static files server, a PostgreSQL database, and static assets compiled from sources using
-Gulp and Node.js. To pull the skeleton from Ansible Galaxy and bootstrap a new app based on it, run:
+Gulp and Node.js. To pull the template from Ansible Galaxy and bootstrap a new project based on it, run:
 
 .. code-block:: bash
 
   ansible-container init ansible.django-gulp-nginx
 
-From here, you can even build and run this app, even though it doesn't do a whole lot.
+From here, you can even build and run this project, even though it doesn't do a whole lot.
 
 .. code-block:: bash
 
   ansible-container build
   ansible-container run
 
-To take a deeper dive into what the skeleton app offers, it requires looking into the ``ansible/``
-directory, where we find the application orchestration and build instructions.
+To take a deeper dive into what the project template offers, it requires looking into the ``container.yml``
+file, where we find the application orchestration and build instructions.
 
 .. note::
 

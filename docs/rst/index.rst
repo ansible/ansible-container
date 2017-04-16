@@ -21,6 +21,7 @@ deployment.
 
    installation
    getting_started
+   migrating
    registry_auth
    reference/index
    container_yml/index
