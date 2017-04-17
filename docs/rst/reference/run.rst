@@ -4,8 +4,8 @@ run
 .. program:: ansible-container run
 
 The ``ansible-container run`` command launches the container orchestrator and runs
-the built containers with the configuration found in ``container.yml``. This is
-analogous to ``docker-compose run``.
+the built containers with the configuration found in ``container.yml``. For docker
+deploys, this is roughly analogous to ``docker-compose run``.
 
 .. note::
 
@@ -50,5 +50,5 @@ volume format.
 
 **New in version 0.2.0**
 
-If you have Ansible roles in a local path other than your `ansible/` directory that you wish to use
+If you have Ansible roles in a local path other than your ``roles/`` directory that you wish to use
 during your build/run/deploy, specify that path with this option.
