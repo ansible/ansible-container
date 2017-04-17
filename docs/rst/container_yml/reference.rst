@@ -6,14 +6,15 @@ file, defining the services that make up the application, the relationships betw
 from the outside world.
 
 However, the goal for ``container.yml`` is much more ambitious. It is to provide a single definition of the application
-that builds and deploys in development and in a production cloud environment. One source of configuration that works
+that builds and deploys in development and in a production cloud environment, providing one source of configuration that works
 throughout the application lifecycle.
 
 The structure and contents of the file are based on Docker Compose, supporting versions 1 and 2. Looking at a ``container.yml``
 file you will recognize it as mostly Compose with a few notable additions. There are of course directives that are not
 supported, because they do not translate to the supported clouds, and directives have been added to provide support for
-multiple environments and multiple clouds. So it is the aim of this document to provide a complete reference to Ansible
-Container Compose, the contents of ``container.yml``.
+multiple environments and multiple clouds.
+
+The aim of this document to provide a complete reference to the contents of ``container.yml``.
 
 .. contents:: Topics
 
@@ -27,10 +28,6 @@ version 1, 2 and 2.1 are listed along with any directives added by Ansible Conta
 column indicates that the directive is supported. In some cases the directive name links to specific implementation notes
 that provide details on how the directive is used.
 
-.. note::
-
-    Support of Compose V2 directives is new in Ansible Container 0.3.0. Earlier versions support V1 directives only.
-
 Top level directives
 ````````````````````
 
@@ -41,7 +38,9 @@ networks              Create named, persistent networks
 :ref:`registries`     Registry definitions                                     |checkmark|
 services              Services included in the app                             |checkmark|
 version               Specifiy the version of Compose, '1' or '2'              |checkmark|
-volumes               Create named, persistent volumes                         |checkmark|
+:ref:`volumes`        Create named, persistent volumes. The syntax differs     |checkmark|
+                      from the Docker specification. View :ref:`volumes`
+                      for details.
 ===================== ======================================================== ============
 
 Service level directives
@@ -77,6 +76,7 @@ hostname              Set the container hostname
 image                 The base image to start from                             |checkmark|
 ipc                   Configure IPC settings
 isolation             Specify the container's isolation technology
+:ref:`k8s`            k8s engine directives                                    |checkmark|
 labels                Add meta data to the container                           |checkmark|
 :ref:`links`          Link services                                            |checkmark|
 link_local_ips        List of special, external IPs to link to
@@ -89,7 +89,7 @@ memswap_limit         Total memory limit (memory + swap)
 net                   Network mode (V1 only)
 network_mode          Network mode
 networks              Networks to join
-:ref:`options`        Cloud deployment directives                              |checkmark|
+:ref:`openshift`      openshift engine directives                              |checkmark|
 pid                   Sets the PID mode to the host PID mode, enabling between
                       container and host OS
 :ref:`ports`          Expose ports externally to the host                      |checkmark|
@@ -122,7 +122,7 @@ The following provides details about how specific directives are implemented.
 depends_on
 ``````````
 Express a dependency between services, causing services to be started in order. Supported by ``build`` and ``run`` commands,
-but will be ignored by ``shipit``.
+but will be ignored by ``deploy``.
 
 .. _dev_over:
 
@@ -148,13 +148,13 @@ consider the following ``container.yml`` file:
             - ${PWD}:/var/lib/static
 
 
-In this example, when ``ansible-container run`` is executed (development mode), the options found in *dev_overrides* will
-take affect, and the running container will have its port 8000 mapped to the host's port 8888, and the host's working
+In this example, when ``ansible-container run`` is executed, the options found in *dev_overrides* will
+take effect, and the running container will have its port 8000 mapped to the host's port 8888, and the host's working
 directory will be mounted to '/var/lib/static' in the container.
 
-The ``build`` and ``shipit`` commands completely ignore *dev_overrides*. When ``build`` is executed the running container
+The ``build`` and ``deploy`` commands ignore *dev_overrides*. When ``build`` executs, the running container
 does not have the host's working directory mounted, and the container port 8000 is mapped to the host's port 8000. And
-likewise, the ``shipit`` command will create a service using port 8000, and will not create any volumes for the container.
+likewise, the ``deploy`` command will create a service using port 8000, and will not create any volumes for the container.
 
 .. _expose:
 
@@ -164,8 +164,8 @@ expose
 For the ``build`` and ``run`` commands, this exposes ports internally, allowing the container to accept requests from other
 containers.
 
-In the cloud, an exposed port translates to a service, and ``shipit`` will create a service for each exposed port. The cloud
-service will have the same name as the `container.yml` service, and it will listen on the specified port and forward requests
+In the cloud, an exposed port translates to a service, and ``deploy`` will create a service for each exposed port. The cloud
+service will have the same name as the `container.yml` service, will listen on the specified port, and forward requests
 to the same port on the pod.
 
 .. _extra_hosts:
@@ -174,7 +174,7 @@ extra_hosts
 ```````````
 For ``build`` and ``run``, adds a hosts entry to the container.
 
-In the cloud, ``shipit`` will create an External IP service. See `Kubernetes external IPs <http://kubernetes.io/docs/user-guide/services/#external-ips for details>`_
+In the cloud, ``deploy`` will create an External IP service. See `Kubernetes external IPs <http://kubernetes.io/docs/user-guide/services/#external-ips for details>`_
 for details.
 
 .. _links:
@@ -185,16 +185,23 @@ links
 Links allow containers to communicate directly without having to define a network, and this is supported by the ``build``
 and ``run`` commands.
 
-In the cloud, *links* are not supported, and so they will be ignored by ``shipit``. However, containers can communicate
+In the cloud, *links* are not supported, and so they will be ignored by ``deploy``. However, containers can communicate
 using services, so to enable communication between two containers, add the *expose* directive. See *expose* above.
 
-.. _options:
+.. _k8s:
 
-options
-```````
+k8s
+```
 
-Specify directives specific to cloud deployment. Used exclusively by the ``shipit`` command to impact how services are deployed.
-View :ref:`cloud_options` for a reference of options directives.
+Specify directives specific to the ``k8s`` engine. View :ref:`k8s_openshift_options` for a reference of available directives.
+
+
+.. _openshift:
+
+openshift
+`````````
+
+Specify directives specific to the ``openshift`` engine. View :ref:`k8s_openshift_options` for a reference of available directives.
 
 .. _ports:
 
@@ -240,7 +247,7 @@ Use the following command to push images to the *google* registry:
 volumes
 ```````
 
-Supported by the ``build`` and ``run`` commands. The volumes directive mounts host paths or named volumes to the container.
+Supported by ``build``, ``run`` and ``deploy`` commands. The volumes directive mounts host paths or named volumes to the container.
 In version 2 of compose a named volume must be defined in the top-level volumes directive. In version 1, if a named volume does
 not exist, it is automatically created.
 
@@ -260,16 +267,23 @@ volumes_from
 ````````````
 
 Mount all the volumes from another service or container. Supported by ``build`` and ``run`` commands, but not supported
-in the cloud, and thus ignored by ``shipit``.
+in the cloud, and thus ignored by ``deploy``.
 
 
-.. _cloud_options:
+.. _k8s_openshift_options:
 
-Cloud options
--------------
+k8s and openshift options
+-------------------------
 
-The *options* directive allows the user to impact how a service is deployed to each cloud, and thus a set of directives
-can be added for each cloud. For example, the following shows directives being added for OpenShift and Kubernetes:
+When using the ``k8s`` and ``openshift`` engines, the following commands are available for managing cluster objects:
+
+ - deploy
+ - restart
+ - run
+ - stop
+
+To impact how objects are created, a ``k8s`` or ``openshift`` section can be added to a specific service, and to a named volume within the top-level volumes directive. The following presents an``openshift`` example:
+
 
 .. code-block:: yaml
 
@@ -281,79 +295,307 @@ can be added for each cloud. For example, the following shows directives being a
         entrypoint: [/usr/bin/entrypoint.sh]
         ports:
           - 8000:8000
+        volumes:
+          volumes:
+            - static-content:/var/www/static
         dev_overrides:
           ports:
             - 8888:8000
           volumes:
-            - ${PWD}:/var/lib/static
-        options:
-          kube:
-            runAsUser: 997
+            - /Users/house/projects/demo/static:/var/www/static
+        openshift:
+          state: present
+          service:
+            force: false
+          deployment:
+            force: false
             replicas: 2
-          openshift:
-            replicas: 3
+            security_context:
+              run_as_user: root
+            strategy:
+              type: Rolling
+              rolling_params:
+                timeout_seconds: 120
+                max_surge: "20%"
+                max_unavailable: "10%"
+                pre: {}
+                post: {}
+          routes:
+          - port: 8443
+            tls:
+            termination: passthrough
+            force: false
 
-.. note::
+     volumes:
+       static-content:
+         openshift:
+            state: present
+            force: false
+            access_modes:
+            - ReadWriteOnce
+            requested_storage: 5Gi
 
-    Directives intended for OpenShift are added using an *openshift* section (or object), and a *kube* section for Kubernetes.
 
-The following table lists the available directives:
+Service level directives
+````````````````````````
+
+The following directives can be added to a ``k8s`` or ``openshift`` section within a service:
 
 ======================== ======================================================================================================
 Directive                Definition
 ======================== ======================================================================================================
-persistent_volume_claims Define a persistent volume claim. See :ref:`pvc` for more details.
-
-replicas                 Scale the service by setting the number of pods to create. Defaults to 1.
-runAsNonRoot             Set the runAsNonRoot option in the container's security context. Boolean. Defaults to false.
-runAsUser                The UID to run the entrypoint of the container process. Defaults to user specified in image metadata,
-                         if unspecified.
-seLinuxOptions           Set the `seLinuxOptions <http://kubernetes.io/docs/api-reference/v1/definitions/#_v1_selinuxoptions>`_
-                         in the container's security context.
-state                    Set to 'absent', if the service should not be deployed to the cloud. Defaults to 'present'.
+state                    Set to *present*, if the service should be deployed to the cluster, or *absent*, if it should not.
+                         Defaults to *present*.
+:ref:`service_sub`       Adds a mapping of Service object attributes.
+:ref:`deployment_sub`    Adds a mapping of Deployment (or DeploymentConfig for OpenShift) object attributes.
+:ref:`route_sub`         Adds a mapping of OpenShift Route object attributes.
 ======================== ======================================================================================================
 
-.. _pvc:
+.. _service_sub:
 
-Persistent volume claims
-````````````````````````
+service
+.......
 
-Docker named volumes map to persistent volume claims (PVCs) in the cloud. Consider the following ``container.yml``:
+Service objects expose container ports based on the ``expose`` and ``ports`` directives defined on the service. The ``expose`` directive will result in a Service exposing ports internally, enabling containers to communicate with one another, and ``ports`` will result in a service exposing ports externally, enabling access from outside of the cluster.
+
+Any valid attributes of a Service object can be added to the ``service`` subsection, where they'll be passed through to the resulting Service definition. The only requirement is that attributes be added in snake_case, rather than camelCase. The following demonstrates setting *cluster_ip*, *load_balancer_ip*, *type*, and *annotations*:
+
+.. code-block:: yaml
+
+    openshift:
+      service:
+        force: false
+        cluster_ip: 10.0.171.239
+        load_balancer_ip: 78.11.24.19
+        type: LoadBalancer
+        metadata:
+          annotations: service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-east-1:123456789012:certificate/12345678-1234-1234-1234-123456789012
+
+By default, existing objects are patched when attributes differ from those specified in ``container.yml``. The patch process is additive, meaning that array and dictionary type values are added to rather than replaced. To override this behavior, and force an update of the object, set the ``force`` option to *true*.
+
+.. _deployment_sub:
+
+deployment
+..........
+
+Container objects are created by way of Deployments (or Deployment Configs on OpenShift), and each service will be translated into a Deployment that creates and manages the container.
+
+Any valid attributes of a Deployment object can be added to the ``deployment`` subsection, where they'll be passed through to the resulting Deployment definition. The only requirement is that attributes be added in snake_case, rather than camelCase.
+
+For example, the following shows setting *replicas*, *security_context*, *strategy*, and *triggers*:
+
+.. code-block:: yaml
+
+    openshift:
+      deployment:
+        force: false
+        replicas: 2
+        security_context:
+          run_as_user: root
+        strategy:
+          type: Rolling
+          rolling_params:
+            timeout_seconds: 120
+            max_surge: "20%"
+            max_unavailable: "10%"
+            pre: {}
+            post: {}
+        triggers:
+        - type: "ImageChange"
+          image_change_params:
+            automatic: true
+            from:
+              kind: "ImageStreamTag"
+              name: "test-mkii-web:latest"
+            container_names:
+              - "web"
+
+By default, existing objects are patched when attributes differ from those specified in ``container.yml``. The patch process is additive, meaning that array and dictionary type values are added to rather than replaced. To override this behavior, and force an update of the object, set the ``force`` option to *true*.
+
+.. _route_sub:
+
+routes
+......
+
+Route objects are used by OpenShift to expose services externally, and Ansible Container generates routes based on the ``ports`` directive of a service.
+
+Consider the following service defined in ``container.yml``:
+
+.. code-block:: yaml
+
+    services:
+      web:
+        from: centos:7
+        entrypoint: ['/usr/bin/entrypoint.sh']
+        working_dir: /
+        user: apache
+        command: [/usr/bin/dumb-init, httpd, -DFOREGROUND]
+        ports:
+        - 8000:8080
+        - 4443:8443
+
+For each port in the set of defined ``ports``, a Route object is generated, and the above will generate the following routes:
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: Route
+    metadata:
+      name: web-8000
+      namespace: test-mkii
+      labels:
+        app: test-mkii
+        service: web
+      spec:
+        to:
+          kind: Service
+          name: web
+        port:
+          targetPort: port-8000-tcp
+
+.. code-block:: yaml
+
+    apiVersoin: v1
+    kind: Route
+    metadata:
+      name: web-4443
+      namespace: test-mkii
+      labels:
+        app: test-mkii
+        service: web
+      spec:
+        to:
+          kind: Service
+          name: web
+        port: 4443
+
+To add additional options, such as configuring TLS, add the options to the service level `k8s` or `openshift`, as in the following example:
+
+.. code-block:: yaml
+
+    services:
+      web:
+        from: centos:7
+        entrypoint: ['/usr/bin/entrypoint.sh']
+        working_dir: /
+        user: apache
+        command: [/usr/bin/dumb-init, httpd, -DFOREGROUND]
+        ports:
+        - 8000:8080
+        - 4443:8443
+        openshift:
+          routes:
+          - port: 4443
+            tls:
+              termination: edge
+              key: |-
+                -----BEGIN PRIVATE KEY-----
+                [...]
+                -----END PRIVATE KEY-----
+              certificate: |-
+                -----BEGIN CERTIFICATE-----
+                [...]
+                -----END CERTIFICATE-----
+              caCertificate: |-
+                -----BEGIN CERTIFICATE-----
+                [...]
+                -----END CERTIFICATE-----
+            force: false
+
+Notice that ``routes`` is a list. To set the route attributes for a specific port, add a new entry to the list, and set the ``port`` to the host or external port value.
+
+The host port value comes from the ``ports`` directive set at the service level, where a port is in the Docker format of ``host_port:container_port``. Looking back at the first example, the ``web`` service publishes container port 8443 to host port 4443, and thus the route port will be 4443.
+
+With the new options, the route for port 4443 will be updated with the following:
+
+.. code-block:: yaml
+
+    apiVersoin: v1
+    kind: Route
+    metadata:
+      name: web-4443
+      namespace: test-mkii
+      labels:
+        app: test-mkii
+        service: web
+    spec:
+      to:
+        kind: Service
+        name: web
+      port: 4443
+      tls:
+        termination: edge
+        key: |-
+          -----BEGIN PRIVATE KEY-----
+          [...]
+          -----END PRIVATE KEY-----
+        certificate: |-
+          -----BEGIN CERTIFICATE-----
+          [...]
+          -----END CERTIFICATE-----
+        caCertificate: |-
+          -----BEGIN CERTIFICATE-----
+          [...]
+          -----END CERTIFICATE-----
+
+
+.. volumes:
+
+Volumes
+```````
+
+For Docker, the service level ``volumes`` directive works as expected. The top-level ``volumes`` directive, however, has been modified slightly. The following example ``container.yml`` shows the three forms of the service level ``volumes`` directive, and the new top-level ``volumes`` format:
 
 .. code-block:: yaml
 
     version: '2'
-    services
+    services:
       web:
-        image: nginx:latest
+        from: centos:7
+        entrypoint: [/usr/bin/entrypoint.sh]
+        working_dir: /
+        user: apache
+        command: [/usr/bin/dumb-init, httpd, -DFOREGROUND]
+        ports:
+        - 8000:8080
+        - 4443:8443
+        roles:
+        - apache-container
         volumes:
-          - static-files:/var/lib/nginx
-      options:
-        openshift:
-          persistent_volume_claims:
-            - volume_name: static-files
-              claim_name: static-files-nginx
-              access_modes:
-                - ReadWriteMany
+          - /Users/chouseknecht/projects/test-mkii/static:/var/www/static
+          - static-content:/var/www/static2
+          - /var/www/static3
 
     volumes:
-       static-files: {}
+      static-content:
+        docker: {}
+        k8s:
+          force: false
+          state: present
+          access_modes:
+          - ReadWriteOnce
+          requested_storage: 1Gi
+          metadata:
+            annotations: 'volume.beta.kubernetes.io/mount-options: "discard"'
 
-In the above example the Compose *volumes* directive creates a named volume called *static-files*, and the Docker volume gets created during the execution of the ``build`` and ``run`` commands. When ``shipit`` executes and generates cloud configuration (in this case for OpenShift), it creates a volume called *static-files* that maps to a persistent volume claim, and the persistent volume claim will be created using the parameters specified in *options*.
+The top-level directive is organized by volume name. In this case, a volume named ``static-content`` is mounted to the container as ``/var/www/static2``. The definition of the named volume is found in the top-level ``volumes`` directive under the name, where specific options are organized by container engine. In this case there are no options for ``docker``, and several options for ``openshift``.
 
-The following options can be defined for a persistent volume claim:
+Under ``docker``, add valid volume attributes including: driver, driver_opts and external. For additional information about Docker volumes see Docker's `volume configuration reference <https://docs.docker.com/compose/compose-file/#volume-configuration-reference>`_.
+
+
+For ``openshift`` and ``k8s``, the following options are available:
 
 ======================== =============================================================================================================
 Directive                Definition
 ======================== =============================================================================================================
-annotations              Define a meta data annotation object. See the Class section of
-                         `Persistent Volume Claims <http://kubernetes.io/docs/user-guide/persistent-volumes/#persistentvolumeclaims>`_
+metadata                 Provide a metadata mapping, as depicted above. In general, the only mapping value provided here would be
+                         ``annotations``.
 access_modes             A list of valid `access modes <http://kubernetes.io/docs/user-guide/persistent-volumes/#access-modes>`_.
-claim_name               The meta data name to give the PVC. Required.
-match_labels             Filter matching volumes by specifying labels the volume must have.
-match_expressions        Filter matching volumes by specifying key, list of values, and an operator that relates the key and values.
-persistent_volume_name   The name of a specific persistent volume to use.
+match_labels             A mapping of key:value pairs used to filter matching volumes.
+match_expressions        A list of expressions used to filter matching volumes.
+                         See `Persistent Volume Claims <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_ for additional details.
 requested_storage        The amount of storage being requested. Defaults to 1Gi.
                          See `compute resources <http://kubernetes.io/docs/user-guide/compute-resources/>`_ for abbreviations.
-volume_name              The name of the Docker volume. Required.
 ======================== =============================================================================================================
+
+

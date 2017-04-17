@@ -12,6 +12,8 @@ to Ansible Container, or contributing code or documentation, we welcome your con
 Users
 `````
 
+.. _ask_a_question:
+
 I've got a question
 -------------------
 
