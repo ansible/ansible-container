@@ -4,7 +4,7 @@ ENV ANSIBLE_CONTAINER=1
 {% if distro in ["fedora", "centos"] %}
 RUN yum update -y && \
     yum install -y epel-release   && \
-    yum install -y "@Development Tools" git python-devel rsync libffi-devel openssl-devel && \
+    yum install -y gcc git python-devel rsync libffi-devel openssl-devel && \
     yum clean all
 {% elif distro in ["debian", "ubuntu"] %}
 RUN apt-get update -y && \
@@ -24,18 +24,19 @@ RUN python /get-pip.py && \
     cd /usr/local/bin && \
     tar -xz --strip-components=1 -f /tmp/docker.tgz
 
-# The COPY here will break cache if the requirements or ansible.cfg has changed
-COPY /build-src /_ansible/build
-RUN ( test -f /_ansible/build/ansible-requirements.txt && pip install --no-cache-dir -r /_ansible/build/ansible-requirements.txt || true ) && \
-    ( test -f /_ansible/build/requirements.yml && ansible-galaxy install -r /_ansible/build/requirements.yml || true ) && \
-    ( test -f /_ansible/build/ansible.cfg && cp /_ansible/build/ansible.cfg /etc/ansible/ansible.cfg || true)
-
 # The COPY here will break cache if the version of conductor changed
 COPY /container-src /_ansible/container
 RUN cd /_ansible && \
     pip install -r container/conductor-build/conductor-requirements.txt && \
     PYTHONPATH=. LC_ALL="en_US.UTF-8" python container/conductor-build/setup.py develop -v && \
     ansible-galaxy install -p /etc/ansible/roles -r container/conductor-build/conductor-requirements.yml
+
+# The COPY here will break cache if the requirements or ansible.cfg has changed
+COPY /build-src /_ansible/build
+RUN ( test -f /_ansible/build/ansible-requirements.txt && pip install --no-cache-dir -r /_ansible/build/ansible-requirements.txt || true ) && \
+    ( test -f /_ansible/build/requirements.yml && ansible-galaxy install -p /etc/ansible/roles -r /_ansible/build/requirements.yml || true ) && \
+    ( test -f /_ansible/build/ansible.cfg && cp /_ansible/build/ansible.cfg /etc/ansible/ansible.cfg || true)
+
 VOLUME /usr
 
 
