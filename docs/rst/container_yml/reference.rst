@@ -72,8 +72,8 @@ extends               Extend another service, in the current file or another,
                       optionally overriding configuration
 external_links        Link to containers started outside this project
 :ref:`extra_hosts`    Add hostname mappings                                    |checkmark|
+from                  The base image to start from                             |checkmark|
 hostname              Set the container hostname
-image                 The base image to start from                             |checkmark|
 ipc                   Configure IPC settings
 isolation             Specify the container's isolation technology
 :ref:`k8s`            k8s engine directives                                    |checkmark|
@@ -136,7 +136,7 @@ consider the following ``container.yml`` file:
     version: '2'
     services:
       web:
-        image: centos:7
+        from: centos:7
         command: [nginx]
         entrypoint: [/usr/bin/entrypoint.sh]
         ports:
@@ -210,7 +210,7 @@ ports
 Connects ports from the host to the container, allowing the container to receive external requests. This is supported by
 the ``build`` and ``run`` commands.
 
-The ``shipit`` command supports it as well by mapping the same functionality to the cloud. In the case of Kubernetes it creates
+The ``deploy`` command supports it as well by mapping the same functionality to the cloud. In the case of Kubernetes it creates
 a load balanced service that accepts external requests on the host port and relays them to the pod, which contains the
 container, on the container port. In the case of OpenShift it creates a route and service, where the route accepts external
 requests on the host port, and relays them to a service listening on the container port, which relays them to a pod also on
@@ -220,7 +220,7 @@ the container port.
 
 registries
 ``````````
-Define registries that can be referenced by the ``push`` and ``shipit`` commands. For each registiry provide a *url* and
+Define registries that can be referenced by the ``push`` and ``deploy`` commands. For each registiry provide a *url* and
 and optional namespace. If no namespace is provided, the username found in your .docker/config.json or specified on the
 command line will be used.
 
@@ -281,6 +281,7 @@ When using the ``k8s`` and ``openshift`` engines, the following commands are ava
  - restart
  - run
  - stop
+ - destroy
 
 To impact how objects are created, a ``k8s`` or ``openshift`` section can be added to a specific service, and to a named volume within the top-level volumes directive. The following presents an``openshift`` example:
 
@@ -290,7 +291,7 @@ To impact how objects are created, a ``k8s`` or ``openshift`` section can be add
     version: '2'
     services:
       web:
-        image: centos:7
+        from: centos:7
         command: [nginx]
         entrypoint: [/usr/bin/entrypoint.sh]
         ports:
