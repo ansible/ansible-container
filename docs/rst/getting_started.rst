@@ -250,10 +250,10 @@ changes any of the source files:
             state: absent
 
 In production, this container doesn't run, so we use ``/bin/false`` as its production command and specify
-in its options that we don't even include it when using ``shipit`` to Kubernetes. However we expect that
-during development, Gulp will use `BrowserSync <https://www.browsersync.io/>`_ to serve and recompile the
-static assets. That server will be expected to proxy web requests to the Django application server in
-development as well, so we link the containers to make that possible.
+in its options that we don't even include it when using ``ansible-container deploy`` to Kubernetes. However
+we expect that during development, Gulp will use `BrowserSync <https://www.browsersync.io/>`_ to serve and
+recompile the static assets. That server will be expected to proxy web requests to the Django application
+server in development as well, so we link the containers to make that possible.
 
 Conversely, the Nginx server runs in production but does not in development orchestration:
 
@@ -320,10 +320,10 @@ each container:
             - /tmp/gulp/node/dist/
 
 The first two of these roles come bundled with the app and can be found in the ``ansible/roles/`` directory.
-The third one, `ansible.nginx-container`, is a reference to a role hosted on Ansible Galaxy, and we make that
+The third one, ``ansible.nginx-container``, is a reference to a role hosted on Ansible Galaxy, and we make that
 role a dependency for build in ``requirements.yml``. Because the containers described by the included roles
 are so closely tied to the source code in the project, it's appropriate that they're bundled with this app
-skeleton whereas the `j00bar.nginx-container` role is independent of the source code in the project, making
+skeleton whereas the ``j00bar.nginx-container`` role is independent of the source code in the project, making
 it a reusable piece for any number of apps.
 
 Visit :doc:`roles/index` for best practices around writing and using roles within Ansible Container.
@@ -344,7 +344,7 @@ role-derived services to your app from Ansible Galaxy using the ``install`` subc
 Ansible Container spins up its builder container and goes out to Ansible Galaxy to grab this container-enabled
 role. It then makes changes to the three key files in your project's ``ansible/`` directory:
 
-1. The role `j00bar.redis-container` is added to your ``ansible/requirements.yml`` for Ansible Container to grab at
+1. The role ``j00bar.redis-container`` is added to your ``ansible/requirements.yml`` for Ansible Container to grab at
    build-time. The role's content does *not* get added to your project.
 2. A new service for ``redis`` is automatically added to your ``ansible/container.yml``, complete with the knobs
    and dials that can be adjusted at container run-time using environment variables. As this container does not have
