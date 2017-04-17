@@ -14,13 +14,11 @@ your project directory, which creates:
 
 .. code-block:: bash
 
-    ansible/
-       container.yml
-       main.yml
-       meta.yml
-       requirements.txt
-       requirements.yml
-       ansible.cfg
+    ansible.cfg
+    ansible-requirements.txt
+    container.yml
+    meta.yml
+    requirements.yml
 
 Other ``ansible-container`` subcommands enable the container development workflow:
 
