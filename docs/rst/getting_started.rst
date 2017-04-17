@@ -67,6 +67,14 @@ The ``container.yml`` file is a file in YAML-syntax that describes the services
 in your project, how to build and run them, the repositories to push them to,
 and more.
 
+The ``container.yml`` file is very similar to the Docker Compose version 2 schema. Much like
+Docker Compose, this file describes the orchestration of your app. Ansible Container uses this file
+to determine what images to build, what containers to run and connect, and what images to push to
+your repository. Additionally, when Ansible Container generates an Ansible playbook to ship and
+orchestrate your images in the cloud, this file describes the configuration target for your
+entire container infrastructure. It is automatically run, but it also saves the playbook for
+you to examine or reuse.
+
 By way of an example, consider the below ``container.yml`` file:
 
 .. code-block:: yaml
@@ -74,7 +82,7 @@ By way of an example, consider the below ``container.yml`` file:
     version: "2"
     services:
       web:
-        image: "ubuntu:trusty"
+        from: "ubuntu:trusty"
         ports:
           - "80:80"
         command: ["/usr/bin/dumb-init", "/usr/sbin/apache2ctl", "-D", "FOREGROUND"]
