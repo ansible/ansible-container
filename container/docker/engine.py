@@ -98,7 +98,7 @@ class Engine(BaseEngine):
 
     COMPOSE_WHITELIST = (
         'links', 'depends_on', 'cap_add', 'cap_drop', 'command', 'devices',
-        'dns', 'dns_opt', 'tmpfs', 'entrypoint', 'external_links', 'labels',
+        'dns', 'dns_opt', 'tmpfs', 'entrypoint', 'environment', 'external_links', 'labels',
         'links', 'logging', 'log_opt', 'networks', 'network_mode',
         'pids_limit', 'ports', 'security_opt', 'stop_grace_period',
         'stop_signal', 'sysctls', 'ulimits', 'userns_mode', 'volumes',
