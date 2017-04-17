@@ -51,4 +51,4 @@ volume format.
 **New in version 0.2.0**
 
 If you have Ansible roles in a local path other than your `ansible/` directory that you wish to use
-during your build/run/shipit, specify that path with this option.
+during your build/run/deploy, specify that path with this option.
