@@ -220,9 +220,9 @@ while running with the Gunicorn WSGI server for production:
             runAsUser: 1000
 
 This container image uses Centos 7 as its base. For `12-factor compliance <https://12factor.net/config>`_, the
-Django container sets the database server DSN in an environment variable. In development, the app's source is
-exported into the container as a volume so that changes to the code can be detected and instantly integrated into
-the development container, however in production, the full Django project's code is part of the container's
+Django container sets the database server connection string in an environment variable. In development, the app's
+source is exported into the container as a volume so that changes to the code can be detected and instantly integrated
+into the development container, however in production, the full Django project's code is part of the container's
 filesystem. Note that in both development and production, `Yelp's dumb-init <https://github.com/Yelp/dumb-init>`_ is
 used for PID 1 management, which is an excellent practice.
 
