@@ -65,6 +65,7 @@ def jinja_template_path():
     return os.path.normpath(
         os.path.join(
             os.path.dirname(__file__),
+            '..',
             'templates'))
 
 

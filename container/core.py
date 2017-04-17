@@ -115,7 +115,7 @@ def hostcmd_init(base_path, project=None, **kwargs):
         }
         for tmpl_filename in os.listdir(template_dir):
             jinja_render_to_temp(template_dir,
-                                 os.path.join('init', tmpl_filename),
+                                 tmpl_filename,
                                  base_path,
                                  tmpl_filename.replace('.j2', ''),
                                  **context)
