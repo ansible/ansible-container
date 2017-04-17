@@ -5,6 +5,8 @@ Command Reference
    :maxdepth: 2
 
    build
+   deploy
+   deploy/index
    destroy
    init
    install
@@ -12,6 +14,4 @@ Command Reference
    push
    restart
    run
-   deploy
-   deploy/index
    stop

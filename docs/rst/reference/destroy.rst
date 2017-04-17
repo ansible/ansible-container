@@ -1,5 +1,5 @@
-stop
-====
+destroy
+=======
 
 **New in version 0.9**
 

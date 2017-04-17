@@ -1,4 +1,4 @@
-shipit engines
+deploy engines
 ==============
 
 .. toctree::
