@@ -13,25 +13,14 @@ images built for each of the containers in your orchestration. This is analogous
 
 By default, Ansible Container commits the changes your playbook made to the base image,
 but it retains the original layers from that base image. Specifying this option, Ansible
-Container flattens the union filesystem of your image to a single layer.
+Container flattens the union filesystem of your image to a single layer. This
+does break caching, so builds won'e be able to reuse cached layers and will
+fully rebuild your services even if you haven't changed anything.
 
 .. note::
 
     The image is flattened by exporting the container to a tar file and re-importing the tar 
     file as a new image. A side effect of performing this operation is a loss of image metadata. 
-
-.. option:: --from-scratch
-
-By default, Ansible Container starts with the last instance of your containers and runs your
-playbook against it. That way, if a build fails, you're not starting from zero when rebuilding.
-With this option, Ansible Container starts with fresh copies of your base images and
-rebuilds from zero.
-
-.. option:: --local-builder
-
-**New in version 0.2.0**
-
-Instead of using the Ansible Builder Container image from Docker Hub, generate one locally.
 
 .. option:: --no-purge-last
 
