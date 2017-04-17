@@ -601,7 +601,11 @@ def conductorcmd_build(engine_name, project_name, services, cache=True,
     logger.info(u'%s integration engine loaded. Build starting.',
         engine.display_name, project=project_name)
 
+    services_to_build = kwargs.get('services_to_build') or services.keys()
     for service_name, service in services.items():
+        if service_name not in services_to_build:
+            logger.debug('Skipping service %s...', service_name)
+            continue
         logger.info(u'Building service...', service=service_name, project=project_name)
         cur_image_id = engine.get_image_id_by_tag(service['from'])
         # the fingerprint hash tracks cacheability
