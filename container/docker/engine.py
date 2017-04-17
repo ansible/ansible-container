@@ -426,6 +426,35 @@ class Engine(BaseEngine):
 
     @log_runs
     @conductor_only
+    def flatten_container(self,
+                          container_id,
+                          service_name,
+                          metadata):
+        image_name = self.image_name_for_service(service_name)
+        image_version = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
+        image_config = utils.metadata_to_image_config(metadata)
+
+        to_squash = self.client.containers.get(container_id)
+        raw_image = to_squash.export()
+
+        logger.debug("Exported service container as tarball", container=image_name)
+
+        out = self.client.api.import_image_from_data(
+            raw_image.read(),
+            repository=image_name,
+            tag=image_version
+        )
+        logger.debug("Committed flattened image", out=out)
+
+        image_id = json.loads(out)['status']
+
+        self.tag_image_as_latest(service_name, image_id.split(':')[-1])
+
+        return image_id
+
+
+    @log_runs
+    @conductor_only
     def commit_role_as_layer(self,
                              container_id,
                              service_name,

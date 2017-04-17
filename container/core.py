@@ -674,12 +674,17 @@ def conductorcmd_build(engine_name, project_name, services, cache=True,
 
                 engine.stop_container(container_id, forcefully=True)
                 is_last_role = role is service['roles'][-1]
-                image_id = engine.commit_role_as_layer(container_id,
-                                                       service_name,
-                                                       fingerprint_hash.hexdigest(),
-                                                       service,
-                                                       with_name=is_last_role)
-                logger.info(u'Committed layer as image', service=service_name, image=image_id)
+                if is_last_role and kwargs.get('flatten'):
+                    logger.debug("Finished build, flattening image")
+                    image_id = engine.flatten_container(container_id, service_name, service)
+                    logger.info(u'Saved flattened image for service', service=service_name, image=image_id)
+                else:
+                    image_id = engine.commit_role_as_layer(container_id,
+                                                           service_name,
+                                                           fingerprint_hash.hexdigest(),
+                                                           service,
+                                                           with_name=is_last_role)
+                    logger.info(u'Committed layer as image', service=service_name, image=image_id)
                 engine.delete_container(container_id)
                 cur_image_id = image_id
             # Tag the image also as latest:
