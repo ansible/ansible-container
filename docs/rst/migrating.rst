@@ -121,7 +121,22 @@ these steps:
    * Add a ``settings`` section with a key ``conductor_base``, specifying the base
      distribution for your :ref:`conductor_container`. This should probably match
      the distribution you're using to build your target containers.
-   * For each service, add a key `roles`, enumerating each of the roles that go
+   * For each service, add a ``roles`` key with a list of all the roles that go
      into building that service.
+
+For example, each container with a settings list might look like:
+
+.. code-block:: yaml
+
+    settings:
+      conductor_base: centos:7
+    services:
+      webapp:
+        roles:
+        - python2
+        - mywebapp
+      redis:
+        roles:
+        - redis
 
 If you are having difficulty, please :ref:`reach out for help <ask_a_question>`.
