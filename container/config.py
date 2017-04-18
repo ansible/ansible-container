@@ -48,7 +48,7 @@ class AnsibleContainerConfig(Mapping):
 
     @property
     def deployment_path(self):
-        return (self['settings'] or {}).get(
+        return self.get('settings', {}).get(
             'deployment_output_path',
             path.normpath(
                 path.abspath(
@@ -252,6 +252,7 @@ class AnsibleContainerConductorConfig(Mapping):
                 dict(processed)))
 
     def _process_top_level_sections(self):
+        self._config['settings'] = self._config.get('settings', yaml.compat.ordereddict())
         for section in ['volumes', 'registries']:
             logger.debug('Processing section...', section=section)
             setattr(self, section,
@@ -265,6 +266,13 @@ class AnsibleContainerConductorConfig(Mapping):
             logger.debug('Processing service...', service=service)
             processed = yaml.compat.ordereddict()
             service_defaults = self.defaults.copy()
+
+            for idx in range(len(service_data.get('volumes', []))):
+                # To mount the project directory, let users specify `$PWD` and
+                # have that filled in with the project path
+                service_data['volumes'][idx] = service_data['volumes'][idx].replace(
+                    '$PWD', self._config['settings'].get('pwd'))
+
             for role_spec in service_data.get('roles', []):
                 if isinstance(role_spec, dict):
                     # A role with parameters to run it with

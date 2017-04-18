@@ -303,7 +303,8 @@ To impact how objects are created, a ``k8s`` or ``openshift`` section can be add
           ports:
             - 8888:8000
           volumes:
-            - /Users/house/projects/demo/static:/var/www/static
+            - $PWD:/var/www/static
+            - /home/myuser/directory-on-the-host:/var/www/static2
         openshift:
           state: present
           service:
