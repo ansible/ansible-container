@@ -39,7 +39,7 @@ try:
     from docker.errors import DockerException
 except ImportError:
     raise ImportError(
-        u'You must install Ansible Container with Docker\u2122 support. '
+        u'You must install Ansible Container with Docker(tm) support. '
         u'Try:\npip install ansible-container==%s[docker]' % (
         container.__version__
     ))
