@@ -205,3 +205,7 @@ shipit*.yml
 tmp.yml
 ansible.cfg
 *.output
+
+# files get copied during sdist that should be ignored
+container/docker/files/setup.py
+container/docker/files/conductor-requirements.*

@@ -14,7 +14,7 @@ try:
     from openshift.helper.openshift import OpenShiftObjectHelper, OpenShiftException
 except ImportError:
     raise ImportError(
-        u'You must install Ansible Container with OpenShift\u2122 support. '
+        u'You must install Ansible Container with OpenShift support. '
         u'Try:\npip install ansible-container==%s[openshift]' % (
         __version__
     ))
