@@ -361,16 +361,37 @@ Using Ansible Vault
 -------------------
 
 `Ansible Vault <http://docs.ansible.com/ansible/playbooks_vault.html>`_ provides a way to encrypt and decrypt files, and
-Ansible Playbook can also decrypt Vault files and use them as variable files.
+Ansible Playbook can also decrypt Vault files, allowing you to use them as variable files within playbooks. 
 
-As of now Ansible Container cannot decrypt a Vault file. If you wish to use a Vault, you will have to decrypt it first,
-and then pass the decrypted contents to Ansible Container either by way of ``--var-file`` or environment variables.
+To allow Ansible Playbook to decrypt a Vault file during the ``build`` process, you'll need to place your Vault password in
+a file, and make the file accessible within the build container. You can place the password file in the ``ansible`` directory,
+or mount it into the build container using the ``--with-volumes`` option. 
 
-It is certainly possible to decrypt a Vault file within your CI/CD process and expose it to Ansible Container. We'll
-leave it up to you to figure out the right way to do that in your environment. Just be careful!
+.. note::
+
+    A word of caution about where you place your password file. Since it is an unencrypted text file, if you're keeping your 
+    project in a public repository, you obviously don't want to add it to the project. In that case, we recommend keeping 
+    the file outside of the project, and using ``--with-volumes`` to mount it into the build container.
+
+The same is true with the Vault file itself. It too must be available within the build container. You can place it in the 
+project, in which case it will be accessible relative to ``/ansible-container``, or use the ``--with-volumes`` option to 
+store it outside of the project.
+
+Once the files are accessible in the build container, pass the ``--vault-password-file`` option to Ansible Playbook
+by using the ``--`` option on the ``build`` command. For example, the following will mount ``/Users/chouse/.passwords`` as 
+``/mypasswords`` to the build container, and pass the path of the password file to Ansible Playbook:  
+
+.. code-block:: bash
+
+    $ ansible-container build --with-volumes /Users/chouse/.passwords:/mypasswords -- --vault-password-file /mypasswords/vault.txt
+
+.. note::
+
+    To clarify, a Vault file can be decrypted by Ansible Playbook, but as of this writing, it cannot be decrypted by Ansible 
+    Container. This means it can be referenced in ``main.yml``, but not in ``container.yml``.
 
 
-Ansible filters and lookups
+Ansible Filters and Lookups
 ---------------------------
 
 All Ansible Jinja filters and lookups are available for use in Ansible Container. See `Lookups <http://docs.ansible.com/ansible/playbooks_lookups.html#>`_
