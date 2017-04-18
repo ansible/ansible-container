@@ -14,11 +14,11 @@ before_install:
 script:
   # Intall Ansible here, even though it's part of test rquirements.
   #  If not, `python ./setup.py test` fails while installing pycparser
-  - pip install git+https://github.com/ansible/ansible.git@v2.3.0.0-0.1.rc1#egg=2.3.3.0
+  - pip install https://github.com/ansible/ansible/archive/master.zip#egg=ansible-2.4.0
   - ansible --version
 
   # Install Ansible Container 
-  - python ./setup.py install
+  - pip install -e .[docker]
 
   # Establish a tmp directory
   - mkdir tmp 
