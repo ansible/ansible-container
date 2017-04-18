@@ -2,747 +2,757 @@
 from __future__ import absolute_import
 
 import logging
+plainLogger = logging.getLogger(__name__)
 
-logger = logging.getLogger(__name__)
+from container.utils.visibility import getLogger
+logger = getLogger(__name__)
 
+import base64
+import datetime
+import functools
+import time
+import inspect
+import json
 import os
 import re
+import six
+import sys
 import tarfile
-import getpass
-import json
-import base64
-import pprint
-
-import docker
-from docker.client import errors as docker_errors
-from docker.utils import kwargs_from_env
-from docker.constants import DEFAULT_TIMEOUT_SECONDS
+import pkg_resources
 
 try:
-    from compose.cli.command import project_from_options
-    from compose.cli import main
-except Exception as exc:
-    raise Exception("Error importing Docker compose: {0}".format(exc.message))
+    import httplib as StatusCodes
+except ImportError:
+    from http import HTTPStatus as StatusCodes
 
-from yaml import dump as yaml_dump
+import container
+from container import host_only, conductor_only
+from container.engine import BaseEngine
+from container import utils, exceptions
+from container.utils import logmux
+from container.utils import text
 
-from ..exceptions import (AnsibleContainerNotInitializedException,
-                          AnsibleContainerNoAuthenticationProvidedException,
-                          AnsibleContainerDockerConfigFileException,
-                          AnsibleContainerDockerLoginException,
-                          AnsibleContainerListHostsException,
-                          AnsibleContainerNoMatchingHosts)
+try:
+    import docker
+    from docker import errors as docker_errors
+    from docker.utils.ports import build_port_bindings
+    from docker.errors import DockerException
+except ImportError:
+    raise ImportError(
+        u'You must install Ansible Container with Docker\u2122 support. '
+        u'Try:\npip install ansible-container==%s[docker]' % (
+        container.__version__
+    ))
 
-from ..engine import BaseEngine, REMOVE_HTTP
-from ..utils import *
-from .. import __version__ as release_version
-from .utils import *
+TEMPLATES_PATH = os.path.normpath(
+    os.path.join(
+        os.path.dirname(__file__),
+        'templates'))
 
-if not os.environ.get('DOCKER_HOST'):
-    logger.warning('No DOCKER_HOST environment variable found. Assuming UNIX '
-                   'socket at /var/run/docker.sock')
+FILES_PATH = os.path.normpath(
+    os.path.join(
+        os.path.dirname(__file__),
+        'files'))
+
+DOCKER_VERSION = '17.04.0-ce'
+
+DOCKER_DEFAULT_CONFIG_PATH = os.path.join(os.environ.get('HOME', ''), '.docker', 'config.json')
+
+DOCKER_CONFIG_FILEPATH_CASCADE = [
+    os.environ.get('DOCKER_CONFIG', ''),
+    DOCKER_DEFAULT_CONFIG_PATH,
+    os.path.join(os.environ.get('HOME', ''), '.dockercfg')
+]
+
+REMOVE_HTTP = re.compile('^https?://')
 
 
-def get_timeout():
-    timeout = DEFAULT_TIMEOUT_SECONDS
-    source = None
-    if os.environ.get('DOCKER_CLIENT_TIMEOUT'):
-        timeout_value = os.environ.get('DOCKER_CLIENT_TIMEOUT')
-        source = 'DOCKER_CLIENT_TIMEOUT'
-    elif os.environ.get('COMPOSE_HTTP_TIMEOUT'):
-        timeout_value = os.environ.get('COMPOSE_HTTP_TIMEOUT')
-        source = 'COMPOSE_HTTP_TIMEOUT'
-    if source:
-        try:
-            timeout = int(timeout_value)
-        except ValueError:
-            raise Exception("Error: {0} set to '{1}'. Expected an integer.".format(source, timeout_value))
-    logger.debug("Setting Docker client timeout to {0}".format(timeout))
-    return timeout
+def log_runs(fn):
+    @functools.wraps(fn)
+    def __wrapped__(self, *args, **kwargs):
+        logger.debug(
+            u'Call: %s.%s' % (type(self).__name__, fn.__name__),
+            # because log_runs is a decorator, we need to override the caller
+            # line & function
+            caller_func='%s.%s' % (type(self).__name__, fn.__name__),
+            caller_line=inspect.getsourcelines(fn)[-1],
+            args=args,
+            kwargs=kwargs,
+        )
+        return fn(self, *args, **kwargs)
+    return __wrapped__
 
 
 class Engine(BaseEngine):
 
-    engine_name = 'Docker'
-    orchestrator_name = 'Docker Compose'
-    builder_container_img_name = 'ansible-container'
-    builder_container_img_tag = 'ansible-container-builder'
-    default_registry_url = 'https://index.docker.io/v1/'
-    default_registry_name = 'dockerhub'
+    # Capabilities of engine implementations
+    CAP_BUILD_CONDUCTOR = True
+    CAP_BUILD = True
+    CAP_DEPLOY = True
+    CAP_IMPORT = True
+    CAP_INSTALL = True
+    CAP_LOGIN = True
+    CAP_PUSH = True
+    CAP_RUN = True
+    CAP_VERSION = True
+
+    COMPOSE_WHITELIST = (
+        'links', 'depends_on', 'cap_add', 'cap_drop', 'command', 'devices',
+        'dns', 'dns_opt', 'tmpfs', 'entrypoint', 'environment', 'external_links', 'labels',
+        'links', 'logging', 'log_opt', 'networks', 'network_mode',
+        'pids_limit', 'ports', 'security_opt', 'stop_grace_period',
+        'stop_signal', 'sysctls', 'ulimits', 'userns_mode', 'volumes',
+        'volume_driver', 'volumes_from', 'cpu_shares', 'cpu_quota', 'cpuset',
+        'domainname', 'hostname', 'ipc', 'mac_address', 'mem_limit',
+        'memswap_limit', 'mem_swappiness', 'mem_reservation', 'oom_score_adj',
+        'privileged', 'read_only', 'restart', 'shm_size', 'stdin_open', 'tty',
+        'user', 'working_dir',
+    )
+    display_name = u'Docker\u2122 daemon'
+
     _client = None
-    _orchestrated_hosts = None
-    api_version = ''
-    temp_dir = None
 
-    def all_hosts_in_orchestration(self):
-        """
-        List all hosts being orchestrated by the compose engine.
+    FINGERPRINT_LABEL_KEY = 'com.ansible.container.fingerprint'
+    LAYER_COMMENT = 'Built with Ansible Container (https://github.com/ansible/ansible-container)'
 
-        :return: list of strings
-        """
-        services = self.config.get('services')
-        return list(services.keys()) if services else []
+    @property
+    def client(self):
+        if not self._client:
+            try:
+                self._client = docker.from_env(version='auto')
+            except DockerException as exc:
+                if 'Connection refused' in str(exc):
+                    raise exceptions.AnsibleContainerDockerConnectionRefused()
+                else:
+                    raise
+        return self._client
 
-    def hosts_touched_by_playbook(self):
-        """
-        List all hosts touched by the execution of the build playbook.
+    @property
+    def ansible_args(self):
+        """Additional commandline arguments necessary for ansible-playbook runs."""
+        return u'-c docker'
 
-        :return: frozenset of strings
-        """
-        if not self._orchestrated_hosts:
-            with teed_stdout() as stdout, make_temp_dir() as temp_dir:
-                self.orchestrate('listhosts', temp_dir,
-                                 hosts=[self.builder_container_img_name])
-                logger.info('Cleaning up Ansible Container builder...')
-                builder_container_id = self.get_builder_container_id()
-                self.remove_container_by_id(builder_container_id)
-                # We need to cleverly extract the host names from the output...
-                logger.debug('--list-hosts\n%s', stdout.getvalue())
-                lines = stdout.getvalue().split('\r\n')
-                clean_exit = False
-                for line in lines:
-                     if "exited with code 0" in line:
-                         clean_exit = True
-                         break
-                if not clean_exit:
-                    logger.error("ERROR: encountered the following while attempting to get hosts touched by main.yml:")
-                    for line in lines:
-                        logger.error(line)
-                    raise AnsibleContainerListHostsException("ERROR: unable to get the list of hosts touched by main.yml") 
-                lines_minus_builder_host = [line.rsplit('|', 1)[1] for line
-                                            in lines if '|' in line]
-                host_lines = set(line.strip() for line in lines_minus_builder_host
-                              if line.startswith('       '))
-                host_lines.discard('')
-                self._orchestrated_hosts = frozenset(host_lines)
-        return self._orchestrated_hosts
+    @property
+    def default_registry_url(self):
+        return u'https://index.docker.io/v1/'
 
-    def build_buildcontainer_image(self):
-        """
-        Build in the container engine the builder container
+    @property
+    def default_registry_name(self):
+        return u'Docker Hub'
 
-        :return: generator of strings
+    @property
+    def auth_config_path(self):
+        result = DOCKER_DEFAULT_CONFIG_PATH
+        for path in DOCKER_CONFIG_FILEPATH_CASCADE:
+            if path and os.path.exists(path):
+                result = os.path.normpath(os.path.expanduser(path))
+                break
+        return result
+
+    def container_name_for_service(self, service_name):
+        return u'%s_%s' % (self.project_name, service_name)
+
+    def image_name_for_service(self, service_name):
+        return u'%s-%s' % (self.project_name, service_name)
+
+    def run_kwargs_for_service(self, service_name):
+        to_return = self.services[service_name].copy()
+        # remove keys that docker-compose format doesn't accept, or that can't
+        #  be used during the build phase
+        for key in ['from', 'roles', 'shell', 'links', 'defaults']:
+            try:
+                to_return.pop(key)
+            except KeyError:
+                pass
+        if to_return.get('ports'):
+            # convert ports from a list to a dict that docker-py likes
+            new_ports = build_port_bindings(to_return.get('ports'))
+            to_return['ports'] = new_ports
+        return to_return
+
+    @host_only
+    def print_version_info(self):
+        print(json.dumps(self.client.info(), indent=2))
+        print(json.dumps(self.client.version(), indent=2))
+
+    @log_runs
+    @conductor_only
+    def run_container(self, image_id, service_name, **kwargs):
+        """Run a particular container. The kwargs argument contains individual
+        parameter overrides from the service definition."""
+        run_kwargs = self.run_kwargs_for_service(service_name)
+        run_kwargs.update(kwargs, relax=True)
+        logger.debug('Running container in docker', image=image_id, params=run_kwargs)
+
+        container_obj = self.client.containers.run(
+            image=image_id,
+            detach=True,
+            **run_kwargs
+        )
+
+        log_iter = container_obj.logs(stdout=True, stderr=True, stream=True)
+        mux = logmux.LogMultiplexer()
+        mux.add_iterator(log_iter, plainLogger)
+        return container_obj.id
+
+    @log_runs
+    @host_only
+    def run_conductor(self, command, config, base_path, params, engine_name=None, volumes=None):
+        image_id = self.get_latest_image_id_for_service('conductor')
+        if image_id is None:
+            raise exceptions.AnsibleContainerConductorException(
+                    u"Conductor container can't be found. Run "
+                    u"`ansible-container build` first")
+        config['settings'] = dict(pwd=base_path, **config.get('settings', {}))
+
+        serialized_params = base64.b64encode(json.dumps(params).encode("utf-8")).decode()
+        serialized_config = base64.b64encode(json.dumps(config).encode("utf-8")).decode()
+
+        if not volumes:
+            volumes = {}
+        permissions = 'ro' if command != 'install' else 'rw'
+        volumes[base_path] = {'bind': '/src', 'mode': permissions}
+
+        if params.get('deployment_output_path'):
+            deployment_path = params['deployment_output_path']
+            volumes[deployment_path] = {'bind': deployment_path, 'mode': 'rw'}
+
+        environ = {}
+        if os.environ.get('DOCKER_HOST'):
+            environ['DOCKER_HOST'] = os.environ['DOCKER_HOST']
+            if os.environ.get('DOCKER_CERT_PATH'):
+                environ['DOCKER_CERT_PATH'] = '/etc/docker'
+                volumes[os.environ['DOCKER_CERT_PATH']] = {'bind': '/etc/docker',
+                                                           'mode': 'ro'}
+            if os.environ.get('DOCKER_TLS_VERIFY'):
+                environ['DOCKER_TLS_VERIFY'] = os.environ['DOCKER_TLS_VERIFY']
+        else:
+            environ['DOCKER_HOST'] = 'unix:///var/run/docker.sock'
+            volumes['/var/run/docker.sock'] = {'bind': '/var/run/docker.sock',
+                                               'mode': 'rw'}
+
+        environ['ANSIBLE_ROLES_PATH'] = '/src/roles:/etc/ansible/roles'
+
+        if params.get('devel'):
+            conductor_path = os.path.dirname(container.__file__)
+            logger.debug(u"Binding Ansible Container code at %s into conductor "
+                         u"container", conductor_path)
+            volumes[conductor_path] = {'bind': '/_ansible/container', 'mode': 'rw'}
+
+        if command in ('login', 'push') and params.get('config_path'):
+            config_path = params.get('config_path')
+            volumes[config_path] = {'bind': config_path,
+                                    'mode': 'rw'}
+
+        if not engine_name:
+            engine_name = __name__.rsplit('.', 2)[-2]
+
+        run_kwargs = dict(
+            name=self.container_name_for_service('conductor'),
+            command=['conductor',
+                     command,
+                     '--project-name', self.project_name,
+                     '--engine', engine_name,
+                     '--params', serialized_params,
+                     '--config', serialized_config,
+                     '--encoding', 'b64json'],
+            detach=True,
+            user='root',
+            volumes=volumes,
+            environment=environ,
+            working_dir='/src',
+            cap_add=['SYS_ADMIN']
+        )
+
+        logger.debug('Docker run:', image=image_id, params=run_kwargs)
+        try:
+            container_obj = self.client.containers.run(
+                image_id,
+                **run_kwargs
+            )
+        except docker_errors.APIError as exc:
+            if exc.response.status_code == StatusCodes.CONFLICT:
+                raise exceptions.AnsibleContainerConductorException(
+                    u"Can't start conductor container, another conductor for "
+                    u"this project already exists or wasn't cleaned up.")
+            six.reraise(*sys.exc_info())
+        else:
+            log_iter = container_obj.logs(stdout=True, stderr=True, stream=True)
+            mux = logmux.LogMultiplexer()
+            mux.add_iterator(log_iter, plainLogger)
+            return container_obj.id
+
+    def await_conductor_command(self, command, config, base_path, params, save_container=False):
+        conductor_id = self.run_conductor(command, config, base_path, params)
+        try:
+            while self.service_is_running('conductor'):
+                time.sleep(0.1)
+        finally:
+            exit_code = self.service_exit_code('conductor')
+            msg = 'Preserving as requested.' if save_container else 'Cleaning up.'
+            logger.info('Conductor terminated. {}'.format(msg), save_container=save_container,
+                        conductor_id=conductor_id, command_rc=exit_code)
+            if not save_container:
+                self.delete_container(conductor_id, remove_volumes=True)
+            if exit_code:
+                raise exceptions.AnsibleContainerConductorException(
+                    u'Conductor exited with status %s' % exit_code
+                )
+
+    def service_is_running(self, service):
+        try:
+            running_container = self.client.containers.get(self.container_name_for_service(service))
+            return running_container.status == 'running' and running_container.id
+        except docker_errors.NotFound:
+            return False
+
+    def service_exit_code(self, service):
+        try:
+            container_info = self.client.api.inspect_container(self.container_name_for_service(service))
+            return container_info['State']['ExitCode']
+        except docker_errors.APIError:
+            return None
+
+    def stop_container(self, container_id, forcefully=False):
+        try:
+            to_stop = self.client.containers.get(container_id)
+        except docker_errors.APIError:
+            logger.debug(u"Could not find container %s to stop", container_id,
+                         id=container_id, force=forcefully)
+            pass
+        else:
+            if forcefully:
+                to_stop.kill()
+            else:
+                to_stop.stop(timeout=60)
+
+    def restart_all_containers(self):
+        raise NotImplementedError()
+
+    def inspect_container(self, container_id):
+        try:
+            return self.client.api.inspect_container(container_id)
+        except docker_errors.APIError:
+            return None
+
+    def delete_container(self, container_id, remove_volumes=False):
+        try:
+            to_delete = self.client.containers.get(container_id)
+        except docker_errors.APIError:
+            pass
+        else:
+            to_delete.remove(v=remove_volumes)
+
+    def get_container_id_for_service(self, service_name):
+        try:
+            container_info = self.client.containers.get(self.container_name_for_service(service_name))
+        except docker_errors.NotFound:
+            logger.debug("Could not find container for %s", service_name,
+                         container=self.container_name_for_service(service_name),
+                         all_containers=self.client.containers.list())
+            return None
+        else:
+            return container_info.id
+
+    def get_image_id_by_fingerprint(self, fingerprint):
+        try:
+            image, = self.client.images.list(
+                all=True,
+                filters=dict(label='%s=%s' % (self.FINGERPRINT_LABEL_KEY,
+                                              fingerprint)))
+        except ValueError:
+            return None
+        else:
+            return image.id
+
+    def get_image_id_by_tag(self, tag):
+        try:
+            image = self.client.images.get(tag)
+            return image.id
+        except docker_errors.ImageNotFound:
+            return None
+
+    def get_latest_image_id_for_service(self, service_name):
+        image = self.get_latest_image_for_service(service_name)
+        if image is not None:
+            return image.id
+        return None
+
+    def get_latest_image_for_service(self, service_name):
+        try:
+            image = self.client.images.get(
+                '%s:latest' % self.image_name_for_service(service_name))
+        except docker_errors.ImageNotFound:
+            images = self.client.images.list(name=self.image_name_for_service(service_name))
+            logger.debug(
+                u"Could not find the latest image for service, "
+                u"searching for other tags with same image name",
+                image_name=self.image_name_for_service(service_name),
+                service=service_name)
+
+            if not images:
+                return None
+
+            def tag_sort(i):
+                return [t for t in i.tags if t.startswith(self.image_name_for_service(service_name))][0]
+
+            images = sorted(images, key=tag_sort)
+            logger.debug('Found images for service',
+                         service=service_name, images=images)
+            return images[-1]
+        else:
+            return image
+
+    def containers_built_for_services(self, services):
+        # Verify all images are built
+        for service_name in services:
+            logger.info(u'Verifying service image', service=service_name)
+            image_id = self.get_latest_image_id_for_service(service_name)
+            if image_id is None:
+                raise exceptions.AnsibleContainerMissingImage(
+                    u"Missing image for service '{}'. Run 'ansible-container build' to (re)create it."
+                    .format(service_name)
+                )
+
+    def get_build_stamp_for_image(self, image_id):
+        build_stamp = None
+        try:
+            image = self.client.images.get(image_id)
+        except docker_errors.ImageNotFound:
+            raise exceptions.AnsibleContainerConductorException(
+                "Unable to find image {}".format(image_id)
+            )
+        if image and image.tags:
+            build_stamp = [tag for tag in image.tags if not tag.endswith(':latest')][0].split(':')[-1]
+        return build_stamp
+
+    @log_runs
+    @conductor_only
+    def flatten_container(self,
+                          container_id,
+                          service_name,
+                          metadata):
+        image_name = self.image_name_for_service(service_name)
+        image_version = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
+        image_config = utils.metadata_to_image_config(metadata)
+
+        to_squash = self.client.containers.get(container_id)
+        raw_image = to_squash.export()
+
+        logger.debug("Exported service container as tarball", container=image_name)
+
+        out = self.client.api.import_image_from_data(
+            raw_image.read(),
+            repository=image_name,
+            tag=image_version
+        )
+        logger.debug("Committed flattened image", out=out)
+
+        image_id = json.loads(out)['status']
+
+        self.tag_image_as_latest(service_name, image_id.split(':')[-1])
+
+        return image_id
+
+
+    @log_runs
+    @conductor_only
+    def commit_role_as_layer(self,
+                             container_id,
+                             service_name,
+                             fingerprint,
+                             metadata,
+                             with_name=False):
+        to_commit = self.client.containers.get(container_id)
+        image_name = self.image_name_for_service(service_name)
+        image_version = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
+        image_config = utils.metadata_to_image_config(metadata)
+        image_config.setdefault('Labels', {})[self.FINGERPRINT_LABEL_KEY] = fingerprint
+        commit_data = dict(
+            repository=image_name if with_name else None,
+            tag=image_version if with_name else None,
+            message=self.LAYER_COMMENT,
+            conf=image_config
+        )
+        logger.debug('Committing new layer', params=commit_data)
+        return to_commit.commit(**commit_data).id
+
+    def tag_image_as_latest(self, service_name, image_id):
+        image_obj = self.client.images.get(image_id)
+        image_obj.tag(self.image_name_for_service(service_name), 'latest')
+
+    @conductor_only
+    def generate_orchestration_playbook(self, url=None, namespace=None, local_images=True, **kwargs):
         """
-        assert_initialized(self.base_path)
-        client = self.get_client()
-        with make_temp_dir() as temp_dir:
+        Generate an Ansible playbook to orchestrate services.
+        :param url: registry URL where images will be pulled from
+        :param namespace: registry namespace
+        :param local_images: bypass pulling images, and use local copies
+        :return: playbook dict
+        """
+        states = ['start', 'restart', 'stop', 'destroy']
+
+        service_def = {}
+        for service_name, service in self.services.items():
+            if service.get('roles'):
+                image = self.get_latest_image_for_service(service_name)
+                if image is None:
+                    raise exceptions.AnsibleContainerConductorException(
+                        u"No image found for service {}, make sure you've run `ansible-container build`".format(service_name)
+                    )
+            else:
+                image = self.client.images.get(service['from'])
+                if image is None:
+                    raise exceptions.AnsibleContainerConductorException(
+                        u"No image found for service {}. You probably need to pull the image from a repository.".format(service_name)
+                    )
+            service_definition = {
+                u'image': image.tags[0],
+            }
+            for extra in self.COMPOSE_WHITELIST:
+                if extra in service:
+                    service_definition[extra] = service[extra]
+            logger.debug(u'Adding new service to definition',
+                         service=service_name, definition=service_definition)
+            service_def[service_name] = service_definition
+
+        tasks = []
+        for desired_state in states:
+            task_params = {
+                u'project_name': self.project_name,
+                u'definition': {
+                    u'version': u'2',
+                    u'services': service_def,
+                }
+            }
+            if self.volumes:
+                task_params[u'definition'][u'volumes'] = self.volumes
+
+            if desired_state in {'restart', 'start', 'stop'}:
+                task_params[u'state'] = u'present'
+                if desired_state == 'restart':
+                    task_params[u'restarted'] = True
+                if desired_state == 'stop':
+                    task_params[u'stopped'] = True
+            elif desired_state == 'destroy':
+                task_params[u'state'] = u'absent'
+                task_params[u'remove_volumes'] = u'yes'
+
+            tasks.append({u'docker_service': task_params, u'tags': [desired_state]})
+
+        playbook = [{
+            u'hosts': u'localhost',
+            u'gather_facts': False,
+            u'tasks': tasks,
+        }]
+
+        for service in list(self.services.keys()) + ['conductor']:
+            image_name = self.image_name_for_service(service)
+            for image in self.client.images.list(name=image_name):
+                logger.debug('Found image for service', tags=image.tags, id=image.short_id)
+                for tag in image.tags:
+                    logger.debug('Adding task to destroy image', tag=tag)
+                    playbook[0][u'tasks'].append({
+                        u'docker_image': {
+                            u'name': tag,
+                            u'state': u'absent',
+                            u'force': u'yes'
+                        },
+                        u'tags': u'destroy'
+                    })
+
+        logger.debug(u'Created playbook to run project', playbook=playbook)
+        return playbook
+
+    @conductor_only
+    def push(self, image_id, service_name, repository_data):
+        """
+        Push an image to a remote registry.
+        """
+        tag = repository_data.get('tag')
+        namespace = repository_data.get('namespace')
+        url = repository_data.get('url')
+        auth_config = {
+            'username': repository_data.get('username'),
+            'password': repository_data.get('password')
+        }
+
+        build_stamp = self.get_build_stamp_for_image(image_id)
+        tag = tag or build_stamp
+
+        repository = "%s/%s-%s" % (namespace, self.project_name, service_name)
+        if url != self.default_registry_url:
+            url = REMOVE_HTTP.sub('', url)
+            repository = "%s/%s" % (re.sub('/$', '', url), repository)
+
+        logger.info('Tagging %s' % repository)
+        self.client.api.tag(image_id, repository, tag=tag)
+
+        logger.info('Pushing %s:%s...' % (repository, tag))
+        stream = self.client.api.push(repository, tag=tag, stream=True, auth_config=auth_config)
+
+        last_status = None
+        for data in stream:
+            data = data.splitlines()
+            for line in data:
+                line = json.loads(line)
+                if type(line) is dict and 'error' in line:
+                    plainLogger.error(line['error'])
+                if type(line) is dict and 'status' in line:
+                    if line['status'] != last_status:
+                        plainLogger.info(line['status'])
+                    last_status = line['status']
+                else:
+                    plainLogger.debug(line)
+
+    @log_runs
+    @host_only
+    def build_conductor_image(self, base_path, base_image, cache=True):
+        with utils.make_temp_dir() as temp_dir:
             logger.info('Building Docker Engine context...')
             tarball_path = os.path.join(temp_dir, 'context.tar')
             tarball_file = open(tarball_path, 'wb')
             tarball = tarfile.TarFile(fileobj=tarball_file,
                                       mode='w')
-            container_dir = os.path.normpath(os.path.join(self.base_path,
-                                                          'ansible'))
-            try:
-                tarball.add(container_dir, arcname='ansible')
-            except OSError:
-                raise AnsibleContainerNotInitializedException()
-            jinja_render_to_temp('ansible-dockerfile.j2', temp_dir,
-                                 'Dockerfile')
+            source_dir = os.path.normpath(base_path)
+
+            for filename in ['ansible.cfg', 'ansible-requirements.txt',
+                             'requirements.yml']:
+                file_path = os.path.join(source_dir, filename)
+                if os.path.exists(filename):
+                    tarball.add(file_path,
+                                arcname=os.path.join('build-src', filename))
+            # Make an empty file just to make sure the build-src dir has something
+            open(os.path.join(temp_dir, '.touch'), 'w')
+            tarball.add(os.path.join(temp_dir, '.touch'), arcname='build-src/.touch')
+
+            tarball.add(os.path.join(FILES_PATH, 'get-pip.py'),
+                        arcname='contrib/get-pip.py')
+
+            pkg_distribution = pkg_resources.working_set.by_key['ansible-container']
+            is_develop_install = pkg_distribution.precedence == pkg_resources.DEVELOP_DIST
+            container_dir = os.path.dirname(container.__file__)
+            tarball.add(container_dir, arcname='container-src')
+            if is_develop_install:
+                package_dir = os.path.dirname(container_dir)
+                tarball.add(os.path.join(package_dir, 'setup.py'),
+                            arcname='container-src/conductor-build/setup.py')
+                tarball.add(os.path.join(package_dir, 'conductor-requirements.txt'),
+                            arcname='container-src/conductor-build/conductor-requirements.txt')
+                tarball.add(os.path.join(package_dir, 'conductor-requirements.yml'),
+                            arcname='container-src/conductor-build/conductor-requirements.yml')
+
+            utils.jinja_render_to_temp(TEMPLATES_PATH,
+                                       'conductor-dockerfile.j2', temp_dir,
+                                       'Dockerfile',
+                                       conductor_base=base_image,
+                                       docker_version=DOCKER_VERSION)
             tarball.add(os.path.join(temp_dir, 'Dockerfile'),
                         arcname='Dockerfile')
 
-            for context_file in ['builder.sh', 'ansible-container-inventory.py',
-                                 'ansible.cfg', 'wait_on_host.py', 'ac_galaxy.py']:
-                tarball.add(os.path.join(jinja_template_path(), context_file),
-                            arcname=context_file)
+            #for context_file in ['builder.sh', 'ansible-container-inventory.py',
+            #                     'ansible.cfg', 'wait_on_host.py', 'ac_galaxy.py']:
+            #    tarball.add(os.path.join(TEMPLATES_PATH, context_file),
+            #                arcname=context_file)
 
+            logger.debug('Context manifest:')
+            for tarinfo_obj in tarball.getmembers():
+                logger.debug('tarball item: %s (%s bytes)', tarinfo_obj.name,
+                             tarinfo_obj.size, file=tarinfo_obj.name,
+                             bytes=tarinfo_obj.size, terse=True)
             tarball.close()
             tarball_file.close()
             tarball_file = open(tarball_path, 'rb')
-            logger.info('Starting Docker build of Ansible Container image (please be patient)...')
-            return client.build(fileobj=tarball_file,
-                                custom_context=True,
-                                tag=self.builder_container_img_tag,
-                                nocache=True,
-                                rm=True)
-
-    def get_image_id_by_tag(self, name):
-        """
-        Query the engine to get an image identifier by tag
-
-        :param name: the image name
-        :return: the image identifier
-        """
-        client = self.get_client()
-        try:
-            return client.images(name=name, quiet=True)[0]
-        except IndexError:
-            raise NameError('No image with the name %s' % name)
-
-    def get_images_by_name(self, name):
-        client = self.get_client()
-        try:
-            return client.images(name=name, quiet=True)
-        except IndexError:
-            raise NameError('No image with the name %s' % name)
-
-    def get_container_id_by_name(self, name):
-        """
-        Query the engine to get a container identifier by name
-
-        :param name: the container name
-        :return: the container identifier
-        """
-        client = self.get_client()
-        try:
-            return client.containers(
-                filters={'name': name},
-                limit=1, all=True, quiet=True)[0]
-        except IndexError:
-            raise NameError('No container with the name %s' % name)
-
-    def remove_container_by_name(self, name):
-        """
-        Remove a container from the engine given its name
-
-        :param name: the name of the container to remove
-        :return: None
-        """
-        client = self.get_client()
-        container_id, = client.containers(
-            filters={'name': 'ansible_%s_1' % name},
-            limit=1, all=True, quiet=True
-        )
-        self.remove_container_by_id(container_id)
-
-    def remove_container_by_id(self, id):
-        """
-        Remove a container from the engine given its identifier
-
-        :param id: container identifier
-        :return: None
-        """
-        client = self.get_client()
-        client.remove_container(id)
-
-    def get_builder_image_id(self):
-        """
-        Query the enginer to get the builder image identifier
-
-        :return: the image identifier
-        """
-        return self.get_image_id_by_tag(self.builder_container_img_tag)
-
-    def get_builder_container_id(self):
-        """
-        Query the enginer to get the builder container identifier
-
-        :return: the container identifier
-        """
-        return self.get_container_id_by_name(self.builder_container_img_name)
-
-    def build_was_successful(self):
-        """
-        After the build was complete, did the build run successfully?
-
-        :return: bool
-        """
-        client = self.get_client()
-        build_container_info, = client.containers(
-            filters={'name': 'ansible_ansible-container_1'},
-            limit=1, all=True
-        )
-        # Not the best way to test for success or failure, but it works.
-        exit_status = build_container_info['Status']
-        return '(0)' in exit_status
-
-    def get_config_for_shipit(self, pull_from=None, url=None, namespace=None, tag=None):
-        '''
-        Retrieve the configuration needed to run the shipit command
-
-        :param pull_from: the exact registry URL to use
-        :param url: registry url. required, if pull_from not provided.
-        :param namespace: path to append to the url. required if pull_from not provided.
-        :return: config dict
-        '''
-        config = get_config(self.base_path, var_file=self.var_file)
-        client = self.get_client()
-        image_path = None
-        if self.params.get('local_images'):
-            logger.info("Using local images")
-        else:
-            if pull_from:
-                image_path = re.sub(r'/$', '', REMOVE_HTTP.sub('', pull_from))
-            else:
-                image_path = namespace
-                if url != self.default_registry_url:
-                    url = REMOVE_HTTP.sub('', url)
-                    image_path = "%s/%s" % (re.sub(r'/$', '', url), image_path)
-
-            logger.info("Images will be pulled from %s" % image_path)
-        orchestrated_hosts = self.hosts_touched_by_playbook()
-        for host, service_config in config.get('services', {}).items():
-            if host in orchestrated_hosts:
-                image_id, image_buildstamp = get_latest_image_for(self.project_name, host, client)
-                image = '{0}-{1}:{2}'.format(self.project_name, host, tag or image_buildstamp)
-                if image_path:
-                    image = '{0}/{1}'.format(image_path, image)
-                service_config.update({u'image':  image})
-        return config
-
-    # Docker-compose uses docopt, which outputs things like the below
-    # So I'm starting with the defaults and then updating them.
-    # One structure for the global options and one for the command specific
-
-    DEFAULT_COMPOSE_OPTIONS = {
-        u'--help': False,
-        u'--host': None,
-        u'--project-name': None,
-        u'--skip-hostname-check': False,
-        u'--tls': False,
-        u'--tlscacert': None,
-        u'--tlscert': None,
-        u'--tlskey': None,
-        u'--tlsverify': False,
-        u'--verbose': False,
-        u'--version': False,
-        u'-h': False,
-        u'--file': [],
-        u'COMMAND': None,
-        u'ARGS': []
-    }
-
-    DEFAULT_COMPOSE_UP_OPTIONS = {
-        u'--abort-on-container-exit': False,
-        u'--build': False,
-        u'--force-recreate': False,
-        u'--no-color': False,
-        u'--no-deps': False,
-        u'--no-recreate': False,
-        u'--no-build': False,
-        u'--remove-orphans': False,
-        u'--timeout': None,
-        u'-d': False,
-        u'SERVICE': []
-    }
-
-    DEFAULT_COMPOSE_DOWN_OPTIONS = {
-        u'--volumes': True,
-        u'--remove-orphans': False
-    }
-
-    DEFAULT_COMPOSE_STOP_OPTIONS = {
-        u'--timeout': None,
-        u'SERVICE': []
-    }
-
-    DEFAULT_COMPOSE_RESTART_OPTIONS = {
-        u'--timeout': None,
-        u'SERVICE': []
-    }
-
-    def orchestrate(self, operation, temp_dir, hosts=[], context={}):
-        """
-        Execute the compose engine.
-
-        :param operation: One of build, run, or listhosts
-        :param temp_dir: A temporary directory usable as workspace
-        :param hosts: (optional) A list of hosts to limit orchestration to
-        :return: The exit status of the builder container (None if it wasn't run)
-        """
-        is_detached = self.params.pop('detached', False)
-        try:
-            builder_img_id = self.get_image_id_by_tag(
-                self.builder_container_img_tag)
-        except NameError:
-            image_version = '.'.join(release_version.split('.')[:2])
-            builder_img_id = 'ansible/%s:%s' % (
-                self.builder_container_img_tag, image_version)
-
-        options, command_options, command = self.bootstrap_env(
-            temp_dir=temp_dir,
-            builder_img_id=builder_img_id,
-            behavior='orchestrate',
-            compose_option='up',
-            operation=operation,
-            context=context)
-
-        options.update({
-            u'COMMAND': 'up',
-            u'ARGS': ['--no-build'] + hosts})
-
-        command_options[u'--no-build'] = True
-        command_options[u'SERVICE'] = hosts
-        command_options[u'--remove-orphans'] = self.params.get(
-            'remove_orphans', False)
-
-        if is_detached:
-            logger.info('Deploying application in detached mode')
-            command_options[u'-d'] = True
-
-        command.up(command_options)
-
-    def orchestrate_build_extra_args(self):
-        """
-        Provide extra arguments to provide the orchestrator during build.
-
-        :return: dictionary
-        """
-        return {'--abort-on-container-exit': True,
-                '--force-recreate': True}
-
-    def orchestrate_run_extra_args(self):
-        """
-        Provide extra arguments to provide the orchestrator during run.
-
-        :return: dictionary
-        """
-        return {}
-
-    def terminate_stop_extra_args(self):
-        """
-        Provide extra arguments to provide the orchestrator during stop.
-
-        :return: dictionary
-        """
-        return {}
-
-    def orchestrate_install_extra_args(self):
-        """
-        Provide extra arguments to provide the orchestrator during install calls.
-
-        :return: dictionary
-        """
-        return {}
-
-    def orchestrate_listhosts_extra_args(self):
-        """
-        Provide extra arguments to provide the orchestrator during listhosts.
-
-        :return: dictionary
-        """
-        return {'--no-color': True}
-
-    def terminate(self, operation, temp_dir, hosts=[]):
-        options, command_options, command = self.bootstrap_env(
-            temp_dir=temp_dir,
-            behavior='terminate',
-            operation=operation,
-            compose_option='stop'
-
-        )
-        options.update({u'COMMAND': u'stop'})
-        command_options[u'SERVICE'] = hosts
-
-        if self.params.get('force'):
-            command.kill(command_options)
-        else:
-            command.stop(command_options)
-
-    def restart(self, operation, temp_dir, hosts=[]):
-
-        options, command_options, command = self.bootstrap_env(
-            temp_dir=temp_dir,
-            behavior='restart',
-            operation=operation,
-            compose_option='restart'
-        )
-
-        options.update({u'COMMAND': 'restart'})
-
-        command_options[u'SERVICE'] = hosts
-
-        command.restart(command_options)
-
-    def restart_restart_extra_args(self):
-        """
-        Provide extra arguments to provide the orchestrator during restart.
-
-        :return: dictionary
-        """
-        return {}
-
-    def get_config_for_restart(self):
-        compose_config = config_to_compose(self.config)
-        return compose_config
-
-    def _fix_volumes(self, service_name, service_config, compose_version='1', top_level_volumes=dict()):
-        # If there are volumes defined for this host, we need to create the
-        # volume if one doesn't already exist.
-        client = self.get_client()
-        project_name = os.path.basename(self.base_path).lower()
-        for volume in service_config.get('volumes', []):
-            if ':' not in volume:
-                # This is an unnamed or anonymous volume. Create the volume with a predictable name.
-                volume_name = ('%s-%s-%s' % (project_name, service_name, volume.replace('/', '_'))).replace('-_', '_')
-                service_config['volumes'].remove(volume)
-                service_config['volumes'].append('%s:%s' % (volume_name, volume))
-                if compose_version == '1':
+            logger.info('Starting Docker build of Ansible Container Conductor image (please be patient)...')
+            # FIXME: Error out properly if build of conductor fails.
+            if self.debug:
+                for line_json in self.client.api.build(fileobj=tarball_file,
+                                                  decode=True,
+                                                  custom_context=True,
+                                                  tag=self.image_name_for_service('conductor'),
+                                                  rm=True,
+                                                  nocache=not cache):
                     try:
-                        client.inspect_volume(name=volume_name)
-                    except docker_errors.NotFound:
-                        # The volume does not exist
-                        client.create_volume(name=volume_name, driver='local')
-                if volume_name not in top_level_volumes.keys():
-                    top_level_volumes[volume_name] = {}
+                        if line_json.get('status') == 'Downloading':
+                            # skip over lines that give spammy byte-by-byte
+                            # progress of downloads
+                            continue
+                        elif 'errorDetail' in line_json:
+                            raise exceptions.AnsibleContainerException(
+                                "Error building conductor image: {0}".format(line_json['errorDetail']['message']))
+                    except ValueError:
+                        pass
+                    except exceptions.AnsibleContainerException:
+                        raise
 
-    def get_config_for_build(self):
-        compose_config = config_to_compose(self.config)
-        version = compose_config.get('version', '1')
-        volumes = compose_config.get('volumes', {})
-        orchestrated_hosts = self.hosts_touched_by_playbook()
-        if self.params.get('service'):
-            # only build a subset of the orchestrated hosts
-            orchestrated_hosts = orchestrated_hosts.intersection(self.params['service'])
-            for host in set(compose_config['services'].keys()) - orchestrated_hosts:
-                del compose_config['services'][host]
-            if not compose_config['services']:
-                raise AnsibleContainerNoMatchingHosts()
-        logger.debug('Orchestrated hosts: %s', ', '.join(orchestrated_hosts))
+                    # this bypasses the fancy colorized logger for things that
+                    # are just STDOUT of a process
+                    plainLogger.debug(text.to_text(line_json.get('stream', json.dumps(line_json))).rstrip())
+                return self.get_latest_image_id_for_service('conductor')
+            else:
+                image = self.client.images.build(fileobj=tarball_file,
+                                                 custom_context=True,
+                                                 tag=self.image_name_for_service('conductor'),
+                                                 rm=True,
+                                                 nocache=not cache)
+                return image.id
 
-        for service, service_config in compose_config['services'].items():
-            if service in orchestrated_hosts:
-                logger.debug('Setting %s to sleep', service)
-                service_config.update(
-                    dict(
-                        user='root',
-                        working_dir='/',
-                        command='sh -c "while true; do sleep 1; done"',
-                        entrypoint=[],
-                    )
-                )
-                # Set ANSIBLE_CONTAINER=1 in env
-                if service_config.get('environment'):
-                    if isinstance(service_config['environment'], list):
-                        service_config['environment'].append("ANSIBLE_CONTAINER=1")
-                    elif isinstance(service_config['environment'], dict):
-                        service_config['environment']['ANSIBLE_CONTAINER'] = 1
-                else:
-                    service_config['environment'] = dict(ANSIBLE_CONTAINER=1)
-
-            if not self.params['rebuild']:
-                tag = '%s-%s:latest' % (self.project_name,
-                                        service)
-                try:
-                    self.get_image_id_by_tag(tag)
-                except NameError:
-                    logger.info('No image found for tag %s, so building from scratch',
-                                '%s-%s:latest' % (self.project_name, service))
-                    # have to rebuild this from scratch, as the image doesn't
-                    # exist in the engine
-                    pass
-                else:
-                    logger.debug('No NameError raised when searching for tag %s',
-                                 '%s-%s:latest' % (self.project_name, service))
-                    service_config['image'] = tag
-            self._fix_volumes(service, service_config, compose_version=version, top_level_volumes=volumes)
-
-        if volumes:
-            compose_config['volumes'] = volumes
-
-        return compose_config
-
-    def get_config_for_run(self):
-        if not self.params['production']:
-            self.config.set_env('dev')
-        compose_config = config_to_compose(self.config)
-        version = compose_config.get('version', '1')
-        volumes = compose_config.get('volumes', {})
-        orchestrated_hosts = self.hosts_touched_by_playbook()
-        for service, service_config in compose_config['services'].items():
-            if service in orchestrated_hosts:
-                service_config.update(
-                    dict(
-                        image='%s-%s:latest' % (self.project_name, service)
-                    )
-                )
-            self._fix_volumes(service, service_config, compose_version=version, top_level_volumes=volumes)
-
-        if volumes:
-            compose_config['volumes'] = volumes
-
-        return compose_config
-
-    def get_config_for_stop(self):
-        compose_config = config_to_compose(self.config)
-        return compose_config
-
-    def get_config_for_listhosts(self):
-        compose_config = config_to_compose(self.config)
-        version = compose_config.get('version', '1')
-        volumes = compose_config.get('volumes', {})
-        for service, service_config in compose_config['services'].items():
-            service_config.update(
-                dict(
-                    user='root',
-                    working_dir='/',
-                    command='sh -c "while true; do sleep 1; done"',
-                    entrypoint=[]
-                )
+    def get_runtime_volume_id(self):
+        try:
+            container_data = self.client.api.inspect_container(
+                self.container_name_for_service('conductor')
             )
-            self._fix_volumes(service, service_config, compose_version=version, top_level_volumes=volumes)
+        except docker_errors.APIError:
+            raise ValueError('Conductor container not found.')
+        mounts = container_data['Mounts']
+        try:
+            usr_mount, = [mount for mount in mounts if mount['Destination'] == '/usr']
+        except ValueError:
+            raise ValueError('Runtime volume not found on Conductor')
+        return usr_mount['Name']
 
-        if volumes:
-            compose_config['volumes'] = volumes
+    @host_only
+    def import_project(self, base_path, import_from, bundle_files=False, **kwargs):
+        from .importer import DockerfileImport
 
-        return compose_config
+        dfi = DockerfileImport(base_path,
+                               self.project_name,
+                               import_from,
+                               bundle_files)
+        dfi.run()
 
-    def get_config_for_install(self):
-        compose_config = config_to_compose(self.config)
-        return compose_config
-
-    def post_build(self, host, version, flatten=True, purge_last=True):
-        client = self.get_client()
-        container_id, = client.containers(
-            filters={'name': 'ansible_%s_1' % host},
-            limit=1, all=True, quiet=True
-        )
-        previous_image_id, previous_image_buildstamp = get_latest_image_for(
-            self.project_name, host, client
-        )
-        cmd = self.config['services'][host].get('command', '')
-        if isinstance(cmd, list):
-            cmd = json.dumps(cmd)
-        entrypoint = self.config['services'][host].get('entrypoint', '')
-        if isinstance(entrypoint, list):
-            entrypoint = json.dumps(entrypoint)
-        image_config = dict(
-            USER=self.config['services'][host].get('user', 'root'),
-            LABEL='com.docker.compose.oneoff="" com.docker.compose.project="%s"' % self.project_name,
-            ENTRYPOINT=entrypoint,
-            CMD=cmd
-        )
-        # Only add WORKDIR if it does not contain an unexpanded environment var
-        workdir = self.config['services'][host].get('working_dir', '/')
-        image_config['WORKDIR'] = workdir if not re.search('\$|\{', workdir) else '/' 
-
-        if flatten:
-            logger.info('Flattening image...')
-            exported = client.export(container_id)
-            client.import_image_from_data(
-                exported.read(),
-                repository='%s-%s' % (self.project_name, host),
-                tag=version)
-        else:
-            logger.info('Committing image...')
-            client.commit(container_id,
-                          repository='%s-%s' % (self.project_name, host),
-                          tag=version,
-                          message='Built using Ansible Container',
-                          changes=u'\n'.join(
-                              [u'%s %s' % (k, v)
-                               for k, v in image_config.items()]
-                          ))
-        image_id, = client.images(
-            '%s-%s:%s' % (self.project_name, host, version),
-            quiet=True
-        )
-        logger.info('Exported %s-%s with image ID %s', self.project_name, host,
-                    image_id)
-        client.tag(image_id, '%s-%s' % (self.project_name, host), tag='latest',
-                   force=True)
-        logger.info('Cleaning up %s build container...', host)
-        client.remove_container(container_id)
-
-        image_data = client.inspect_image(image_id)
-        parent_sha = ''
-        if image_data:
-            parent_sha = image_data.get('Parent', '')
-
-        if purge_last and previous_image_id and previous_image_id not in parent_sha:
-            logger.info('Removing previous image...')
-            client.remove_image(previous_image_id, force=True)
-
-    DEFAULT_CONFIG_PATH = '~/.docker/config.json'
-
-    def registry_login(self, username=None, password=None, email=None, url=None, config_path=DEFAULT_CONFIG_PATH):
+    @conductor_only
+    def login(self, username, password, email, url, config_path):
         """
-        Logs into registry for this engine
-
-        :param username: Username to login with
-        :param password: Password to login with - None to prompt user
-        :param email: Email address to login with
-        :param url: URL of registry - default defined per backend
-        :param config_path: path to the registry config file
-        :return: None
+        If username and password are provided, authenticate with the registry.
+        Otherwise, check the config file for existing authentication data.
         """
-
-        #TODO Make config_path a command line option?
-
-        client = self.get_client()
-        if not url:
-            url = self.default_registry_url
-
-        if username:
-            # We assume if no username was given, the docker config file
-            # suffices
-            while not password:
-                password = getpass.getpass(u'Enter password for %s at %s: ' % (
-                    username, url
-                ))
+        if username and password:
             try:
-                client.login(username=username, password=password, email=email,
-                             registry=url)
-            except Exception as exc:
-                raise AnsibleContainerDockerLoginException("Error logging into registry: %s" % str(exc))
+                self.client.login(username=username, password=password, email=email,
+                                  registry=url, reauth=True)
+            except docker_errors.APIError as exc:
+                raise exceptions.AnsibleContainerConductorException(
+                    u"Error logging into registry: {}".format(exc)
+                )
+            except Exception:
+                raise
 
-            self.update_config_file(username, password, email, url, config_path)
+            self._update_config_file(username, password, email, url, config_path)
 
-        username, email = self.currently_logged_in_registry_user(url)
+        username, password = self._get_registry_auth(url, config_path)
         if not username:
-            raise AnsibleContainerNoAuthenticationProvidedException(
-                u'Please provide login credentials for registry %r.' % url)
-        return username
+            raise exceptions.AnsibleContainerConductorException(
+                u'Please provide login credentials for registry {}.'.format(url))
+        return username, password
 
-    DOCKER_CONFIG_FILEPATH_CASCADE = [
-        os.environ.get('DOCKER_CONFIG', ''),
-        os.path.join(os.environ.get('HOME', ''), '.docker', 'config.json'),
-        os.path.join(os.environ.get('HOME', ''), '.dockercfg')
-    ]
-
-    def currently_logged_in_registry_user(self, url):
-        """
-        Gets logged in user from configuration for a URL for the registry for
-        this engine.
-
-        :param url: URL
-        :return: (username, email) tuple
-        """
-        username = None
-        docker_config = None
-        for docker_config_filepath in self.DOCKER_CONFIG_FILEPATH_CASCADE:
-            if docker_config_filepath and os.path.exists(docker_config_filepath):
-                docker_config = json.load(open(docker_config_filepath))
-                break
-        if not docker_config:
-            raise AnsibleContainerDockerConfigFileException("Unable to read your docker config file. Try providing "
-                                                            "login credentials for the registry.")
-        if 'auths' in docker_config:
-            docker_config = docker_config['auths']
-        auth_key = docker_config.get(url, {}).get('auth', '')
-        email = docker_config.get(url, {}).get('email', '')
-        if auth_key:
-            username, password = base64.decodestring(auth_key).split(':', 1)
-        return username, email
-
-    def update_config_file(self, username, password, email, url, config_path):
-        '''
-        Update the config file with the authorization.
-
-        :param username:
-        :param password:
-        :param email:
-        :param url:
-        :param config_path
-        :return: None
-        '''
-
-        path = os.path.expanduser(config_path)
-        if not os.path.exists(path):
-            # Create an empty config, if none exists
-            config_path_dir = os.path.dirname(path)
-            if not os.path.exists(config_path_dir):
-                try:
-                    os.makedirs(config_path_dir)
-                except Exception as exc:
-                    raise AnsibleContainerDockerConfigFileException("Failed to create file %s - %s" %
-                                                                    (config_path_dir, str(exc)))
-            self.write_config(path, dict(auths=dict()))
-
+    @staticmethod
+    @conductor_only
+    def _update_config_file(username, password, email, url, config_path):
+        """Update the config file with the authorization."""
         try:
             # read the existing config
-            config = json.load(open(path, "r"))
+            config = json.load(open(config_path, "r"))
         except ValueError:
             config = dict()
 
@@ -751,155 +761,35 @@ class Engine(BaseEngine):
 
         if not config['auths'].get(url):
             config['auths'][url] = dict()
-
         encoded_credentials = dict(
             auth=base64.b64encode(username + b':' + password),
             email=email
         )
-
         config['auths'][url] = encoded_credentials
-        self.write_config(path, config)
+        try:
+            json.dump(config, open(config_path, "w"), indent=5, sort_keys=True)
+        except Exception as exc:
+            raise exceptions.AnsibleContainerConductorException(
+                u"Failed to write registry config to {0} - {1}".format(config_path, exc)
+            )
 
     @staticmethod
-    def write_config(path, config):
+    @conductor_only
+    def _get_registry_auth(registry_url, config_path):
+        """
+        Retrieve from the config file the current authentication for a given URL, and
+        return the username, password
+        """
+        username = None
+        password = None
         try:
-            json.dump(config, open(path, "w"), indent=5, sort_keys=True)
-        except Exception as exc:
-            raise AnsibleContainerDockerConfigFileException("Failed to write docker registry config to %s - %s" %
-                                                            (path, str(exc)))
-
-    def push_latest_image(self, host, url=None, namespace=None, tag=None):
-        '''
-        :param host: The host in the container.yml to push
-        :parm url: URL of the registry to which images will be pushed
-        :param namespace: namespace to append to the URL
-        :return: None
-        '''
-        client = self.get_client()
-        image_id, image_buildstamp = get_latest_image_for(self.project_name,
-                                                          host, client)
-        tag = tag or image_buildstamp
-
-        repository = "%s/%s-%s" % (namespace, self.project_name, host)
-        if url != self.default_registry_url:
-            url = REMOVE_HTTP.sub('', url)
-            repository = "%s/%s" % (re.sub('/$', '', url), repository)
-
-        logger.info('Tagging %s' % repository)
-        client.tag(image_id, repository, tag=tag)
-
-        logger.info('Pushing %s:%s...' % (repository, tag))
-        stream = client.push(repository,
-                             tag=tag,
-                             stream=True)
-        last_status = None
-        for data in stream:
-            data = data.splitlines()
-            for line in data:
-                line = json.loads(line)
-                if type(line) is dict and 'error' in line:
-                    logger.error(line['error'])
-                if type(line) is dict and 'status' in line:
-                    if line['status'] != last_status:
-                        logger.info(line['status'])
-                    last_status = line['status']
-                else:
-                    logger.debug(line)
-
-    def get_client(self):
-        if not self._client:
-            # To ensure version compatibility, we have to generate the kwargs ourselves
-            client_kwargs = kwargs_from_env(assert_hostname=False)
-            timeout = get_timeout()
-            self._client = docker.AutoVersionClient(timeout=timeout, **client_kwargs)
-            self.api_version = self._client.version()['ApiVersion']
-            # Set the version in the env so it can be used elsewhere
-            os.environ['DOCKER_API_VERSION'] = self.api_version
-        return self._client
-
-    def print_version_info(self):
-        client = self.get_client()
-        pprint.pprint(client.info())
-        pprint.pprint(client.version())
-
-    def bootstrap_env(self, temp_dir, behavior, operation, compose_option,
-                      builder_img_id=None, context=None):
-        """
-        Build common Docker Compose elements required to execute orchestrate,
-        terminate, restart, etc.
-        
-        :param temp_dir: A temporary directory usable as workspace
-        :param behavior: x in x_operation_extra_args
-        :param operation: Operation to perform, like, build, run, listhosts, etc
-        :param compose_option: x in DEFAULT_COMPOSE_X_OPTIONS
-        :param builder_img_id: Ansible Container Builder Image ID
-        :param context: extra context to send to jinja_render_to_temp
-        :return: options (options to pass to compose),
-                 command_options (operation options to pass to compose),
-                 command (compose's top level command)
-        """
-
-        if context is None:
-            context = {}
-
-        self.temp_dir = temp_dir
-        extra_options = getattr(self, '{}_{}_extra_args'.format(behavior,
-                                                                operation))()
-        config = getattr(self, 'get_config_for_%s' % operation)()
-        logger.debug('%s' % (config,))
-        config_yaml = yaml_dump(config['services']) if config else ''
-        logger.debug('Config YAML is')
-        logger.debug(config_yaml)
-        hosts = self.all_hosts_in_orchestration()
-        version = config.get('version', '1')
-        volumes_yaml = yaml_dump(config['volumes']) if config and config.get('volumes') else ''
-        if operation == 'build' and self.params.get('service'):
-            # build operation is limited to a specific list of services
-            hosts = list(set(hosts).intersection(self.params['service']))
-        if version == '1':
-            logger.debug('HERE VERSION 1')
-            jinja_render_to_temp('%s-docker-compose.j2.yml' % (operation,),
-                                 temp_dir,
-                                 'docker-compose.yml',
-                                 hosts=hosts,
-                                 project_name=self.project_name,
-                                 base_path=self.base_path,
-                                 params=self.params,
-                                 api_version=self.api_version,
-                                 builder_img_id=builder_img_id,
-                                 config=config_yaml,
-                                 env=os.environ,
-                                 **context)
-        else:
-            jinja_render_to_temp('compose_versioned.j2.yml',
-                                 temp_dir,
-                                 'docker-compose.yml',
-                                 template='%s-docker-compose.j2.yml' % (operation,),
-                                 hosts=hosts,
-                                 project_name=self.project_name,
-                                 base_path=self.base_path,
-                                 params=self.params,
-                                 api_version=self.api_version,
-                                 builder_img_id=builder_img_id,
-                                 config=config_yaml,
-                                 env=os.environ,
-                                 version=version,
-                                 volumes=volumes_yaml,
-                                 **context)
-        options = self.DEFAULT_COMPOSE_OPTIONS.copy()
-
-        options.update({
-            u'--verbose': self.params['debug'],
-            u'--file': [
-                os.path.join(temp_dir,
-                             'docker-compose.yml')],
-            u'--project-name': 'ansible',
-        })
-        command_options = getattr(self, 'DEFAULT_COMPOSE_{}_OPTIONS'.format(
-            compose_option.upper())).copy()
-        command_options.update(extra_options)
-
-        project = project_from_options(self.base_path + '/ansible', options)
-        command = main.TopLevelCommand(project)
-
-        return options, command_options, command
+            docker_config = json.load(open(config_path))
+        except ValueError:
+            # The configuration file is empty
+            return username, password
+        if docker_config.get('auths'):
+            docker_config = docker_config['auths']
+        auth_key = docker_config.get(registry_url, {}).get('auth', None)
+        if auth_key:
+            username, password = base64.b64decode(auth_key).split(':', 1)
+        return username, password

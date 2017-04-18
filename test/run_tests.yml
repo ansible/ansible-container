@@ -1,0 +1,10 @@
+---
+- name: Run Ansible Container tests
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  roles:
+    - validate-build-and-import
+    - validate-start-stop-restart
+

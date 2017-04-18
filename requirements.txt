@@ -1,6 +1,6 @@
-docker-compose==1.9.0
-docker-py==1.10.6
-Jinja2>=2.8
-PyYAML>=3.11
-requests==2.11.1
-six
+Jinja2>=2.9
+PyYAML>=3.12
+requests>=2
+ruamel.yaml>=0.14.2
+six>=1.10
+structlog[dev]>=16.1

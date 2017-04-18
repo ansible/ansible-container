@@ -1,65 +1,75 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
-import logging
+from .utils.visibility import getLogger
+logger = getLogger(__name__)
 
-logger = logging.getLogger(__name__)
 
-class AnsibleContainerNotInitializedException(Exception):
+class AnsibleContainerException(Exception):
     pass
 
-
-class AnsibleContainerAlreadyInitializedException(Exception):
+class AnsibleContainerConductorException(AnsibleContainerException):
     pass
 
-class AnsibleContainerNoAuthenticationProvidedException(Exception):
+class AnsibleContainerNotInitializedException(AnsibleContainerException):
     pass
 
-class AnsibleContainrRolesPathCreationException(Exception):
+class AnsibleContainerAlreadyInitializedException(AnsibleContainerException):
     pass
 
-class AnsibleContainerDockerConfigFileException(Exception):
+class AnsibleContainerNoAuthenticationProvidedException(AnsibleContainerException):
     pass
 
-class AnsibleContainerDockerLoginException(Exception):
+class AnsibleContainrRolesPathCreationException(AnsibleContainerException):
     pass
 
-class AnsibleContainerConfigException(Exception):
+class AnsibleContainerDockerConfigFileException(AnsibleContainerException):
     pass
 
-class AnsibleContainerRegistryNotFoundException(Exception):
+class AnsibleContainerDockerLoginException(AnsibleContainerException):
     pass
 
-class AnsibleContainerRegistryAttributeException(Exception):
+class AnsibleContainerDockerConnectionRefused(AnsibleContainerException):
     pass
 
-class AnsibleContainerMissingRegistryName(Exception):
+class AnsibleContainerConfigException(AnsibleContainerException):
     pass
 
-class AnsibleContainerNoMatchingHosts(Exception):
+class AnsibleContainerRegistryNotFoundException(AnsibleContainerException):
     pass
 
-class AnsibleContainerHostNotTouchedByPlaybook(Exception):
+class AnsibleContainerRegistryAttributeException(AnsibleContainerException):
     pass
 
-class AnsibleContainerShipItException(Exception):
-
-    def __init__(self, msg, stdout=None, stderr=None):
-        self.stderr = stderr
-        self.stdout = stdout
-
-        Exception.__init__(self, msg)
-
-class AnsibleContainerFilterException(Exception):
+class AnsibleContainerMissingImage(AnsibleContainerException):
     pass
 
-class AnsibleContainerConfigException(Exception):
+class AnsibleContainerMissingRegistryName(AnsibleContainerException):
     pass
 
-class AnsibleContainerMissingPersistentVolumeClaim(Exception):
+class AnsibleContainerNoMatchingHosts(AnsibleContainerException):
     pass
 
-class AnsibleContainerListHostsException(Exception):
+class AnsibleContainerHostNotTouchedByPlaybook(AnsibleContainerException):
     pass
 
+class AnsibleContainerDeployException(AnsibleContainerException):
+    pass
 
+class AnsibleContainerFilterException(AnsibleContainerException):
+    pass
+
+class AnsibleContainerMissingPersistentVolumeClaim(AnsibleContainerException):
+    pass
+
+class AnsibleContainerListHostsException(AnsibleContainerException):
+    pass
+
+class AnsibleContainerEngineCapability(AnsibleContainerException):
+    pass
+
+class AnsibleContainerGalaxyFatalException(AnsibleContainerException):
+    pass
+
+class AnsibleContainerGalaxyRoleException(AnsibleContainerException):
+    pass

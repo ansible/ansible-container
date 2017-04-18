@@ -40,25 +40,3 @@ When a registry is defined in ``container.yml``, the name can be passed using th
     No credentials are stored in ``container.yml``. You still need to authenticate with the registry each time you push
     images or allow your credentials to be stored in ``~/.docker/config.json``.
 
-Pulling Images
-''''''''''''''
-
-When you deploy to a cluster, the cluster needs to know how to pull the images. The ``shipit`` command provides this
-information in the configuration details sent to the cluster. It defaults to sending the Docker Hub URL along with
-the username associated with Docker Hub in ``~/.docker/config.json``.
-
-To pull images from a private registry, pass the private registry URL and namespace to ``shipit`` using the
-``--pull-from`` parameter. For example, the following will pull images from Google Container Registry using a namespace
-value of 'example-project':
-
-.. code-block:: bash
-
-    $ ansible-container shipit kube --pull-from https://gcr.io/example-project
-
-As mentioned above, registries can be defined in ``container.yml``. If the registry is defined in ``container.yml`` with a
-name of *google*, exactly as pictured above, then the registry name can be passed to the ``--pull-from`` option. For example:
-
-.. code-block:: bash
-
-    $ ansible-container shipit kube --pull-from google
-
