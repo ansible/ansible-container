@@ -1,8 +1,10 @@
 import os
 import sys
 import shlex
+import shutil
 from setuptools import setup, find_packages
 from setuptools.command.test import test as TestCommand
+from setuptools.command.sdist import sdist as SDistCommand
 from pip.req import parse_requirements
 import container
 
@@ -33,6 +35,14 @@ class PlaybookAsTests(TestCommand):
         rc = p.wait()
         sys.exit(rc)
 
+class BundleConductorFiles(SDistCommand):
+    def run(self):
+        shutil.copyfile('./setup.py', 'container/docker/files/setup.py')
+        shutil.copyfile('./conductor-requirements.txt',
+                        'container/docker/files/conductor-requirements.txt')
+        shutil.copyfile('./conductor-requirements.yml',
+                        'container/docker/files/conductor-requirements.yml')
+        return SDistCommand.run(self)
 
 if container.ENV == 'host':
     install_reqs = parse_requirements('requirements.txt', session=False)
@@ -54,12 +64,12 @@ if container.ENV == 'host':
             'https://github.com/ansible/ansible/archive/devel.tar.gz#egg=ansible-2.4.0',
             'https://github.com/openshift/openshift-restclient-python/archive/master.tar.gz#egg=openshift-1.0.0'
         ],
-        cmdclass={'test': PlaybookAsTests},
+        cmdclass={'test': PlaybookAsTests,
+                  'sdist': BundleConductorFiles},
         entry_points={
             'console_scripts': [
                 'ansible-container = container.cli:host_commandline']
-        },
-        data_files=[('conductor-build', ['setup.py', 'conductor-requirements.txt'])]
+        }
     )
 else:
     setup_kwargs = dict(

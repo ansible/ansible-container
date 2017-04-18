@@ -18,7 +18,6 @@ import re
 import six
 import sys
 import tarfile
-import pkg_resources
 
 try:
     import httplib as StatusCodes
@@ -629,18 +628,28 @@ class Engine(BaseEngine):
             tarball.add(os.path.join(FILES_PATH, 'get-pip.py'),
                         arcname='contrib/get-pip.py')
 
-            pkg_distribution = pkg_resources.working_set.by_key['ansible-container']
-            is_develop_install = pkg_distribution.precedence == pkg_resources.DEVELOP_DIST
             container_dir = os.path.dirname(container.__file__)
             tarball.add(container_dir, arcname='container-src')
-            if is_develop_install:
-                package_dir = os.path.dirname(container_dir)
-                tarball.add(os.path.join(package_dir, 'setup.py'),
-                            arcname='container-src/conductor-build/setup.py')
-                tarball.add(os.path.join(package_dir, 'conductor-requirements.txt'),
+            package_dir = os.path.dirname(container_dir)
+
+            # For an editable install, the setup.py and requirements.* will be
+            # available in the package_dir. Otherwise, our custom sdist (see
+            # setup.py) would have moved them to FILES_PATH
+            setup_py_dir = (package_dir
+                            if os.path.exists(os.path.join(package_dir, 'setup.py'))
+                            else FILES_PATH)
+            req_txt_dir = (package_dir
+                           if os.path.exists(os.path.join(package_dir, 'conductor-requirements.txt'))
+                           else FILES_PATH)
+            req_yml_dir = (package_dir
+                           if os.path.exists(os.path.join(package_dir, 'conductor-requirements.yml'))
+                           else FILES_PATH)
+            tarball.add(os.path.join(setup_py_dir, 'setup.py'),
+                        arcname='container-src/conductor-build/setup.py')
+            tarball.add(os.path.join(req_txt_dir, 'conductor-requirements.txt'),
                             arcname='container-src/conductor-build/conductor-requirements.txt')
-                tarball.add(os.path.join(package_dir, 'conductor-requirements.yml'),
-                            arcname='container-src/conductor-build/conductor-requirements.yml')
+            tarball.add(os.path.join(req_yml_dir, 'conductor-requirements.yml'),
+                        arcname='container-src/conductor-build/conductor-requirements.yml')
 
             utils.jinja_render_to_temp(TEMPLATES_PATH,
                                        'conductor-dockerfile.j2', temp_dir,
