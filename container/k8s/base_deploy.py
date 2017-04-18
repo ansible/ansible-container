@@ -174,6 +174,7 @@ class K8sBaseDeploy(object):
         'depends_on',
         'dns',
         'dns_search',
+        'defaults',        # Ignored so that playbook vars/defaults can be passed during container builds but ignored in openshift/k8s deploys
         'env_file',        # TODO: build support for this?
         'user',            # TODO: needs to map to securityContext.runAsUser, which requires a UID
         'extends',
