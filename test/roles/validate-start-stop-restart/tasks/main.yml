@@ -1,0 +1,98 @@
+---
+# Assumptions:
+# 1) import-build has already run
+# 2) distros and tempdirs are in the variable-space
+- name: Remove task.output
+  file:
+    path: ./task.output
+    state: absent
+
+- name: Run built containers detached
+  shell: >
+    ansible-container --debug --project-path
+    {{ item.1.path|quote }}/test-{{ item.0.name|quote }} run --detached >>task.output 2>&1
+  with_together:
+    - "{{ distros }}"
+    - "{{ tempdirs.results }}"
+  register: output
+  ignore_errors: yes
+  tags:
+    - run
+    - run_no_validate
+    - restart
+    - restart_no_validate
+    - stop
+    - stop_no_validate
+- include: show-output.yml output_file=./task.output registered_output="{{ output }}"
+
+- name: Wait until built containers are running
+  docker_container:
+    name: "test{{ item.name }}_{{ item.name }}_1"
+  with_items: "{{ distros }}"
+  register: container_run_status
+  until: container_run_status.ansible_facts.docker_container.State.Status == 'running'
+  tags:
+    - restart
+    - run
+
+- name: Restart containers
+  shell: >
+    ansible-container --debug --project-path
+    {{ item.1.path|quote }}/test-{{ item.0.name|quote }} restart >>task.output 2>&1
+  with_together:
+    - "{{ distros }}"
+    - "{{ tempdirs.results }}"
+  register: output
+  ignore_errors: yes
+  tags:
+    - restart
+    - restart_no_validate
+- include: show-output.yml output_file=./task.output registered_output="{{ output }}"
+
+- name: Get new container start times
+  docker_container:
+    name: "test{{ item.name }}_{{ item.name }}_1"
+  with_items: "{{ distros }}"
+  register: container_restart_status
+  until: container_restart_status.ansible_facts.docker_container.State.Status == 'running'
+  tags:
+    - restart
+
+- name: Ensure containers were restarted
+  assert:
+    that:
+      - item.0.ansible_facts.docker_container.State.StartedAt  != item.1.ansible_facts.docker_container.State.StartedAt
+  with_together:
+    - "{{ container_run_status.results }}"
+    - "{{ container_restart_status.results }}"
+  tags:
+    - restart
+
+- name: Stop containers
+  shell: >
+    ansible-container --debug --project-path
+    {{ item.1.path|quote }}/test-{{ item.0.name|quote }} stop >>task.output 2>&1
+  with_together:
+    - "{{ distros }}"
+    - "{{ tempdirs.results }}"
+  register: output
+  ignore_errors: yes
+  tags:
+    - stop
+    - stop_no_validate
+    - run
+    - run_no_validate
+    - restart
+    - restart_no_validate
+- include: show-output.yml output_file=./task.output registered_output="{{ output }}"
+
+- name: Ensure containers were stopped
+  docker_container:
+    name: 'test{{ item.name }}_{{ item.name }}_1'
+    state: 'stopped'
+  with_items: "{{ distros }}"
+  register: output
+  failed_when: output.changed
+  tags:
+    - stop
+

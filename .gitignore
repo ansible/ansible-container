@@ -204,3 +204,4 @@ shipit_config/
 shipit*.yml
 tmp.yml
 ansible.cfg
+*.output

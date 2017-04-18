@@ -1,23 +1,85 @@
+import os
+import sys
+import shlex
 from setuptools import setup, find_packages
+from setuptools.command.test import test as TestCommand
 from pip.req import parse_requirements
 import container
 
-install_reqs = parse_requirements('requirements.txt', session=False)
-reqs = [str(ir.req) for ir in install_reqs]
+
+class PlaybookAsTests(TestCommand):
+    user_options = [('ansible-args=', None, "Extra ansible arguments")]
+
+    def initialize_options(self):
+        self.ansible_args = u''
+        TestCommand.initialize_options(self)
+
+    def run(self):
+        if sys.platform == 'darwin':
+            # Docker for Mac exports certain paths into the virtual machine
+            # actually running Docker. The default tempdir isn't one of them,
+            # but /tmp is.
+            os.environ['TMPDIR'] = '/tmp'
+        return TestCommand.run(self)
+
+    def run_tests(self):
+        import subprocess
+        p = subprocess.Popen(
+            ['ansible-playbook'] +
+            shlex.split(self.ansible_args) +
+            ['run_tests.yml'],
+            cwd=os.path.join(os.getcwd(), 'test'),
+        )
+        rc = p.wait()
+        sys.exit(rc)
+
+
+if container.ENV == 'host':
+    install_reqs = parse_requirements('requirements.txt', session=False)
+    setup_kwargs = dict(
+        install_requires=[str(ir.req) for ir in install_reqs if ir.match_markers()],
+        tests_require=[
+            'ansible==2.4.0',
+            'pytest>=3',
+            'docker>=2.1',
+            'jmespath>=0.9'
+        ],
+        extras_require={
+            'docker': ['docker>=2.1'],
+            'docbuild': ['Sphinx>=1.5.0'],
+            'openshift': ['openshift==1.0.0'],
+            'k8s': ['openshift==1.0.0']
+        },
+        dependency_links=[
+            'https://github.com/ansible/ansible/archive/devel.tar.gz#egg=ansible-2.4.0',
+            'https://github.com/openshift/openshift-restclient-python/archive/master.tar.gz#egg=openshift-1.0.0'
+        ],
+        cmdclass={'test': PlaybookAsTests},
+        entry_points={
+            'console_scripts': [
+                'ansible-container = container.cli:host_commandline']
+        },
+        data_files=[('conductor-build', ['setup.py', 'conductor-requirements.txt'])]
+    )
+else:
+    setup_kwargs = dict(
+        entry_points={
+            'console_scripts': ['conductor = container.cli:conductor_commandline']
+        },
+    )
+
 
 setup(
     name='ansible-container',
     version=container.__version__,
     packages=find_packages(include='container.*'),
     include_package_data=True,
+    zip_safe=False,
     url='https://github.com/ansible/ansible-container',
     license='LGPLv3 (See LICENSE file for terms)',
     author='Joshua "jag" Ginsberg, Chris Houseknecht, and others (See AUTHORS file for contributors)',
     author_email='jag@ansible.com',
     description=('Ansible Container empowers you to orchestrate, build, run, and ship '
                  'Docker images built from Ansible playbooks.'),
-    entry_points={
-        'console_scripts': ['ansible-container = container.cli:commandline']
-    },
-    install_requires=reqs
+    **setup_kwargs
 )

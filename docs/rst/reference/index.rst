@@ -4,13 +4,14 @@ Command Reference
 .. toctree::
    :maxdepth: 2
 
-   options/index
+   build
+   deploy
+   deploy/index
+   destroy
    init
    install
-   build
+   options/index
+   push
    restart
    run
-   push
-   shipit
-   shipit/index
    stop
