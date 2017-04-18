@@ -54,7 +54,7 @@ FILES_PATH = os.path.normpath(
         os.path.dirname(__file__),
         'files'))
 
-DOCKER_VERSION = '1.13.1'
+DOCKER_VERSION = '17.04.0-ce'
 
 DOCKER_DEFAULT_CONFIG_PATH = os.path.join(os.environ.get('HOME', ''), '.docker', 'config.json')
 
