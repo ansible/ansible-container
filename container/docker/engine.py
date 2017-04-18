@@ -159,7 +159,7 @@ class Engine(BaseEngine):
         to_return = self.services[service_name].copy()
         # remove keys that docker-compose format doesn't accept, or that can't
         #  be used during the build phase
-        for key in ['from', 'roles', 'shell', 'links']:
+        for key in ['from', 'roles', 'shell', 'links', 'defaults']:
             try:
                 to_return.pop(key)
             except KeyError:
@@ -494,11 +494,18 @@ class Engine(BaseEngine):
 
         service_def = {}
         for service_name, service in self.services.items():
-            image = self.get_latest_image_for_service(service_name)
-            if image is None:
-                raise exceptions.AnsibleContainerConductorException(
-                    u"No container found for service {}, make sure you've run `ansible-container build`".format(service_name)
-                )
+            if service.get('roles'):
+                image = self.get_latest_image_for_service(service_name)
+                if image is None:
+                    raise exceptions.AnsibleContainerConductorException(
+                        u"No image found for service {}, make sure you've run `ansible-container build`".format(service_name)
+                    )
+            else:
+                image = self.client.images.get(service['from'])
+                if image is None:
+                    raise exceptions.AnsibleContainerConductorException(
+                        u"No image found for service {}. You probably need to pull the image from a repository.".format(service_name)
+                    )
             service_definition = {
                 u'image': image.tags[0],
             }

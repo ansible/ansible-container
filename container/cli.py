@@ -15,7 +15,6 @@ import requests.exceptions
 import container
 
 from . import core
-from . import config
 from . import exceptions
 from container.config import AnsibleContainerConductorConfig
 

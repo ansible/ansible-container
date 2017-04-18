@@ -131,10 +131,11 @@ def hostcmd_build(base_path, project_name, engine_name, var_file=None,
                              config['services'], **kwargs)
 
     conductor_container_id = engine_obj.get_container_id_for_service('conductor')
+    conductor_image_id = engine_obj.get_latest_image_id_for_service('conductor')
     if engine_obj.service_is_running('conductor'):
         engine_obj.stop_container(conductor_container_id, forcefully=True)
 
-    if conductor_container_id is None or not kwargs.get('devel'):
+    if conductor_image_id is None or not kwargs.get('devel'):
         #TODO once we get a conductor running, figure out how to know it's running
         if engine_obj.CAP_BUILD_CONDUCTOR:
             engine_obj.build_conductor_image(
@@ -199,6 +200,8 @@ def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
     assert_initialized(base_path)
     logger.debug('Got extra args to `run` command', arguments=kwargs)
     config = get_config(base_path, var_file=var_file, engine_name=engine_name)
+    if not kwargs['production']:
+        config.set_env('dev')
 
     logger.debug('hostcmd_run configuration', config=config.__dict__)
 
@@ -574,11 +577,12 @@ def run_playbook(playbook, engine, service_map, ansible_options='',
 
 
 @conductor_only
-def apply_role_to_container(role, container_id, service_name, engine,
+def apply_role_to_container(role, container_id, service_name, engine, vars={},
                             python_interpreter=None, ansible_options='',
                             debug=False):
     playbook = [
         {'hosts': service_name,
+         'vars': vars,
          'roles': [role]}
     ]
 
@@ -667,7 +671,7 @@ def conductorcmd_build(engine_name, project_name, services, cache=True,
                 logger.debug('Container running', id=container_id)
 
                 rc = apply_role_to_container(role, container_id, service_name,
-                                             engine,
+                                             engine, vars=dict(service['defaults']),
                                              python_interpreter=python_interpreter,
                                              ansible_options=ansible_options,
                                              debug=debug)
@@ -704,7 +708,9 @@ def conductorcmd_run(engine_name, project_name, services, **kwargs):
     engine = load_engine(['RUN'], engine_name, project_name, services, **kwargs)
     logger.info(u'Engine integration loaded. Preparing run.',
                 engine=engine.display_name)
-    engine.containers_built_for_services(services)
+    engine.containers_built_for_services(
+        [service for service, service_desc in services.items()
+         if service_desc.get('roles')])
 
     logger.debug("In conductorcmd_run", kwargs=kwargs)
     playbook = engine.generate_orchestration_playbook(**kwargs)

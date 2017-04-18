@@ -294,6 +294,7 @@ class AnsibleContainerConductorConfig(Mapping):
                 processed,
                 templar=Templar(loader=None, variables=service_defaults)
             )
+            services[service]['defaults'] = service_defaults
         self.services = services
 
     def __getitem__(self, key):
