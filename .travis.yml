@@ -14,7 +14,7 @@ before_install:
 script:
   # Intall Ansible here, even though it's part of test rquirements.
   #  If not, `python ./setup.py test` fails while installing pycparser
-  - pip install https://github.com/ansible/ansible/archive/master.zip#egg=ansible-2.4.0
+  - pip install https://github.com/ansible/ansible/archive/devel.tar.gz#egg=ansible-2.4.0
   - ansible --version
 
   # Install Ansible Container 
