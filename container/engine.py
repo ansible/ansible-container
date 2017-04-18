@@ -63,6 +63,11 @@ class BaseEngine(object):
         raise NotImplementedError()
 
     @property
+    def default_registry_name(self):
+        """Default registry for pushing images"""
+        raise NotImplementedError()
+
+    @property
     def registry_name(self):
         """Name of the default registry for pushing images"""
         raise NotImplementedError()
@@ -89,6 +94,9 @@ class BaseEngine(object):
     def run_conductor(self, command, config, base_path, params, engine_name=None, volumes=None):
         raise NotImplementedError()
 
+    def await_conductor_command(self, command, config, base_path, params, save_container=False):
+        raise NotImplementedError()
+
     def service_is_running(self, service):
         raise NotImplementedError()
 
@@ -107,6 +115,9 @@ class BaseEngine(object):
     def delete_container(self, container_id, remove_volumes=False):
         raise NotImplementedError()
 
+    def get_container_name_for_service(self, service_name):
+        raise NotImplementedError()
+
     def get_container_id_for_service(self, service_name):
         raise NotImplementedError()
 
@@ -117,6 +128,9 @@ class BaseEngine(object):
         raise NotImplementedError()
 
     def get_latest_image_id_for_service(self, service_name):
+        raise NotImplementedError()
+
+    def get_image_name_for_service(self, service_name):
         raise NotImplementedError()
 
     @conductor_only
