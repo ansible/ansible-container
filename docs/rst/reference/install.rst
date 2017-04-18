@@ -3,8 +3,6 @@ install
 
 .. command::ansible-playbook install <galaxy_role>
 
-*New in version 0.2*
-
 The ``ansible-container install`` command installs a container-enabled role as
 a new containerized service in your project.
 

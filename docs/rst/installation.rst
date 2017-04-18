@@ -69,19 +69,13 @@ Clone the repo:
 We recommend that you use a Python Virtualenv to sandbox your installation.
 See `the virtualenv docs <https://virtualenv.pypa.io/en/stable/>`_ for instructions.
 
-If you just want to run ansible-container:
+Then, again specifying in square-brackets the engines you wish installed, use
+pip to install the cloned code:
 
 .. code-block:: bash
 
     $ cd ansible-container
-    $ python ./setup.py install
-
-Or, if you plan to help develop ansible-container:
-
-.. code-block:: bash
-
-    $ cd ansible-container
-    $ python ./setup.py develop
+    $ pip install -e .[docker,openshift]
 
 If you run into the following error, you likely have an older version of setuptools installed:
 

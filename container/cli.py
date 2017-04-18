@@ -165,9 +165,6 @@ class HostCommand(object):
                                default=False, dest='production')
         subparser.add_argument('-d', '--detached', action='store_true',
                                help=u'Run the application in detached mode', dest='detached')
-        subparser.add_argument('-o', '--remove-orphans', action='store_true',
-                               help=u'Remove containers for services not defined in container.yml',
-                               default=False, dest='remove_orphans')
         self.subcmd_common_parsers(parser, subparser, 'run')
 
 

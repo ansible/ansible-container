@@ -123,6 +123,7 @@ these steps:
      the distribution you're using to build your target containers.
    * For each service, add a ``roles`` key with a list of all the roles that go
      into building that service.
+   * For each service, the ``image`` key should be renamed ``from``.
 
 For example, each container with a settings list might look like:
 

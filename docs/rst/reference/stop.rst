@@ -1,8 +1,6 @@
 stop
 ====
 
-**New in version 0.2.0**
-
 .. program:: ansible-container stop [service [service ...]]
 
 Stop running containers for the services defined in *container.yml*.

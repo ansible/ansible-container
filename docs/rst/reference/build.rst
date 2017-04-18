@@ -24,42 +24,34 @@ fully rebuild your services even if you haven't changed anything.
 
 .. option:: --no-purge-last
 
-**New in version 0.2.0**
-
 By default, upon successful completion of a build, the previously latest builds for
 your hosts are deleted and purged from the engine. Specifying this option, the prior builds
 are retained.
 
-.. option:: --save-build-container
+.. option:: --save-conductor-container
 
-**New in version 0.2.0**
-
-Leave the Ansible Builder Container intact upon build completion. Use for debugging and testing.
+Leave the Ansible Conductor Container intact upon build completion. Use for debugging and testing.
 
 .. option:: --services
 
 Rather than performing an orchestrated build, only build the specified set of services.
 
+.. option:: --no-cache
+
+The Conductor container uses your container engine's built-it caching mechanisms during
+rebuilds, and Ansible Container will maintain its own per-role cache for your built images.
+To disable these caches and ensure a clean rebuild, use this option.
+
 .. option:: --with-variables WITH_VARIABLES [WITH_VARIABLES ...]
 
-**New in version 0.2.0**
-
-Define one or more environment variables in the Ansible Builder Container. Format each variable as a
+Define one or more environment variables in the Ansible Conductor container. Format each variable as a
 key=value string.
 
-.. option:: --with-volumes WITH_VOLUMES [WITH_VOLUMES ...]
+.. option:: --python-interpreter PYTHON_INTERPRETER_PATH
 
-**New in version 0.2.0**
-
-Mount one or more volumes to the Ansible Builder Container. Specify volumes as strings using the Docker
-volume format.
-
-.. option:: --roles-path LOCAL_PATH
-
-**New in version 0.2.0**
-
-If you have Ansible roles in a local path other than your `ansible/` directory that you wish to use
-during your build/run/shipit, specify that path with this option.
+Ansible Container uses the Python interpreter exported from the Conductor container
+into your target images for Ansible builds. If you wish to bring your own Python
+runtime, use this option to specify the path to it.
 
 .. option:: ansible_options
 
@@ -83,10 +75,6 @@ it limits the modules your playbook may rely on. As examples:
 * The `become` methods do not work with Ansible Container, as `su` is disallowed in the Docker
   connection plugin (see `#16226 <https://github.com/ansible/ansible/pull/16226>`_)
   and `sudo` requires a TTY. Instead, use the `remote_user` parameter.
-* The `synchronize` plugin requires rsync and an ssh transport. Unless you manually install
-  ssh and link the ports for that service among your containers, you will have to rely on
-  other modules. For example, you can use combinations of `find`, `fetch`, and `copy` to
-  achieve similar effects.
 
-Also, remember that the ``ansible-playbook`` executable runs on your builder container, not
+Also, remember that the ``ansible-playbook`` executable runs on your Conductor container, not
 your local host, and thus operates in the filesystem and network context of the build container.

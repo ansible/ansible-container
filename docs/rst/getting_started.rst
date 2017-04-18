@@ -18,7 +18,7 @@ It contains everything you need to build your target container images, including
 Ansible Core itself. Since Ansible requires a Python runtime on the hosts it
 is configuring, and so that you don't need to install Python on those target
 container images you are building, the Python runtime and all library dependencies
-are mounted from the build container into the target containers during builds.
+are mounted from the Conductor container into the target containers during builds.
 
 Because of this, the Conductor container is built upon a base image of your
 choice, and it's recommended that you select the same flavor of Linux distribution
@@ -252,7 +252,8 @@ in production we want Nginx to have that functionality.
 .. note::
 
     The Django and Nginx server share a named volume, so that static assets collected
-    from Django can be served by Nginx.
+    from Django can be served by Nginx. Versus the Docker-engine-specific ``volumes_from``
+    directive, this approach is far more cross-platform.
 
 Finally, we set up a PostgreSQL database server using a stock image from Docker Hub:
 
