@@ -48,8 +48,8 @@ class AnsibleContainerConfig(Mapping):
 
     @property
     def deployment_path(self):
-        dep_path = self.get('settings', {}).get('deployment_output_path',
-                                                path.join(self.base_path, 'ansible-deployment/'))
+        dep_path = self.get('settings', yaml.compat.ordereddict()).get('deployment_output_path',
+                            path.join(self.base_path, 'ansible-deployment/'))
         return path.normpath(path.abspath(path.expanduser(dep_path)))
 
     def set_env(self, env):
@@ -98,6 +98,11 @@ class AnsibleContainerConfig(Mapping):
                         if engine_key != self.engine_name:
                             del config['volumes'][vol_key][engine_key]
 
+        # Insure settings['pwd'] = base_path. Will be used later by conductor to resolve $PWD in volumes.
+        if config.get('settings', None) is None:
+            config['settings'] = yaml.compat.ordereddict()
+        config['settings']['pwd'] = self.base_path
+
         self._resolve_defaults(config)
 
         logger.debug(u"Parsed config", config=config)
@@ -111,6 +116,11 @@ class AnsibleContainerConfig(Mapping):
         :param config: Loaded YAML config
         :return: None
         """
+        if config.get('defaults'):
+            # convert config['defaults'] to an ordereddict()
+            tmp_defaults = yaml.compat.ordereddict()
+            tmp_defaults.update(copy.deepcopy(config['defaults']), relax=True)
+            config['defaults'] = tmp_defaults
         defaults = config.setdefault('defaults', yaml.compat.ordereddict())
         if self.var_file:
             defaults.update(self._get_variables_from_file(), relax=True)
@@ -160,7 +170,7 @@ class AnsibleContainerConfig(Mapping):
                 raise AnsibleContainerConfigException(u"YAML exception: %s" % unicode(exc))
         else:
             try:
-                config = json.loads(open(abspath))
+                config = json.load(open(abspath))
             except Exception as exc:
                 raise AnsibleContainerConfigException(u"JSON exception: %s" % unicode(exc))
         return six.iteritems(config)
@@ -254,8 +264,7 @@ class AnsibleContainerConductorConfig(Mapping):
 
     def _process_services(self):
         services = yaml.compat.ordereddict()
-        for service, service_data in self._config.get(
-                'services', yaml.compat.ordereddict()).items():
+        for service, service_data in self._config.get('services', yaml.compat.ordereddict()).items():
             logger.debug('Processing service...', service=service)
             processed = yaml.compat.ordereddict()
             service_defaults = self.defaults.copy()
