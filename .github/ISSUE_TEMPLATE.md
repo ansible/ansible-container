@@ -12,12 +12,6 @@
 
 ```
 
-##### main.yml 
-<!--- Paste verbatim a copy of your main.yml between the quotes below -->
-```
-
-```
-
 ##### OS / ENVIRONMENT
 <!--- Paste output from `ansible-container --debug version` between the quotes below -->
 ```
