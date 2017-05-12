@@ -1,8 +1,4 @@
-{% if prebaked %}
-FROM ansible/container-conductor-{{ conductor_base }}
-{% else %}
-FROM container-conductor-{{ conductor_base }}
-{% endif %}
+FROM {{ conductor_base }}
 
 # The COPY here will break cache if the requirements or ansible.cfg has changed
 COPY /build-src /_ansible/build
