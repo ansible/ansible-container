@@ -50,21 +50,21 @@ class PrebakeConductors(distutils.cmd.Command):
     user_options = [
         # The format is (long option, short option, description).
         ('debug', None, 'Enable debug output'),
-        ('cache', None, 'Cache me offline, how bout dat?'),
+        ('no-cache', None, 'Cache me offline, how bout dat?'),
         ('ignore-errors', None, 'Ignore build failures and continue building other distros'),
-        ('distros', None, 'Only pre-bake certain supported distros. Comma-separated.')
+        ('distros=', None, 'Only pre-bake certain supported distros. Comma-separated.')
     ]
 
     def initialize_options(self):
         """Set default values for options."""
         # Each user option must be listed here with their default value.
         self.debug = False
-        self.cache = True
         self.ignore_errors = False
         self.distros = ''
 
     def finalize_options(self):
         self.distros = self.distros.strip().split(',') if self.distros else []
+        self.cache = not getattr(self, 'no_cache', False)
 
     def run(self):
         """Run command."""

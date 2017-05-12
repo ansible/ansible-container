@@ -689,20 +689,25 @@ class Engine(BaseEngine):
         prebaked = base_image in reduce(lambda x, y: x + [y[0]] + y[1],
                                         PREBAKED_DISTROS.items(), [])
         if prebaked:
-            conductor_base = [k for k, v in PREBAKED_DISTROS.items()
+            base_image = [k for k, v in PREBAKED_DISTROS.items()
                               if base_image in [k] + v][0]
-            base_image = 'container-conductor-%s:%s' % (
-                conductor_base.replace(':', '-'),
+            conductor_base = 'container-conductor-%s:%s' % (
+                base_image.replace(':', '-'),
                 container.__version__
             )
-            if not self.get_image_id_by_tag(base_image):
-                base_image = 'ansible/%s' % base_image
+            if not self.get_image_id_by_tag(conductor_base):
+                conductor_base = 'ansible/%s' % base_image
+        else:
+            conductor_base = 'container-conductor-%s:%s' % (
+                base_image.replace(':', '-'),
+                container.__version__
+            )
+
         utils.jinja_render_to_temp(TEMPLATES_PATH,
                                    'conductor-local-dockerfile.j2', temp_dir,
                                    'Dockerfile',
-                                   conductor_base=base_image,
-                                   docker_version=DOCKER_VERSION,
-                                   prebaked=prebaked)
+                                   conductor_base=conductor_base,
+                                   docker_version=DOCKER_VERSION)
         tarball.add(os.path.join(temp_dir, 'Dockerfile'),
                     arcname='Dockerfile')
 
