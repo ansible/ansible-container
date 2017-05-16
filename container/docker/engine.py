@@ -99,9 +99,9 @@ class Engine(BaseEngine):
 
     COMPOSE_WHITELIST = (
         'links', 'depends_on', 'cap_add', 'cap_drop', 'command', 'devices',
-        'dns', 'dns_opt', 'tmpfs', 'entrypoint', 'environment', 'external_links', 'labels',
-        'links', 'logging', 'log_opt', 'networks', 'network_mode',
-        'pids_limit', 'ports', 'security_opt', 'stop_grace_period',
+        'dns', 'dns_opt', 'tmpfs', 'entrypoint', 'environment', 'expose',
+        'external_links', 'labels', 'links', 'logging', 'log_opt', 'networks',
+        'network_mode', 'pids_limit', 'ports', 'security_opt', 'stop_grace_period',
         'stop_signal', 'sysctls', 'ulimits', 'userns_mode', 'volumes',
         'volume_driver', 'volumes_from', 'cpu_shares', 'cpu_quota', 'cpuset',
         'domainname', 'hostname', 'ipc', 'mac_address', 'mem_limit',
@@ -207,7 +207,6 @@ class Engine(BaseEngine):
             raise exceptions.AnsibleContainerConductorException(
                     u"Conductor container can't be found. Run "
                     u"`ansible-container build` first")
-
         serialized_params = base64.b64encode(json.dumps(params).encode("utf-8")).decode()
         serialized_config = base64.b64encode(json.dumps(config).encode("utf-8")).decode()
 
@@ -215,12 +214,13 @@ class Engine(BaseEngine):
             volumes = {}
 
         if params.get('with_volumes'):
-          for volume in params.get('with_volumes'):
-              volume_parts = volume.split(':')
-              volumes[volume_parts[0]] = {
-                  'bind': volume_parts[1] if len(volume_parts) > 1 else volume_parts[0],
-                  'mode': volume_parts[2] if len(volume_parts) > 2 else 'rw'
-              }
+            for volume in params.get('with_volumes'):
+                volume_parts = volume.split(':')
+                volume_parts[0] = os.path.normpath(os.path.abspath(os.path.expanduser(volume_parts[0])))
+                volumes[volume_parts[0]] = {
+                    'bind': volume_parts[1] if len(volume_parts) > 1 else volume_parts[0],
+                    'mode': volume_parts[2] if len(volume_parts) > 2 else 'rw'
+                }
 
         permissions = 'ro' if command != 'install' else 'rw'
         volumes[base_path] = {'bind': '/src', 'mode': permissions}
