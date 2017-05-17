@@ -24,7 +24,8 @@ script:
   - mkdir tmp 
   - export TMPDIR=${PWD}/tmp
 
-  # run tests 
+  # run tests
+  - python ./setup.py prebake
   - python ./setup.py test
   - if [ -f ./task.output ]; then cat task.output; fi
 
