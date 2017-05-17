@@ -167,7 +167,7 @@ class BaseEngine(object):
     def build_conductor_image(self, base_path, base_image, cache=True):
         raise NotImplementedError()
 
-    def get_runtime_volume_id(self):
+    def get_runtime_volume_id(self, mount_point):
         """Get the volume ID for the portable python runtime."""
         raise NotImplementedError()
 

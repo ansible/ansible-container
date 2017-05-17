@@ -772,7 +772,7 @@ class Engine(BaseEngine):
                                                  nocache=not cache)
                 return image.id
 
-    def get_runtime_volume_id(self):
+    def get_runtime_volume_id(self, mount_point):
         try:
             container_data = self.client.api.inspect_container(
                 self.container_name_for_service('conductor')
@@ -781,9 +781,9 @@ class Engine(BaseEngine):
             raise ValueError('Conductor container not found.')
         mounts = container_data['Mounts']
         try:
-            usr_mount, = [mount for mount in mounts if mount['Destination'] == '/usr']
+            usr_mount, = [mount for mount in mounts if mount['Destination'] == mount_point]
         except ValueError:
-            raise ValueError('Runtime volume not found on Conductor')
+            raise ValueError('Runtime volume %s not found on Conductor' % mount_point)
         return usr_mount['Name']
 
     @host_only
