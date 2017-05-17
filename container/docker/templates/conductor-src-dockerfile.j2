@@ -33,6 +33,7 @@ RUN apt-get update -y && \
     ln -fs python2.7 python && \
     apt-get clean
 {% elif distro in ["alpine"] %}
+# openssh is necessary until this is fixed: https://github.com/ansible/ansible/issues/24705
 RUN apk add --no-cache -U python-dev make git curl rsync libffi libffi-dev openssl openssl-dev gcc musl-dev tar openssh
 {% endif %}
 
