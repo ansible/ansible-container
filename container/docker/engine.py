@@ -116,9 +116,9 @@ class Engine(BaseEngine):
 
     COMPOSE_WHITELIST = (
         'links', 'depends_on', 'cap_add', 'cap_drop', 'command', 'devices',
-        'dns', 'dns_opt', 'tmpfs', 'entrypoint', 'environment', 'external_links', 'labels',
-        'links', 'logging', 'log_opt', 'networks', 'network_mode',
-        'pids_limit', 'ports', 'security_opt', 'stop_grace_period',
+        'dns', 'dns_opt', 'tmpfs', 'entrypoint', 'environment', 'expose',
+        'external_links', 'labels', 'links', 'logging', 'log_opt', 'networks',
+        'network_mode', 'pids_limit', 'ports', 'security_opt', 'stop_grace_period',
         'stop_signal', 'sysctls', 'ulimits', 'userns_mode', 'volumes',
         'volume_driver', 'volumes_from', 'cpu_shares', 'cpu_quota', 'cpuset',
         'domainname', 'hostname', 'ipc', 'mac_address', 'mem_limit',
@@ -171,7 +171,7 @@ class Engine(BaseEngine):
         return u'%s_%s' % (self.project_name, service_name)
 
     def image_name_for_service(self, service_name):
-        return u'%s-%s' % (self.project_name, service_name)
+        return u'%s-%s' % (self.project_name.lower(), service_name.lower())
 
     def run_kwargs_for_service(self, service_name):
         to_return = self.services[service_name].copy()
@@ -224,12 +224,21 @@ class Engine(BaseEngine):
             raise exceptions.AnsibleContainerConductorException(
                     u"Conductor container can't be found. Run "
                     u"`ansible-container build` first")
-
         serialized_params = base64.b64encode(json.dumps(params).encode("utf-8")).decode()
         serialized_config = base64.b64encode(json.dumps(config).encode("utf-8")).decode()
 
         if not volumes:
             volumes = {}
+
+        if params.get('with_volumes'):
+            for volume in params.get('with_volumes'):
+                volume_parts = volume.split(':')
+                volume_parts[0] = os.path.normpath(os.path.abspath(os.path.expanduser(volume_parts[0])))
+                volumes[volume_parts[0]] = {
+                    'bind': volume_parts[1] if len(volume_parts) > 1 else volume_parts[0],
+                    'mode': volume_parts[2] if len(volume_parts) > 2 else 'rw'
+                }
+
         permissions = 'ro' if command != 'install' else 'rw'
         volumes[base_path] = {'bind': '/src', 'mode': permissions}
 
@@ -256,6 +265,10 @@ class Engine(BaseEngine):
             environ['DOCKER_HOST'] = 'unix:///var/run/docker.sock'
             volumes['/var/run/docker.sock'] = {'bind': '/var/run/docker.sock',
                                                'mode': 'rw'}
+        if params.get('with_variables'):
+            for var in params['with_variables']:
+                key, value = var.split('=', 1)
+                environ[key] = value
 
         if roles_path:
             environ['ANSIBLE_ROLES_PATH'] = "%s:/src/roles:/etc/ansible/roles" % roles_path
@@ -293,8 +306,9 @@ class Engine(BaseEngine):
             cap_add=['SYS_ADMIN']
         )
 
-        if command == 'build':
-            run_kwargs['privileged'] = True
+        # Anytime a playbook is executed, /src is bind mounted to a tmpdir, and that seems to
+        # require privileged=True
+        run_kwargs['privileged'] = True
 
         logger.debug('Docker run:', image=image_id, params=run_kwargs)
         try:
@@ -526,21 +540,26 @@ class Engine(BaseEngine):
 
         service_def = {}
         for service_name, service in self.services.items():
+            service_definition = {}
             if service.get('roles'):
                 image = self.get_latest_image_for_service(service_name)
                 if image is None:
                     raise exceptions.AnsibleContainerConductorException(
-                        u"No image found for service {}, make sure you've run `ansible-container build`".format(service_name)
+                        u"No image found for service {}, make sure you've run `ansible-container "
+                        u"build`".format(service_name)
                     )
+                service_definition[u'image'] = image.tags[0]
             else:
-                image = self.client.images.get(service['from'])
-                if image is None:
-                    raise exceptions.AnsibleContainerConductorException(
-                        u"No image found for service {}. You probably need to pull the image from a repository.".format(service_name)
-                    )
-            service_definition = {
-                u'image': image.tags[0],
-            }
+                try:
+                    image = self.client.images.get(service['from'])
+                except docker.errors.ImageNotFound:
+                    image = None
+                    logger.warning(u"Image {} for service {} not found. "
+                                   u"An attempt will be made to pull it.".format(service['from'], service_name))
+                if image:
+                    service_definition[u'image'] = image.tags[0]
+                else:
+                    service_definition[u'image'] = service['from']
             for extra in self.COMPOSE_WHITELIST:
                 if extra in service:
                     service_definition[extra] = service[extra]

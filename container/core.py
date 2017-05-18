@@ -182,7 +182,6 @@ def hostcmd_build(base_path, project_name, engine_name, var_file=None,
     if kwargs.get('save_conductor_container'):
         # give precedence to CLI option
         save_container = True
-
     engine_obj.await_conductor_command(
         'build', dict(config), base_path, kwargs, save_container=save_container)
 
@@ -206,8 +205,6 @@ def hostcmd_deploy(base_path, project_name, engine_name, var_file=None,
     }
     if config.get('settings', {}).get('k8s_auth'):
         params['k8s_auth'] = config['settings']['k8s_auth']
-    if config.get('volumes'):
-        params['volumes'] = config['volumes']
     if kwargs:
         params.update(kwargs)
 
@@ -244,8 +241,6 @@ def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
     }
     if config.get('settings', {}).get('k8s_auth'):
         params['k8s_auth'] = config['settings']['k8s_auth']
-    if config.get('volumes'):
-        params['volumes'] = config['volumes']
     if kwargs:
         params.update(kwargs)
 
@@ -275,8 +270,6 @@ def hostcmd_destroy(base_path, project_name, engine_name, var_file=None, cache=T
     }
     if config.get('settings', {}).get('k8s_auth'):
         params['k8s_auth'] = config['settings']['k8s_auth']
-    if config.get('volumes'):
-        params['volumes'] = config['volumes']
     if kwargs:
         params.update(kwargs)
     params.update(kwargs)
@@ -300,8 +293,6 @@ def hostcmd_stop(base_path, project_name, engine_name, force=False, services=[],
     }
     if config.get('settings', {}).get('k8s_auth'):
         params['k8s_auth'] = config['settings']['k8s_auth']
-    if config.get('volumes'):
-        params['volumes'] = config['volumes']
     if kwargs:
         params.update(kwargs)
     params.update(kwargs)
@@ -325,8 +316,6 @@ def hostcmd_restart(base_path, project_name, engine_name, force=False, services=
     }
     if config.get('settings', {}).get('k8s_auth'):
         params['k8s_auth'] = config['settings']['k8s_auth']
-    if config.get('volumes'):
-        params['volumes'] = config['volumes']
     if kwargs:
         params.update(kwargs)
     params.update(kwargs)
@@ -515,6 +504,7 @@ def run_playbook(playbook, engine, service_map, ansible_options='', local_python
 
         playbook_path = os.path.join(output_dir, 'playbook.yml')
         logger.debug("writing playbook to {}".format(playbook_path))
+        logger.debug("playbook", playbook=playbook)
         with open(playbook_path, 'w') as ofs:
             ofs.write(ruamel.yaml.round_trip_dump(playbook, indent=4, block_seq_indent=2, default_flow_style=False))
 
@@ -636,11 +626,10 @@ def apply_role_to_container(role, container_id, service_name, engine, vars={},
 
 @conductor_only
 def conductorcmd_build(engine_name, project_name, services, cache=True,
-          local_python=False, ansible_options='', debug=False, **kwargs):
+                       local_python=False, ansible_options='', debug=False, **kwargs):
     engine = load_engine(['BUILD'], engine_name, project_name, services, **kwargs)
     logger.info(u'%s integration engine loaded. Build starting.',
         engine.display_name, project=project_name)
-
     services_to_build = kwargs.get('services_to_build') or services.keys()
     for service_name, service in services.items():
         if service_name not in services_to_build:
@@ -690,8 +679,21 @@ def conductorcmd_build(engine_name, project_name, services, cache=True,
                     command='sh -c "while true; do sleep 1; '
                             'done"',
                     entrypoint=[],
-                    privileged=True
+                    privileged=True,
+                    volumes=dict()
                 )
+
+                if service.get('volumes'):
+                    for volume in service['volumes']:
+                        pieces = volume.split(':')
+                        src = pieces[0]
+                        bind = pieces[0]
+                        mode = 'rw'
+                        if len(pieces) > 1:
+                            bind = pieces[1]
+                        if len(pieces) > 2:
+                            mode = pieces[2]
+                        run_kwargs[u'volumes'][src] = {u'bind': bind, u'mode': mode}
 
                 if not local_python:
                     # If we're on a debian based distro, we need the correct architecture
@@ -768,8 +770,10 @@ def conductorcmd_build(engine_name, project_name, services, cache=True,
 @conductor_only
 def conductorcmd_run(engine_name, project_name, services, **kwargs):
     engine = load_engine(['RUN'], engine_name, project_name, services, **kwargs)
+
     logger.info(u'Engine integration loaded. Preparing run.',
                 engine=engine.display_name)
+
     engine.containers_built_for_services(
         [service for service, service_desc in services.items()
          if service_desc.get('roles')])

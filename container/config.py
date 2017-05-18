@@ -12,12 +12,13 @@ import json
 import re
 import six
 
-from collections import Mapping
+from collections import Mapping, OrderedDict
 from ruamel import yaml
 
 import container
 if container.ENV == 'conductor':
     from ansible.template import Templar
+    from ansible.utils.unsafe_proxy import AnsibleUnsafeText
 from .exceptions import AnsibleContainerConfigException, AnsibleContainerNotInitializedException
 from .utils import get_metadata_from_role, get_defaults_from_role
 
@@ -78,6 +79,14 @@ class AnsibleContainerConfig(Mapping):
                 dev_overrides = service_config.pop('dev_overrides', {})
                 if env == 'dev':
                     service_config.update(dev_overrides)
+            if 'volumes' in service_config:
+                # Expand ~, ${HOME}, ${PWD}, etc. found in the volume src path
+                updated_volumes = []
+                for volume in service_config['volumes']:
+                    vol_pieces = volume.split(':')
+                    vol_pieces[0] = path.normpath(path.expandvars(path.expanduser(vol_pieces[0])))
+                    updated_volumes.append(':'.join(vol_pieces))
+                service_config['volumes'] = updated_volumes
             if self.engine_name not in ('openshift', 'k8s'):
                 if 'k8s' in service_config:
                     del service_config['k8s']
@@ -214,6 +223,13 @@ class AnsibleContainerConfig(Mapping):
         return len(self._config)
 
 
+def ordereddict_to_dict(x):
+    if isinstance(x, OrderedDict) or isinstance(x, yaml.compat.ordereddict):
+        new_dict = {k: ordereddict_to_dict(v) for k, v in x.iteritems()}
+        return new_dict
+    return x
+
+
 class AnsibleContainerConductorConfig(Mapping):
     _config = None
 
@@ -233,6 +249,8 @@ class AnsibleContainerConductorConfig(Mapping):
             if isinstance(value, basestring):
                 # strings can be templated
                 processed[key] = templar.template(value)
+                if isinstance(processed[key], AnsibleUnsafeText):
+                    processed[key] = str(processed[key])
             elif isinstance(value, (list, dict)):
                 # if it's a dimensional structure, it's cheaper just to serialize
                 # it, treat it like a template, and then deserialize it again
@@ -259,9 +277,8 @@ class AnsibleContainerConductorConfig(Mapping):
         self._config['settings'] = self._config.get('settings', yaml.compat.ordereddict())
         for section in ['volumes', 'registries']:
             logger.debug('Processing section...', section=section)
-            setattr(self, section,
-                    self._process_section(self._config.get(
-                        section, yaml.compat.ordereddict())))
+            setattr(self, section, ordereddict_to_dict(
+                self._process_section(self._config.get(section, yaml.compat.ordereddict()))))
 
     def _process_services(self):
         services = yaml.compat.ordereddict()
@@ -274,6 +291,18 @@ class AnsibleContainerConductorConfig(Mapping):
                 # have that filled in with the project path
                 service_data['volumes'][idx] = re.sub(r'\$(PWD|\{PWD\})', self._config['settings'].get('pwd'),
                                                       service_data['volumes'][idx])
+            if service_data.get('roles'):
+                updated_roles = []
+                for role in service_data['roles']:
+                    if isinstance(role, OrderedDict):
+                        updated_roles.append(dict(role))
+                    else:
+                        updated_roles.append(role)
+                service_data['roles'] = updated_roles
+
+            if service_data.get('environment') and isinstance(service_data['environment'], OrderedDict):
+                service_data['environment'] = dict(service_data['environment'])
+
             for role_spec in service_data.get('roles', []):
                 if isinstance(role_spec, dict):
                     # A role with parameters to run it with
@@ -289,8 +318,7 @@ class AnsibleContainerConductorConfig(Mapping):
                                         relax=True)
                 service_defaults.update(role_args, relax=True)
             processed.update(service_data, relax=True)
-            logger.debug('Rendering service keys from defaults',
-                service=service, defaults=service_defaults)
+            logger.debug('Rendering service keys from defaults', service=service, defaults=service_defaults)
             services[service] = self._process_section(
                 processed,
                 templar=Templar(loader=None, variables=service_defaults)
