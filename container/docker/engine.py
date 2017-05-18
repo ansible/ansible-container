@@ -715,7 +715,7 @@ class Engine(BaseEngine):
                 container.__version__
             )
             if not self.get_image_id_by_tag(conductor_base):
-                conductor_base = 'ansible/%s' % base_image
+                conductor_base = 'ansible/%s' % conductor_base
         else:
             conductor_base = 'container-conductor-%s:%s' % (
                 base_image.replace(':', '-'),
