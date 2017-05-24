@@ -22,7 +22,11 @@ import container
 
 if container.ENV == 'conductor':
     from ansible.playbook.role.include import RoleInclude
-    from ansible.vars import VariableManager
+    try:
+        from ansible.vars.manager import VariableManager
+    except ImportError:
+        # Prior to ansible/ansible@8f97aef1a365, this was not in its own module
+        from ansible.vars import VariableManager
     from ansible.parsing.dataloader import DataLoader
 
 __all__ = ['conductor_dir', 'make_temp_dir', 'get_config', 'assert_initialized',
