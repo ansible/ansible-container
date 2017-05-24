@@ -153,7 +153,10 @@ class Engine(BaseEngine):
         return u'%s_%s' % (self.project_name, service_name)
 
     def image_name_for_service(self, service_name):
-        return u'%s-%s' % (self.project_name.lower(), service_name.lower())
+        if service_name == 'conductor' or self.services[service_name].get('roles'):
+            return u'%s-%s' % (self.project_name.lower(), service_name.lower())
+        else:
+            return self.services[service_name].get('from')
 
     def run_kwargs_for_service(self, service_name):
         to_return = self.services[service_name].copy()
@@ -560,7 +563,7 @@ class Engine(BaseEngine):
                 }
             }
             if self.volumes:
-                task_params[u'definition'][u'volumes'] = self.volumes
+                task_params[u'definition'][u'volumes'] = dict(self.volumes)
 
             if desired_state in {'restart', 'start', 'stop'}:
                 task_params[u'state'] = u'present'
@@ -741,7 +744,7 @@ class Engine(BaseEngine):
                                                  nocache=not cache)
                 return image.id
 
-    def get_runtime_volume_id(self):
+    def get_runtime_volume_id(self, mount_point):
         try:
             container_data = self.client.api.inspect_container(
                 self.container_name_for_service('conductor')
@@ -750,9 +753,9 @@ class Engine(BaseEngine):
             raise ValueError('Conductor container not found.')
         mounts = container_data['Mounts']
         try:
-            usr_mount, = [mount for mount in mounts if mount['Destination'] == '/usr']
+            usr_mount, = [mount for mount in mounts if mount['Destination'] == mount_point]
         except ValueError:
-            raise ValueError('Runtime volume not found on Conductor')
+            raise ValueError('Runtime volume %s not found on Conductor' % mount_point)
         return usr_mount['Name']
 
     @host_only

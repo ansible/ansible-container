@@ -18,7 +18,10 @@ from ruamel import yaml
 import container
 if container.ENV == 'conductor':
     from ansible.template import Templar
-    from ansible.utils.unsafe_proxy import AnsibleUnsafeText
+    try:
+        from ansible.utils.unsafe_proxy import AnsibleUnsafeText
+    except ImportError:
+        from ansible.vars.unsafe_proxy import AnsibleUnsafeText
 from .exceptions import AnsibleContainerConfigException, AnsibleContainerNotInitializedException
 from .utils import get_metadata_from_role, get_defaults_from_role
 

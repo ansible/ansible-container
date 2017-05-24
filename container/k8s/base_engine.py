@@ -101,7 +101,7 @@ class K8sBaseEngine(DockerEngine):
             self.k8s_client.set_authorization(kwargs['auth'])
 
         play = CommentedMap()
-        play['name'] = 'Manage the lifecycle of {} on {}'.format(self.project_name, self.display_name)
+        play['name'] = u'Manage the lifecycle of {} on {}'.format(self.project_name, self.display_name)
         play['hosts'] = 'localhost'
         play['gather_facts'] = 'no'
         play['connection'] = 'local'

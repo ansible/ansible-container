@@ -11,9 +11,12 @@ from container.config import AnsibleContainerConfig, AnsibleContainerConductorCo
 from container.exceptions import AnsibleContainerConfigException
 from ansible.vars import Templar
 from ansible.playbook.role.include import RoleInclude
-from ansible.vars import VariableManager
+try:
+    from ansible.vars import VariableManager
+except ImportError:
+    from ansible.vars.manager import VariableManager
 from ansible.parsing.dataloader import DataLoader
-from ansible.utils.unsafe_proxy import AnsibleUnsafeText
+from ansible.vars.unsafe_proxy import AnsibleUnsafeText
 
 if 'PROJECT_PATH' not in os.environ:
     raise ImportError('PROJECT_PATH must be in the environment. You '
