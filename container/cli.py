@@ -17,7 +17,9 @@ import container
 from . import core
 from . import exceptions
 from container.config import AnsibleContainerConductorConfig
+from container.utils import list_to_ordereddict
 
+from collections import OrderedDict
 from logging import config
 LOGGING = {
         'version': 1,
@@ -62,15 +64,17 @@ class HostCommand(object):
                           }
 
     def subcmd_common_parsers(self, parser, subparser, cmd):
-        if cmd in ('build', 'run', 'deploy', 'push'):
+        if cmd in ('build', 'run', 'deploy', 'push', 'restart', 'stop', 'destroy'):
             subparser.add_argument('--with-volumes', '-v', action='store', nargs='+',
                                    help=u'Mount one or more volumes to the Conductor. '
                                         u'Specify volumes as strings using the Docker volume format.',
                                    default=[])
             subparser.add_argument('--with-variables', '-e', action='store', nargs='+',
-                                   help=u'Define one or more environment variables in the Ansible '
+                                   help=u'Define one or more environment variables in the '
                                         u'Conductor. Format each variable as a key=value string.',
                                    default=[])
+
+        if cmd in ('build', 'run', 'deploy', 'push'):
             subparser.add_argument('--roles-path', action='store', default=None,
                                    help=u'Specify a local path containing roles you want to '
                                         u'use in the Conductor.')
@@ -104,6 +108,10 @@ class HostCommand(object):
                                help=u'Use a project template instead of making a '
                                     u'blank project from an Ansible Container project '
                                     u'from Ansible Galaxy.')
+        subparser.add_argument('--force', '-f', action='store_true',
+                               help=u'Overrides the requirement that init be run'
+                                    u'in an empty directory, for example'
+                                    u'if a virtualenv exists in the directory.')
 
 
     def subcmd_build_parser(self, parser, subparser):
@@ -126,15 +134,13 @@ class HostCommand(object):
                                     u'changes have been made necessitating rebuild. '
                                     u'You may disable layer caching with this flag.',
                                dest='cache', default=True)
-        subparser.add_argument('--python-interpreter', action='store',
-                               help=u'Ansible Container brings its own Python runtime '
-                                    u'into your target containers for Ansible to use. '
-                                    u'If you would like to bring your own Python runtime '
-                                    u'instead, use this to specify the path to that '
-                                    u'runtime.', dest='python_interpreter', default=None)
-        subparser.add_argument('--services', action='store',
-                               help=u'Rather than build all services, only build specific services.',
-                               nargs='+', dest='services_to_build', default=None)
+        subparser.add_argument('--use-local-python', action='store_true',
+                               help=u'Prevents Ansible Container from bringing its own Python runtime '
+                                    u'into target containers in order to run Ansible. Use when the target '
+                                    u'already has an installed Python runtime.',
+                               dest='local_python', default=False)
+        subparser.add_argument('--no-conductor-runtime', action='store_false',
+                               help=u'')
         subparser.add_argument('ansible_options', action='store',
                                help=u'Provide additional commandline arguments to '
                                     u'Ansible in executing your playbook. If you '
@@ -175,14 +181,17 @@ class HostCommand(object):
         subparser.add_argument('-f', '--force', action='store_true',
                                help=u'Force stop running containers',
                                dest='force')
+        self.subcmd_common_parsers(parser, subparser, 'stop')
+
 
     def subcmd_restart_parser(self, parser, subparser):
         subparser.add_argument('service', action='store',
                                help=u'The specific services you want to restart',
                                nargs='*')
+        self.subcmd_common_parsers(parser, subparser, 'restart')
 
     def subcmd_destroy_parser(self, parser, subparser):
-        pass
+        self.subcmd_common_parsers(parser, subparser, 'destroy')
 
     def subcmd_help_parser(self, parser, subparser):
         return
@@ -257,8 +266,8 @@ class HostCommand(object):
 
         try:
             getattr(core, u'hostcmd_{}'.format(args.subcommand))(**vars(args))
-        except exceptions.AnsibleContainerAlreadyInitializedException:
-            logger.error('Ansible Container is already initialized', exc_info=False)
+        except exceptions.AnsibleContainerAlreadyInitializedException as e:
+            logger.error('{0}'.format(e), exc_info=False)
             sys.exit(1)
         except exceptions.AnsibleContainerNotInitializedException:
             logger.error('No Ansible Container project data found - do you need to '
@@ -304,7 +313,8 @@ host_commandline = HostCommand()
 
 
 def decode_b64json(encoded_params):
-    return json.loads(base64.b64decode(encoded_params))
+    # Using object_pairs_hook to preserve the original order of any dictionaries
+    return json.loads(base64.b64decode(encoded_params).decode())
 
 
 @container.conductor_only
@@ -338,10 +348,9 @@ def conductor_commandline():
     config.dictConfig(LOGGING)
 
     containers_config = decoding_fn(args.config)
-    conductor_config = AnsibleContainerConductorConfig(containers_config)
+    conductor_config = AnsibleContainerConductorConfig(list_to_ordereddict(containers_config))
 
-    logger.debug('Starting Ansible Container Conductor: %s', args.command,
-        services=conductor_config.services)
+    logger.debug('Starting Ansible Container Conductor: %s', args.command, services=conductor_config.services)
     getattr(core, 'conductorcmd_%s' % args.command)(
         args.engine,
         args.project_name,

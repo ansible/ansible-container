@@ -14,6 +14,8 @@ import glob
 import shutil
 import functools
 
+from distutils import dir_util
+
 try:
     import ruamel.yaml
     from ruamel.yaml.comments import CommentedMap, CommentedSeq
@@ -257,9 +259,20 @@ class DockerfileParser(object):
     parse_CMD = _simple_meta_parser('command')
 
     def parse_LABEL(self, payload, comments):
-        kv_pairs = shlex.split(payload)
+        kv_pairs = [payload]
+        if '=' in payload:
+            # handle: 'foo=123 bar=100 baz=456'
+            kv_pairs = shlex.split(payload)
         first = True
-        for k, v in [kv.split('=', 1) for kv in kv_pairs]:
+        logger.debug("found labels {}".format(kv_pairs))
+        for label in kv_pairs:
+            if '=' in label:
+                k, v = label.split('=', 1)
+            elif ' ' in label:
+                # handle: 'maintainer me@foobar.com' 
+                k, v = shlex.split(label)
+            else:
+                continue
             self.meta.setdefault('labels', CommentedMap())[k] = v
             if comments and first:
                 self.meta['labels'].yaml_set_comment_before_after_key(
@@ -458,6 +471,8 @@ class DockerfileImport(object):
     def copy_files_from_src(self):
         if self.bundle_files:
             target = os.path.join(self.role_path, 'files')
+            if not os.path.exists(target):
+                dir_util.mkpath(target)
         else:
             target = self.base_path
         self.copytree(self.import_from,

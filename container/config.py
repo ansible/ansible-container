@@ -9,14 +9,16 @@ import os
 from os import path
 import copy
 import json
+import re
 import six
 
-from collections import Mapping
+from collections import Mapping, OrderedDict
 from ruamel import yaml
 
 import container
 if container.ENV == 'conductor':
     from ansible.template import Templar
+    from ansible.utils.unsafe_proxy import AnsibleUnsafeText
 from .exceptions import AnsibleContainerConfigException, AnsibleContainerNotInitializedException
 from .utils import get_metadata_from_role, get_defaults_from_role
 
@@ -48,16 +50,9 @@ class AnsibleContainerConfig(Mapping):
 
     @property
     def deployment_path(self):
-        return self.get('settings', {}).get(
-            'deployment_output_path',
-            path.normpath(
-                path.abspath(
-                    path.expanduser(
-                        path.join(self.base_path, 'ansible-deployment/')
-                    )
-                )
-            )
-        )
+        dep_path = self.get('settings', yaml.compat.ordereddict()).get('deployment_output_path',
+                            path.join(self.base_path, 'ansible-deployment/'))
+        return path.normpath(path.abspath(path.expanduser(dep_path)))
 
     def set_env(self, env):
         """
@@ -84,6 +79,14 @@ class AnsibleContainerConfig(Mapping):
                 dev_overrides = service_config.pop('dev_overrides', {})
                 if env == 'dev':
                     service_config.update(dev_overrides)
+            if 'volumes' in service_config:
+                # Expand ~, ${HOME}, ${PWD}, etc. found in the volume src path
+                updated_volumes = []
+                for volume in service_config['volumes']:
+                    vol_pieces = volume.split(':')
+                    vol_pieces[0] = path.normpath(path.expandvars(path.expanduser(vol_pieces[0])))
+                    updated_volumes.append(':'.join(vol_pieces))
+                service_config['volumes'] = updated_volumes
             if self.engine_name not in ('openshift', 'k8s'):
                 if 'k8s' in service_config:
                     del service_config['k8s']
@@ -105,6 +108,11 @@ class AnsibleContainerConfig(Mapping):
                         if engine_key != self.engine_name:
                             del config['volumes'][vol_key][engine_key]
 
+        # Insure settings['pwd'] = base_path. Will be used later by conductor to resolve $PWD in volumes.
+        if config.get('settings', None) is None:
+            config['settings'] = yaml.compat.ordereddict()
+        config['settings']['pwd'] = self.base_path
+
         self._resolve_defaults(config)
 
         logger.debug(u"Parsed config", config=config)
@@ -118,6 +126,11 @@ class AnsibleContainerConfig(Mapping):
         :param config: Loaded YAML config
         :return: None
         """
+        if config.get('defaults'):
+            # convert config['defaults'] to an ordereddict()
+            tmp_defaults = yaml.compat.ordereddict()
+            tmp_defaults.update(copy.deepcopy(config['defaults']), relax=True)
+            config['defaults'] = tmp_defaults
         defaults = config.setdefault('defaults', yaml.compat.ordereddict())
         if self.var_file:
             defaults.update(self._get_variables_from_file(), relax=True)
@@ -167,7 +180,7 @@ class AnsibleContainerConfig(Mapping):
                 raise AnsibleContainerConfigException(u"YAML exception: %s" % unicode(exc))
         else:
             try:
-                config = json.loads(open(abspath))
+                config = json.load(open(abspath))
             except Exception as exc:
                 raise AnsibleContainerConfigException(u"JSON exception: %s" % unicode(exc))
         return six.iteritems(config)
@@ -229,6 +242,8 @@ class AnsibleContainerConductorConfig(Mapping):
             if isinstance(value, basestring):
                 # strings can be templated
                 processed[key] = templar.template(value)
+                if isinstance(processed[key], AnsibleUnsafeText):
+                    processed[key] = str(processed[key])
             elif isinstance(value, (list, dict)):
                 # if it's a dimensional structure, it's cheaper just to serialize
                 # it, treat it like a template, and then deserialize it again
@@ -255,28 +270,23 @@ class AnsibleContainerConductorConfig(Mapping):
         self._config['settings'] = self._config.get('settings', yaml.compat.ordereddict())
         for section in ['volumes', 'registries']:
             logger.debug('Processing section...', section=section)
-            setattr(self, section,
-                    self._process_section(self._config.get(
-                        section, yaml.compat.ordereddict())))
+            setattr(self, section, self._process_section(self._config.get(section, yaml.compat.ordereddict())))
 
     def _process_services(self):
         services = yaml.compat.ordereddict()
-        for service, service_data in self._config.get(
-                'services', yaml.compat.ordereddict()).items():
-            logger.debug('Processing service...', service=service)
+        for service, service_data in self._config.get('services', yaml.compat.ordereddict()).items():
+            logger.debug('Processing service...', service=service, service_data=service_data)
             processed = yaml.compat.ordereddict()
             service_defaults = self.defaults.copy()
-
             for idx in range(len(service_data.get('volumes', []))):
                 # To mount the project directory, let users specify `$PWD` and
                 # have that filled in with the project path
-                service_data['volumes'][idx] = service_data['volumes'][idx].replace(
-                    '$PWD', self._config['settings'].get('pwd'))
-
+                service_data['volumes'][idx] = re.sub(r'\$(PWD|\{PWD\})', self._config['settings'].get('pwd'),
+                                                      service_data['volumes'][idx])
             for role_spec in service_data.get('roles', []):
                 if isinstance(role_spec, dict):
                     # A role with parameters to run it with
-                    role_spec_copy = role_spec.copy()
+                    role_spec_copy = copy.deepcopy(role_spec)
                     role_name = role_spec_copy.pop('role')
                     role_args = role_spec_copy
                 else:
@@ -288,8 +298,7 @@ class AnsibleContainerConductorConfig(Mapping):
                                         relax=True)
                 service_defaults.update(role_args, relax=True)
             processed.update(service_data, relax=True)
-            logger.debug('Rendering service keys from defaults',
-                service=service, defaults=service_defaults)
+            logger.debug('Rendering service keys from defaults', service=service, defaults=service_defaults)
             services[service] = self._process_section(
                 processed,
                 templar=Templar(loader=None, variables=service_defaults)

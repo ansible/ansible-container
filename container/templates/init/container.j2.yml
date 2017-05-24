@@ -1,13 +1,13 @@
 version: "2"
 settings:
-  # The deployment_output_path is mounted to the Conductor container, so
-  # that the `run` and `deployment` commands can write generated Ansible
-  # playbooks to it.
-  # deployment_output_path: ~/ansible-deployment
   # The Conductor container does the heavy lifting, and provides a portable
   # Python runtime for building your target containers. It should be derived
   # from the same distribution as you're building your target containers with.
   conductor_base: {{ default_base }}
+
+  # The deployment_output_path is mounted to the Conductor container, and the 
+  # `run` and `deployment` commands then write generated Ansible playbooks to it.
+  # deployment_output_path: ./ansible-deployment
 
   # When using the k8s or openshift engines, use the following to authorize with the API.
   # Values set here will be passed to the Ansible modules. Any file paths will be mounted
@@ -39,20 +39,18 @@ settings:
   #  display_name:
 
 services: {}
-  # Add your containers here, specifying the base image you want to build from
-  # For example:
-  #
+  # Add your containers here, specifying the base image you want to build from.
+  # To use this example, uncomment it and delete the curly braces after services key.
+  # You may need to run `docker pull ubuntu:trusty` for this to work.
+
   # web:
-  #   from: centos:7
-  #   roles:
-  #     - apache-container
+  #   from: "centos:7"
   #   ports:
   #     - "80:80"
-  #   command: ['/usr/bin/dumb-init', '/usr/sbin/apache2ctl', '-D', 'FOREGROUND']
+  #   command: ["/usr/bin/dumb-init", "/usr/sbin/apache2ctl", "-D", "FOREGROUND"]
   #   dev_overrides:
   #     environment:
   #       - "DEBUG=1"
-  #
 registries: {}
   # Add optional registries used for deployment. For example:
   #  google:

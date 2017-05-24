@@ -26,7 +26,7 @@ that your  target containers will be built from. For example, if you're building
 container images based on Alpine Linux, it's a good idea to use Alpine Linux as
 your Conductor container base image as well, so that what the Conductor exports
 to your target containers contains ``apk`` and other binary dependencies you will
-like need.
+likely need.
 
 
 Dipping a Toe In - Starting from Scratch
@@ -82,7 +82,7 @@ By way of an example, consider the below ``container.yml`` file:
     version: "2"
     services:
       web:
-        from: "ubuntu:trusty"
+        from: "centos:7"
         ports:
           - "80:80"
         command: ["/usr/bin/dumb-init", "/usr/sbin/apache2ctl", "-D", "FOREGROUND"]
