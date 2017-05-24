@@ -803,6 +803,8 @@ def conductorcmd_deploy(engine_name, project_name, services, **kwargs):
 
     # Verify all images are built
     for service_name in services:
+        if not services[service_name].get('roles'):
+            continue
         logger.info(u'Verifying image for %s', service_name)
         image_id = engine.get_latest_image_id_for_service(service_name)
         if not image_id:

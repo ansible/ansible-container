@@ -153,7 +153,10 @@ class Engine(BaseEngine):
         return u'%s_%s' % (self.project_name, service_name)
 
     def image_name_for_service(self, service_name):
-        return u'%s-%s' % (self.project_name.lower(), service_name.lower())
+        if service_name == 'conductor' or self.services[service_name].get('roles'):
+            return u'%s-%s' % (self.project_name.lower(), service_name.lower())
+        else:
+            return self.services[service_name].get('from')
 
     def run_kwargs_for_service(self, service_name):
         to_return = self.services[service_name].copy()
