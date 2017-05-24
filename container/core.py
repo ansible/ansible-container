@@ -588,9 +588,9 @@ def apply_role_to_container(role, container_id, service_name, engine, vars={},
          }
     ]
 
-    if isinstance(role, dict) and role.get('gather_facts', None) is not None:
+    if isinstance(role, dict) and 'gather_facts' in role:
         # Allow disabling gather_facts at the role level
-        playbook[0]['gather_facts'] = role.get('gather_facts')
+        playbook[0]['gather_facts'] = role.pop('gather_facts')
 
     container_metadata = engine.inspect_container(container_id)
     onbuild = container_metadata['Config']['OnBuild']
@@ -685,12 +685,20 @@ def conductorcmd_build(engine_name, project_name, services, cache=True,
                         architecture = architecture.strip()
                         logger.debug(u'Detected architecture %s', architecture,
                                        service=service_name, architecture=architecture)
-                        extra_library_paths = ':/_usr/lib/{0}:/_usr/local/lib/{0}'.format(architecture)
+                        extra_library_paths = (':/_usr/lib/{0}:/_usr/local/lib/{0}'
+                                               ':/_lib/{0}').format(architecture)
                     except Exception:
                         # we're not on debian/ubuntu or a system without multiarch support
                         pass
 
                     # Use the conductor's Python runtime
+                    run_kwargs['volumes'] = {engine.get_runtime_volume_id('/usr'): {'bind': '/_usr', 'mode': 'ro'}}
+                    try:
+                        run_kwargs['volumes'][engine.get_runtime_volume_id('/lib')] = {'bind': '/_lib', 'mode': 'ro'}
+                        extra_library_paths += ":/_lib"
+                    except ValueError:
+                        # No /lib volume
+                        pass
                     run_kwargs['environment'] = dict(
                          LD_LIBRARY_PATH='/_usr/lib:/_usr/lib64:/_usr/local/lib{}'.format(extra_library_paths),
                          CPATH='/_usr/include:/_usr/local/include',
@@ -699,7 +707,6 @@ def conductorcmd_build(engine_name, project_name, services, cache=True,
                               '/_usr/sbin:/_usr/bin:'
                               '/_usr/local/sbin:/_usr/local/bin',
                          PYTHONPATH='/_usr/lib/python2.7')
-                    run_kwargs['volumes'][engine.get_runtime_volume_id()] = {'bind': '/_usr', 'mode': 'ro'}
 
                 container_id = engine.run_container(cur_image_id, service_name, **run_kwargs)
 

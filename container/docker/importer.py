@@ -195,14 +195,13 @@ class DockerfileParser(object):
     def container_yml(self):
         if not self.parsed:
             raise ValueError(u'Finish parsing the Dockerfile first')
-        safe_service_name = self.service_name.replace(u'-', u'_')
         container_yml = CommentedMap()
         container_yml['settings'] = CommentedMap()
         container_yml['settings']['conductor_base'] = self.meta['from']
         container_yml['services'] = CommentedMap()
-        container_yml['services'][safe_service_name] = CommentedMap()
-        container_yml['services'][safe_service_name]['roles'] = CommentedSeq(
-            [safe_service_name])
+        container_yml['services'][self.service_name] = CommentedMap()
+        container_yml['services'][self.service_name]['roles'] = CommentedSeq(
+            [self.service_name])
         return container_yml
 
     PLAIN_VARIABLE_RE = re.compile(r'(?<!\\)\$(?P<var>[a-zA-Z_]\w*)')
