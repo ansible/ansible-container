@@ -45,12 +45,12 @@ DEFAULT_CONDUCTOR_BASE = 'centos:7'
 
 
 @host_only
-def hostcmd_init(base_path, project=None, **kwargs):
+def hostcmd_init(base_path, project=None, force=False, **kwargs):
+    container_cfg = os.path.join(base_path, 'container.yml')
+    if os.path.exists(container_cfg) and not force:
+        raise AnsibleContainerAlreadyInitializedException()
+
     if project:
-        force = kwargs.pop('force')
-        if os.listdir(base_path) and not force:
-            raise AnsibleContainerAlreadyInitializedException(
-                u'The init command can only be run in an empty directory.')
         try:
             namespace, name = project.split('.', 1)
         except ValueError:
@@ -107,11 +107,6 @@ def hostcmd_init(base_path, project=None, **kwargs):
                 tar_obj.extract(member, base_path)
         logger.info(u'Ansible Container initialized from Galaxy container app %r', project)
     else:
-        container_cfg = os.path.join(base_path, 'container.yml')
-        if os.path.exists(container_cfg):
-            raise AnsibleContainerAlreadyInitializedException()
-        if not os.path.exists(base_path):
-            os.mkdir(base_path)
         template_dir = os.path.join(jinja_template_path(), 'init')
         context = {
             u'ansible_container_version': __version__,
@@ -131,9 +126,9 @@ def hostcmd_init(base_path, project=None, **kwargs):
 @host_only
 def hostcmd_build(base_path, project_name, engine_name, var_file=None,
                  **kwargs):
-    config = get_config(base_path, var_file=var_file, engine_name=engine_name)
+    config = get_config(base_path, var_file=var_file, engine_name=engine_name, project_name=project_name)
     engine_obj = load_engine(['BUILD', 'RUN'],
-                             engine_name, project_name or os.path.basename(base_path),
+                             engine_name, config.project_name,
                              config['services'], **kwargs)
 
     conductor_container_id = engine_obj.get_container_id_for_service('conductor')
@@ -169,27 +164,26 @@ def hostcmd_build(base_path, project_name, engine_name, var_file=None,
 def hostcmd_deploy(base_path, project_name, engine_name, var_file=None,
                    cache=True, **kwargs):
     assert_initialized(base_path)
-    logger.debug('Got extra args to `deploy` command', arguments=kwargs)
-    config = get_config(base_path, var_file=var_file, engine_name=engine_name)
+    config = get_config(base_path, var_file=var_file, engine_name=engine_name, project_name=project_name)
     local_images = kwargs.get('local_images')
     output_path = kwargs.pop('deployment_output_path', None) or config.deployment_path
 
     engine_obj = load_engine(['LOGIN', 'PUSH', 'DEPLOY'],
-                             engine_name, project_name or os.path.basename(base_path),
+                             engine_name, config.project_name,
                              config['services'], **kwargs)
 
     params = {
-        'deployment_output_path': os.path.normpath(os.path.expanduser(output_path)),
+        'deployment_output_path': os.path.normpath(os.path.abspath(os.path.expanduser(output_path))),
         'host_user_uid': os.getuid(),
         'host_user_gid': os.getgid(),
+        'settings': config.get('settings', {}),
     }
-    if config.get('settings', {}).get('k8s_auth'):
-        params['k8s_auth'] = config['settings']['k8s_auth']
     if kwargs:
         params.update(kwargs)
 
     if not local_images:
-        url, namespace = push_images(base_path, engine_obj, config, save_conductor=False, **params)
+        url, namespace = push_images(base_path, config.image_namespace, engine_obj, config,
+                                     save_conductor=False, **params)
         params['url'] = url
         params['namespace'] = namespace
 
@@ -202,14 +196,14 @@ def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
                 **kwargs):
     assert_initialized(base_path)
     logger.debug('Got extra args to `run` command', arguments=kwargs)
-    config = get_config(base_path, var_file=var_file, engine_name=engine_name)
+    config = get_config(base_path, var_file=var_file, engine_name=engine_name, project_name=project_name)
     if not kwargs['production']:
         config.set_env('dev')
 
     logger.debug('hostcmd_run configuration', config=config.__dict__)
 
     engine_obj = load_engine(['RUN'],
-                             engine_name, project_name or os.path.basename(base_path),
+                             engine_name, config.project_name,
                              config['services'], **kwargs)
 
     remove_existing_container(engine_obj, 'conductor', remove_volumes=True)
@@ -218,9 +212,8 @@ def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
         'deployment_output_path': config.deployment_path,
         'host_user_uid': os.getuid(),
         'host_user_gid': os.getgid(),
+        'settings': config.get('settings', {})
     }
-    if config.get('settings', {}).get('k8s_auth'):
-        params['k8s_auth'] = config['settings']['k8s_auth']
     if kwargs:
         params.update(kwargs)
 
@@ -231,14 +224,13 @@ def hostcmd_run(base_path, project_name, engine_name, var_file=None, cache=True,
         save_container=config.get('settings', {}).get('save_conductor_container', False))
 
 @host_only
-def hostcmd_destroy(base_path, project_name, engine_name, var_file=None, cache=True,
-                  **kwargs):
+def hostcmd_destroy(base_path, project_name, engine_name, var_file=None, cache=True, **kwargs):
     assert_initialized(base_path)
     logger.debug('Got extra args to `destroy` command', arguments=kwargs)
-    config = get_config(base_path, var_file=var_file, engine_name=engine_name)
+    config = get_config(base_path, var_file=var_file, engine_name=engine_name, project_name=project_name)
 
     engine_obj = load_engine(['RUN'],
-                             engine_name, project_name or os.path.basename(base_path),
+                             engine_name, config.project_name,
                              config['services'], **kwargs)
 
     remove_existing_container(engine_obj, 'conductor', remove_volumes=True)
@@ -247,12 +239,10 @@ def hostcmd_destroy(base_path, project_name, engine_name, var_file=None, cache=T
         'deployment_output_path': config.deployment_path,
         'host_user_uid': os.getuid(),
         'host_user_gid': os.getgid(),
+        'settings': config.get('settings', {})
     }
-    if config.get('settings', {}).get('k8s_auth'):
-        params['k8s_auth'] = config['settings']['k8s_auth']
     if kwargs:
         params.update(kwargs)
-    params.update(kwargs)
 
     engine_obj.await_conductor_command(
         'destroy', dict(config), base_path, params,
@@ -261,21 +251,19 @@ def hostcmd_destroy(base_path, project_name, engine_name, var_file=None, cache=T
 @host_only
 def hostcmd_stop(base_path, project_name, engine_name, force=False, services=[],
                  **kwargs):
-    config = get_config(base_path, engine_name=engine_name)
+    config = get_config(base_path, engine_name=engine_name, project_name=project_name)
     engine_obj = load_engine(['RUN'],
-                             engine_name, project_name or os.path.basename(base_path),
+                             engine_name, config.project_name,
                              config['services'], **kwargs)
 
     params = {
         'deployment_output_path': config.deployment_path,
         'host_user_uid': os.getuid(),
         'host_user_gid': os.getgid(),
+        'settings': config.get('settings', {})
     }
-    if config.get('settings', {}).get('k8s_auth'):
-        params['k8s_auth'] = config['settings']['k8s_auth']
     if kwargs:
         params.update(kwargs)
-    params.update(kwargs)
 
     engine_obj.await_conductor_command(
         'stop', dict(config), base_path, params,
@@ -285,20 +273,18 @@ def hostcmd_stop(base_path, project_name, engine_name, force=False, services=[],
 @host_only
 def hostcmd_restart(base_path, project_name, engine_name, force=False, services=[],
                     **kwargs):
-    config = get_config(base_path, engine_name=engine_name)
+    config = get_config(base_path, engine_name=engine_name, project_name=project_name)
     engine_obj = load_engine(['RUN'],
-                             engine_name, project_name or os.path.basename(base_path),
+                             engine_name, config.project_name,
                              config['services'], **kwargs)
     params = {
         'deployment_output_path': config.deployment_path,
         'host_user_uid': os.getuid(),
         'host_user_gid': os.getgid(),
+        'settings': config.get('settings', {})
     }
-    if config.get('settings', {}).get('k8s_auth'):
-        params['k8s_auth'] = config['settings']['k8s_auth']
     if kwargs:
         params.update(kwargs)
-    params.update(kwargs)
 
     engine_obj.await_conductor_command(
         'restart', dict(config), base_path, params,
@@ -313,12 +299,14 @@ def hostcmd_push(base_path, project_name, engine_name, var_file=None, **kwargs):
     registry, pass username and/or password. If you exclude password, you will be prompted.
     """
     assert_initialized(base_path)
-    config = get_config(base_path, var_file=var_file, engine_name=engine_name)
+    config = get_config(base_path, var_file=var_file, engine_name=engine_name, project_name=project_name)
 
     engine_obj = load_engine(['LOGIN', 'PUSH'],
-                             engine_name, project_name or os.path.basename(base_path),
+                             engine_name, config.project_name,
                              config['services'], **kwargs)
+    logger.debug('PROJECT NAME', project_name=config.project_name)
     push_images(base_path,
+                config.image_namespace,
                 engine_obj,
                 config,
                 save_conductor=config.get('settings', {}).get('save_conductor_container', False),
@@ -326,7 +314,7 @@ def hostcmd_push(base_path, project_name, engine_name, var_file=None, **kwargs):
 
 
 @host_only
-def push_images(base_path, engine_obj, config, **kwargs):
+def push_images(base_path, image_namespace, engine_obj, config, **kwargs):
     """ Pushes images to a Docker registry. Returns (url, namespace) used to push images. """
     config_path = kwargs.get('config_path', engine_obj.auth_config_path)
     username = kwargs.get('username')
@@ -334,19 +322,19 @@ def push_images(base_path, engine_obj, config, **kwargs):
     push_to = kwargs.get('push_to')
     url = engine_obj.default_registry_url
     registry_name = engine_obj.default_registry_name
-    namespace = None
+    namespace = image_namespace
     save_conductor = config.get('settings', {}).get('save_conductor_container', False)
 
     if push_to:
         if config.get('registries', dict()).get(push_to):
             url = config['registries'][push_to].get('url')
-            namespace = config['registries'][push_to].get('namespace')
+            namespace = config['registries'][push_to].get('namespace', namespace)
             if not url:
                 raise AnsibleContainerRegistryAttributeException(
                     u"Registry {} missing required attribute 'url'".format(push_to)
                 )
         else:
-            url, namespace = resolve_push_to(push_to, engine_obj.default_registry_url)
+            url, namespace = resolve_push_to(push_to, engine_obj.default_registry_url, namespace)
 
     if username and not password:
         # If a username was supplied without a password, prompt for it
@@ -360,16 +348,17 @@ def push_images(base_path, engine_obj, config, **kwargs):
         config_path = os.path.normpath(os.path.expanduser(config_path))
         if os.path.exists(config_path) and os.path.isdir(config_path):
             raise AnsibleContainerException(
-                u"Expecting --config-path to be a path to a file and not a directory"
+                u"Expecting --config-path to be a path to a file, not a directory"
             )
         elif not os.path.exists(config_path):
             # Make sure the directory path exists
-            try:
-                os.makedirs(os.path.dirname(config_path), 0o750)
-            except OSError:
-                raise AnsibleContainerException(
-                    u"Failed to create the requested the path {}".format(os.path.dirname(config_path))
-                )
+            if not os.path.exists(os.path.dirname(config_path)):
+                try:
+                    os.makedirs(os.path.dirname(config_path), 0o750)
+                except OSError:
+                    raise AnsibleContainerException(
+                        u"Failed to create the requested the path {}".format(os.path.dirname(config_path))
+                    )
             # Touch the file
             open(config_path, 'w').close()
 
@@ -390,10 +379,10 @@ def push_images(base_path, engine_obj, config, **kwargs):
 @host_only
 def hostcmd_install(base_path, project_name, engine_name, **kwargs):
     assert_initialized(base_path)
-    config = get_config(base_path, engine_name=engine_name)
+    config = get_config(base_path, engine_name=engine_name, project_name=project_name)
     save_conductor = config.get('settings', {}).get('save_conductor_container', False)
     engine_obj = load_engine(['INSTALL'],
-                             engine_name, project_name or os.path.basename(base_path),
+                             engine_name, config.project_name,
                              config['services'], **kwargs)
     engine_obj.await_conductor_command('install',
                                        dict(config),
@@ -439,7 +428,7 @@ def remove_existing_container(engine_obj, service_name, remove_volumes=False):
 
 
 @host_only
-def resolve_push_to(push_to, default_url):
+def resolve_push_to(push_to, default_url, default_namespace):
     '''
     Given a push-to value, return the registry and namespace.
 
@@ -449,7 +438,7 @@ def resolve_push_to(push_to, default_url):
     '''
     protocol = 'http://' if push_to.startswith('http://') else 'https://'
     url = push_to = REMOVE_HTTP.sub('', push_to)
-    namespace = None
+    namespace = default_namespace
     parts = url.split('/', 1)
     special_set = {'.', ':'}
     char_set = set([c for c in parts[0]])
@@ -463,7 +452,6 @@ def resolve_push_to(push_to, default_url):
     else:
         registry_url = protocol + parts[0]
         namespace = parts[1]
-
     return registry_url, namespace
 
 
@@ -802,17 +790,14 @@ def conductorcmd_deploy(engine_name, project_name, services, **kwargs):
                 engine=engine.display_name)
 
     # Verify all images are built
-    for service_name in services:
-        if not services[service_name].get('roles'):
-            continue
-        logger.info(u'Verifying image for %s', service_name)
-        image_id = engine.get_latest_image_id_for_service(service_name)
-        if not image_id:
-            logger.error(u'Missing image. Run "ansible-container build" '
-                         u'to (re)create it.', service=service_name)
-            raise RuntimeError(u'Run failed.')
-
-    logger.debug("conductorcmd_deploy", kwargs=kwargs)
+    for service_name, service_defn in services.items():
+        if service_defn.get('roles'):
+            logger.info(u'Verifying image for %s', service_name)
+            image_id = engine.get_latest_image_id_for_service(service_name)
+            if not image_id:
+                msg = u'Missing image for {}. Run "ansible-container build" to (re)create it.'.format(service_name)
+                logger.error(msg, service=service_name)
+                raise RuntimeError(msg)
 
     deployment_output_path = kwargs.get('deployment_output_path')
     playbook = engine.generate_orchestration_playbook(**kwargs)
@@ -854,7 +839,7 @@ def conductorcmd_push(engine_name, project_name, services, **kwargs):
 
     repo_data = {
         'url': url,
-        'namespace': namespace or username,
+        'namespace': namespace,
         'tag': tag,
         'username': username,
         'password': password
