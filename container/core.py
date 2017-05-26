@@ -110,8 +110,8 @@ def hostcmd_init(base_path, project=None, force=False, **kwargs):
         template_dir = os.path.join(jinja_template_path(), 'init')
         context = {
             u'ansible_container_version': __version__,
-            u'project_name': kwargs.get('project_name',
-                                        os.path.basename(base_path)),
+            u'project_name': kwargs.get('project_name') or
+                                        os.path.basename(base_path),
             u'default_base': DEFAULT_CONDUCTOR_BASE
         }
         for tmpl_filename in os.listdir(template_dir):
