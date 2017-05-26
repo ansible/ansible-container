@@ -1,6 +1,19 @@
 language: python
 dist: trusty
 sudo: required
+env:
+  - BASE_DISTRO: 'centos:7'
+  - BASE_DISTRO: 'fedora:25'
+  - BASE_DISTRO: 'fedora:24'
+  - BASE_DISTRO: 'debian:jessie'
+  - BASE_DISTRO: 'debian:stretch'
+  - BASE_DISTRO: 'debian:wheezy'
+  - BASE_DISTRO: 'ubuntu:precise'
+  - BASE_DISTRO: 'ubuntu:trusty'
+  - BASE_DISTRO: 'ubuntu:xenial'
+  - BASE_DISTRO: 'ubuntu:zesty'
+  - BASE_DISTRO: 'alpine:3.5'
+  - BASE_DISTRO: 'alpine:3.4'
 
 services:
   - docker
@@ -11,21 +24,22 @@ before_install:
   # - sudo apt-get install -y shellcheck
   - pip install --upgrade setuptools
 
-script:
+install:
   # Intall Ansible here, even though it's part of test rquirements.
   #  If not, `python ./setup.py test` fails while installing pycparser
   - pip install 'ansible>=2.3'
   - ansible --version
 
-  # Install Ansible Container 
+  # Install Ansible Container
   - pip install -e .[docker]
 
+script:
   # Establish a tmp directory
   - mkdir tmp 
   - export TMPDIR=${PWD}/tmp
 
   # run tests
-  - python ./setup.py prebake
+  - python ./setup.py prebake --distros $BASE_DISTRO
   - python ./setup.py test
   - if [ -f ./task.output ]; then cat task.output; fi
 
