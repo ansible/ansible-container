@@ -125,9 +125,9 @@ def metadata_to_image_config(metadata):
         'command': ('Cmd', None),
         'working_dir': ('WorkingDir', None),
         'entrypoint': ('Entrypoint', None),
-        'volumes': ('Volumes', lambda _list: {parts[0]:{}
-                                              for parts in [v.split()
-                                                            for v in _list]}),
+        #'volumes': ('Volumes', lambda _list: {parts[0]:{}
+        #                                      for parts in [v.split()
+        #                                                    for v in _list]}),
         'labels': ('Labels', None),
         'onbuild': ('OnBuild', None)
     }
@@ -141,7 +141,7 @@ def metadata_to_image_config(metadata):
         Cmd='',
         WorkingDir='',
         Entrypoint=None,
-        Volumes={},
+        #Volumes={},
         Labels={},
         OnBuild=[]
     )
