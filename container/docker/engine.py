@@ -506,16 +506,28 @@ class Engine(BaseEngine):
                              fingerprint,
                              metadata,
                              with_name=False):
+        metadata = metadata.copy()
         to_commit = self.client.containers.get(container_id)
         image_name = self.image_name_for_service(service_name)
         image_version = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
+        image_changes = []
+        volume_specs = metadata.pop('volumes', [])
+        for volume_spec in volume_specs:
+            if ':' in volume_spec and not volume_spec.startswith(('/', '$')):
+                mount_point = volume_spec.split(':', 1)[-1]
+            elif ':' not in volume_spec:
+                mount_point = volume_spec
+            else:
+                continue
+            image_changes.append(u'VOLUME %s' % (mount_point,))
         image_config = utils.metadata_to_image_config(metadata)
         image_config.setdefault('Labels', {})[self.FINGERPRINT_LABEL_KEY] = fingerprint
         commit_data = dict(
             repository=image_name if with_name else None,
             tag=image_version if with_name else None,
             message=self.LAYER_COMMENT,
-            conf=image_config
+            conf=image_config,
+            changes=u'\n'.join(image_changes)
         )
         logger.debug('Committing new layer', params=commit_data)
         return to_commit.commit(**commit_data).id
