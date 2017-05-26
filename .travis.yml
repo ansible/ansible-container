@@ -24,23 +24,22 @@ before_install:
   # - sudo apt-get install -y shellcheck
   - pip install --upgrade setuptools
 
-install:
+script:
   # Intall Ansible here, even though it's part of test rquirements.
   #  If not, `python ./setup.py test` fails while installing pycparser
   - pip install 'ansible>=2.3'
   - ansible --version
 
+  - pip install -U --force-reinstall requirements.txt
   # Install Ansible Container
   - pip install -e .[docker]
-
-script:
   # Establish a tmp directory
   - mkdir tmp 
   - export TMPDIR=${PWD}/tmp
 
   # run tests
-  - python ./setup.py prebake --distros $BASE_DISTRO
-  - python ./setup.py test
+  - python ./setup.py prebake --distros $BASE_DISTRO --debug
+  - python ./setup.py test --ansible-args="-vvv"
   - if [ -f ./task.output ]; then cat task.output; fi
 
 after_success:
