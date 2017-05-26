@@ -5,6 +5,10 @@
     path: ./task.output
     state: absent
 
+- name: Watowat
+  debug:
+    var: distro
+
 - name: Make temporary workspace
   tempfile:
     path: "{{ lookup('env', 'TMPDIR')|default(omit, boolean=True) }}"

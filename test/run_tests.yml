@@ -53,7 +53,7 @@
         base_image: "debian:stretch"
         template: *debian
       - name: "debian-wheezy"
-        base_iamge: "debian:wheezy"
+        base_image: "debian:wheezy"
         template: *debian
       - name: "ubuntu-precise"
         base_image: "ubuntu:precise"
@@ -74,10 +74,19 @@
         base_image: "alpine:3.5"
         template: *alpine
   tasks:
+    - name: Check BASE_DISTRO environment variable
+      debug:
+        msg: "BASE_DISTRO is {{ lookup('env', 'BASE_DISTRO') }}"
+    - set_fact:
+        BASE_DISTRO: "{{ lookup('env', 'BASE_DISTRO') }}"
+    - set_fact:
+        filtered: "{{ distros|selectattr('base_image', 'equalto', BASE_DISTRO)|list }}"
+      when: BASE_DISTRO != ""
     - name: Validate container lifecycle
       include_role:
         name: validate-build-and-import
-      with_items: "{{ distros }}"
+      with_items: "{{ filtered|default(distros) }}"
+      # with_items: "{% if lookup('env', 'BASE_DISTRO') %}{{ distros|selectattr('base_image', 'equalto', lookup('env', 'BASE_DISTRO'))|list }}{% else %}{{ distros }}{% endif %}"
       loop_control:
         loop_var: "distro"
   # roles:
