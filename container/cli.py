@@ -17,8 +17,8 @@ import container
 from . import core
 from . import exceptions
 from container.config import AnsibleContainerConductorConfig
+from container.utils import list_to_ordereddict
 
-from collections import OrderedDict
 from logging import config
 LOGGING = {
         'version': 1,
@@ -63,7 +63,7 @@ class HostCommand(object):
                           }
 
     def subcmd_common_parsers(self, parser, subparser, cmd):
-        if cmd in ('build', 'run', 'deploy', 'push'):
+        if cmd in ('build', 'run', 'deploy', 'push', 'restart', 'stop', 'destroy'):
             subparser.add_argument('--with-volumes', '-v', action='store', nargs='+',
                                    help=u'Mount one or more volumes to the Conductor. '
                                         u'Specify volumes as strings using the Docker volume format.',
@@ -72,6 +72,8 @@ class HostCommand(object):
                                    help=u'Define one or more environment variables in the '
                                         u'Conductor. Format each variable as a key=value string.',
                                    default=[])
+
+        if cmd in ('build', 'run', 'deploy', 'push'):
             subparser.add_argument('--roles-path', action='store', default=None,
                                    help=u'Specify a local path containing roles you want to '
                                         u'use in the Conductor.')
@@ -88,28 +90,25 @@ class HostCommand(object):
                                    help=u'If authentication with the registry is required, provide a valid password.',
                                    dest='password', default=None)
             subparser.add_argument('--push-to', action='store',
-                                   help=(u'Name of a registry defined in container.yml or the actual URL of the registry, '
-                                         u'including the namespace. If passing a URL, an example would be: '
-                                         u'"https://registry.example.com:5000/myproject"'),
+                                   help=(u'Name of a registry defined in container.yml, or a registry URL. When '
+                                         u'providing a URL, include the repository or project namespace.'),
                                    dest='push_to', default=None)
             subparser.add_argument('--tag', action='store',
                                    help=u'Tag the images before pushing.',
                                    dest='tag', default=None)
-
 
     def subcmd_init_parser(self, parser, subparser):
         subparser.add_argument('--server', '-s', action='store',
                                default='https://galaxy.ansible.com/',
                                help=u'Use a different Galaxy server URL')
         subparser.add_argument('project', nargs='?', action='store',
-                               help=u'Use a project template instead of making a '
-                                    u'blank project from an Ansible Container project '
-                                    u'from Ansible Galaxy.')
+                               help=(u'Rather than starting with a blank project, use a project template '
+                                     u'from an Ansible Container project downloaded from the Ansible Galaxy '
+                                     u'web site.'))
         subparser.add_argument('--force', '-f', action='store_true',
                                help=u'Overrides the requirement that init be run'
                                     u'in an empty directory, for example'
                                     u'if a virtualenv exists in the directory.')
-
 
     def subcmd_build_parser(self, parser, subparser):
         subparser.add_argument('--flatten', action='store_true',
@@ -178,14 +177,17 @@ class HostCommand(object):
         subparser.add_argument('-f', '--force', action='store_true',
                                help=u'Force stop running containers',
                                dest='force')
+        self.subcmd_common_parsers(parser, subparser, 'stop')
+
 
     def subcmd_restart_parser(self, parser, subparser):
         subparser.add_argument('service', action='store',
                                help=u'The specific services you want to restart',
                                nargs='*')
+        self.subcmd_common_parsers(parser, subparser, 'restart')
 
     def subcmd_destroy_parser(self, parser, subparser):
-        pass
+        self.subcmd_common_parsers(parser, subparser, 'destroy')
 
     def subcmd_help_parser(self, parser, subparser):
         return
@@ -261,11 +263,11 @@ class HostCommand(object):
         try:
             getattr(core, u'hostcmd_{}'.format(args.subcommand))(**vars(args))
         except exceptions.AnsibleContainerAlreadyInitializedException as e:
-            logger.error('{0}'.format(e), exc_info=False)
+            logger.error("Project already initialized. Use the --force option.")
             sys.exit(1)
         except exceptions.AnsibleContainerNotInitializedException:
             logger.error('No Ansible Container project data found - do you need to '
-                    'run "ansible-container init"?', exc_info=False)
+                         'run "ansible-container init"?', exc_info=False)
             sys.exit(1)
         except exceptions.AnsibleContainerNoAuthenticationProvidedException:
             logger.error('No authentication provided, unable to continue', exc_info=False)
@@ -307,7 +309,7 @@ host_commandline = HostCommand()
 
 def decode_b64json(encoded_params):
     # Using object_pairs_hook to preserve the original order of any dictionaries
-    return json.loads(base64.b64decode(encoded_params).decode(), object_pairs_hook=OrderedDict)
+    return json.loads(base64.b64decode(encoded_params).decode())
 
 
 @container.conductor_only
@@ -341,10 +343,9 @@ def conductor_commandline():
     config.dictConfig(LOGGING)
 
     containers_config = decoding_fn(args.config)
-    conductor_config = AnsibleContainerConductorConfig(containers_config)
+    conductor_config = AnsibleContainerConductorConfig(list_to_ordereddict(containers_config))
 
-    logger.debug('Starting Ansible Container Conductor: %s', args.command,
-        services=conductor_config.services)
+    logger.debug('Starting Ansible Container Conductor: %s', args.command, services=conductor_config.services)
     getattr(core, 'conductorcmd_%s' % args.command)(
         args.engine,
         args.project_name,

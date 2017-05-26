@@ -8,13 +8,13 @@ services:
 before_install:
   - sudo apt-add-repository 'deb http://archive.ubuntu.com/ubuntu trusty-backports universe'
   - sudo apt-get update -qq
-  - sudo apt-get install -y shellcheck
+  # - sudo apt-get install -y shellcheck
   - pip install --upgrade setuptools
 
 script:
   # Intall Ansible here, even though it's part of test rquirements.
   #  If not, `python ./setup.py test` fails while installing pycparser
-  - pip install https://github.com/ansible/ansible/archive/devel.tar.gz#egg=ansible-2.4.0
+  - pip install 'ansible>=2.3'
   - ansible --version
 
   # Install Ansible Container 

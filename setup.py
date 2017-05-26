@@ -82,7 +82,7 @@ if container.ENV == 'host':
     setup_kwargs = dict(
         install_requires=[str(ir.req) for ir in install_reqs if ir.match_markers()],
         tests_require=[
-            'ansible==2.4.0',
+            'ansible>=2.3.0',
             'pytest>=3',
             'docker>=2.1',
             'jmespath>=0.9'
@@ -93,9 +93,9 @@ if container.ENV == 'host':
             'openshift': ['openshift==0.0.1'],
             'k8s': ['openshift==0.0.1']
         },
-        dependency_links=[
-            'https://github.com/ansible/ansible/archive/devel.tar.gz#egg=ansible-2.4.0',
-        ],
+        #dependency_links=[
+        #    'https://github.com/ansible/ansible/archive/devel.tar.gz#egg=ansible-2.4.0',
+        #],
         cmdclass={'test': PlaybookAsTests,
                   'sdist': BundleConductorFiles,
                   'prebake': PrebakeConductors},

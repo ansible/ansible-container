@@ -1,24 +1,31 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
+
 from .utils.visibility import getLogger
 logger = getLogger(__name__)
 
+from abc import ABCMeta, abstractproperty, abstractmethod
 from io import BytesIO
 import os
 from os import path
 import copy
 import json
 import re
-import six
+from six import add_metaclass, iteritems, PY2, string_types
 
-from collections import Mapping, OrderedDict
+from collections import Mapping
 from ruamel import yaml
 
 import container
+
 if container.ENV == 'conductor':
     from ansible.template import Templar
-    from ansible.utils.unsafe_proxy import AnsibleUnsafeText
+    try:
+        from ansible.utils.unsafe_proxy import AnsibleUnsafeText
+    except ImportError:
+        from ansible.vars.unsafe_proxy import AnsibleUnsafeText
+
 from .exceptions import AnsibleContainerConfigException, AnsibleContainerNotInitializedException
 from .utils import get_metadata_from_role, get_defaults_from_role
 
@@ -36,24 +43,45 @@ from .utils import get_metadata_from_role, get_defaults_from_role
 # given variable values
 
 
-class AnsibleContainerConfig(Mapping):
+@add_metaclass(ABCMeta)
+class BaseAnsibleContainerConfig(Mapping):
     _config = yaml.compat.ordereddict()
     base_path = None
+    engine_list = ['docker', 'openshift', 'k8s']
 
     @container.host_only
-    def __init__(self, base_path, var_file=None, engine_name=None):
+    def __init__(self, base_path, var_file=None, engine_name=None, project_name=None):
         self.base_path = base_path
         self.var_file = var_file
         self.engine_name = engine_name
         self.config_path = path.join(self.base_path, 'container.yml')
+        self.cli_project_name = project_name
+        self.remove_engines = set(self.engine_list) - set([engine_name])
         self.set_env('prod')
 
     @property
     def deployment_path(self):
         dep_path = self.get('settings', yaml.compat.ordereddict()).get('deployment_output_path',
                             path.join(self.base_path, 'ansible-deployment/'))
-        return path.normpath(path.abspath(path.expanduser(dep_path)))
+        return path.normpath(path.abspath(path.expanduser(path.expandvars(dep_path))))
 
+    @property
+    def project_name(self):
+        if self.cli_project_name:
+            # Give precedence to CLI args
+            return self.cli_project_name
+        if self._config.get('settings', {}).get('project_name', None):
+            # Look for settings.project_name
+            return self._config['settings']['project_name']
+        return os.path.basename(self.base_path)
+
+    @property
+    @abstractproperty
+    def image_namespace(self):
+        # When pushing images or deploying, we need to know the default namespace
+        pass
+
+    @abstractmethod
     def set_env(self, env):
         """
         Loads config from container.yml,  and stores the resulting dict to self._config.
@@ -71,8 +99,8 @@ class AnsibleContainerConfig(Mapping):
 
         self._validate_config(config)
 
-        for service, service_config in (config.get('services') or {}).items():
-            if not service_config or isinstance(service_config, six.string_types):
+        for service, service_config in iteritems(config.get('services') or {}):
+            if not service_config or isinstance(service_config, string_types):
                 raise AnsibleContainerConfigException(u"Error: no definition found in container.yml for service %s."
                                                       % service)
             if isinstance(service_config, dict):
@@ -87,26 +115,10 @@ class AnsibleContainerConfig(Mapping):
                     vol_pieces[0] = path.normpath(path.expandvars(path.expanduser(vol_pieces[0])))
                     updated_volumes.append(':'.join(vol_pieces))
                 service_config['volumes'] = updated_volumes
-            if self.engine_name not in ('openshift', 'k8s'):
-                if 'k8s' in service_config:
-                    del service_config['k8s']
-                if 'openshift' in service_config:
-                    del service_config['openshift']
 
-        if config.get('volumes'):
-            # Adjust volumes based on engine_name
-            if self.engine_name == 'docker':
-                # For docker replace all attributes with just those for docker
-                for vol_key in list(config['volumes'].keys()):
-                    if 'docker' in config['volumes'][vol_key]:
-                        docker_settings = copy.deepcopy(config['volumes'][vol_key]['docker'])
-                        config['volumes'][vol_key] = docker_settings
-            elif self.engine_name in ('openshift', 'k8s'):
-                # For openshift/k8s remove unrelated attributes
-                for vol_key in config['volumes'].keys():
-                    for engine_key in list(config['volumes'][vol_key].keys()):
-                        if engine_key != self.engine_name:
-                            del config['volumes'][vol_key][engine_key]
+            for engine_name in self.remove_engines:
+                if engine_name in service_config:
+                    del service_config[engine_name]
 
         # Insure settings['pwd'] = base_path. Will be used later by conductor to resolve $PWD in volumes.
         if config.get('settings', None) is None:
@@ -135,7 +147,7 @@ class AnsibleContainerConfig(Mapping):
         if self.var_file:
             defaults.update(self._get_variables_from_file(), relax=True)
         logger.debug('The default type is', defaults=str(type(defaults)), config=str(type(config)))
-        if six.PY2 and type(defaults) == yaml.compat.ordereddict:
+        if PY2 and type(defaults) == yaml.compat.ordereddict:
             defaults.update(self._get_environment_variables(), relax=True)
         else:
             defaults.update(self._get_environment_variables())
@@ -183,7 +195,7 @@ class AnsibleContainerConfig(Mapping):
                 config = json.load(open(abspath))
             except Exception as exc:
                 raise AnsibleContainerConfigException(u"JSON exception: %s" % unicode(exc))
-        return six.iteritems(config)
+        return iteritems(config)
 
     TOP_LEVEL_WHITELIST = [
         'version',
@@ -221,13 +233,6 @@ class AnsibleContainerConfig(Mapping):
 
     def __len__(self):
         return len(self._config)
-
-
-def ordereddict_to_dict(x):
-    if isinstance(x, OrderedDict) or isinstance(x, yaml.compat.ordereddict):
-        new_dict = {k: ordereddict_to_dict(v) for k, v in x.iteritems()}
-        return new_dict
-    return x
 
 
 class AnsibleContainerConductorConfig(Mapping):
@@ -277,8 +282,7 @@ class AnsibleContainerConductorConfig(Mapping):
         self._config['settings'] = self._config.get('settings', yaml.compat.ordereddict())
         for section in ['volumes', 'registries']:
             logger.debug('Processing section...', section=section)
-            setattr(self, section, ordereddict_to_dict(
-                self._process_section(self._config.get(section, yaml.compat.ordereddict()))))
+            setattr(self, section, dict(self._process_section(self._config.get(section, yaml.compat.ordereddict()))))
 
     def _process_services(self):
         services = yaml.compat.ordereddict()
@@ -291,18 +295,6 @@ class AnsibleContainerConductorConfig(Mapping):
                 # have that filled in with the project path
                 service_data['volumes'][idx] = re.sub(r'\$(PWD|\{PWD\})', self._config['settings'].get('pwd'),
                                                       service_data['volumes'][idx])
-            if service_data.get('roles'):
-                updated_roles = []
-                for role in service_data['roles']:
-                    if isinstance(role, OrderedDict):
-                        updated_roles.append(dict(role))
-                    else:
-                        updated_roles.append(role)
-                service_data['roles'] = updated_roles
-
-            if service_data.get('environment') and isinstance(service_data['environment'], OrderedDict):
-                service_data['environment'] = dict(service_data['environment'])
-
             for role_spec in service_data.get('roles', []):
                 if isinstance(role_spec, dict):
                     # A role with parameters to run it with

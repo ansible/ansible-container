@@ -5,6 +5,10 @@ settings:
   # from the same distribution as you're building your target containers with.
   conductor_base: {{ default_base }}
 
+  # Set the name of the project. Defaults to basename of the project directory.
+  # For built services, concatenated with service name to form the built image name.
+  project_name: {{ project_name }}
+
   # The deployment_output_path is mounted to the Conductor container, and the 
   # `run` and `deployment` commands then write generated Ansible playbooks to it.
   # deployment_output_path: ./ansible-deployment
@@ -15,7 +19,7 @@ settings:
   #k8s_auth:
     # path to a K8s config file
     #config_file:
-    # name of a context found within the config.json file
+    # name of a context found within the config file
     #context:
     # URL for accessing the K8s API
     #host:
@@ -27,7 +31,7 @@ settings:
     #cert_file:
     # Path to a key file
     #key_file:
-    #boolean, indicating if SSL certs should be validated
+    # boolean, indicating if SSL certs should be validated
     #verify_ssl:
 
   # When using the k8s or openshift engines, use the following to set the namespace.
