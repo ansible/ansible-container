@@ -30,6 +30,7 @@ script:
   - pip install 'ansible>=2.3'
   - ansible --version
 
+  - pip install -U --force-reinstall requirements.txt
   # Install Ansible Container
   - pip install -e .[docker]
   # Establish a tmp directory
