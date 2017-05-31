@@ -231,6 +231,8 @@ class Engine(BaseEngine):
 
         if params.get('deployment_output_path'):
             deployment_path = params['deployment_output_path']
+            if not os.path.isdir(deployment_path):
+                os.mkdir(deployment_path, 0o755)
             volumes[deployment_path] = {'bind': deployment_path, 'mode': 'rw'}
 
         roles_path = None
@@ -868,3 +870,7 @@ class Engine(BaseEngine):
         if auth_key:
             username, password = base64.b64decode(auth_key).split(':', 1)
         return username, password
+
+    @conductor_only
+    def pre_deployment_setup(self, project_name, services, **kwargs):
+        pass
