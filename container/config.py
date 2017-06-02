@@ -43,6 +43,9 @@ from .utils import get_metadata_from_role, get_defaults_from_role
 # given variable values
 
 
+DEFAULT_CONDUCTOR_BASE = 'centos:7'
+
+
 @add_metaclass(ABCMeta)
 class BaseAnsibleContainerConfig(Mapping):
     _config = yaml.compat.ordereddict()
@@ -74,6 +77,14 @@ class BaseAnsibleContainerConfig(Mapping):
             # Look for settings.project_name
             return self._config['settings']['project_name']
         return os.path.basename(self.base_path)
+
+    @property
+    def conductor_base(self):
+        if self._config.get('settings', {}).get('conductor_base'):
+            return self._config['settings']['conductor_base']
+        if self._config.get('settings', {}).get('conductor', {}).get('base'):
+            return self._config['settings']['conductor']['base']
+        return DEFAULT_CONDUCTOR_BASE
 
     @property
     @abstractproperty

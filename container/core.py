@@ -34,6 +34,7 @@ from .exceptions import AnsibleContainerAlreadyInitializedException,\
                         AnsibleContainerException
 from .utils import *
 from . import __version__, host_only, conductor_only, ENV
+from .config import DEFAULT_CONDUCTOR_BASE
 from container.utils.loader import load_engine
 
 if ENV == 'conductor':
@@ -41,7 +42,6 @@ if ENV == 'conductor':
 
 
 REMOVE_HTTP = re.compile('^https?://')
-DEFAULT_CONDUCTOR_BASE = 'centos:7'
 
 
 @host_only
@@ -142,7 +142,7 @@ def hostcmd_build(base_path, project_name, engine_name, var_file=None,
         if engine_obj.CAP_BUILD_CONDUCTOR:
             engine_obj.build_conductor_image(
                 base_path,
-                config.get('settings', {}).get('conductor_base', DEFAULT_CONDUCTOR_BASE),
+                config.conductor_base,
                 cache=conductor_cache
             )
         else:

@@ -147,8 +147,6 @@ class HostCommand(object):
                                     u'into target containers in order to run Ansible. Use when the target '
                                     u'already has an installed Python runtime.',
                                dest='local_python', default=False)
-        subparser.add_argument('--no-conductor-runtime', action='store_false',
-                               help=u'')
         subparser.add_argument('ansible_options', action='store',
                                help=u'Provide additional commandline arguments to '
                                     u'Ansible in executing your playbook. If you '
