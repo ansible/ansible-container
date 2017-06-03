@@ -191,6 +191,8 @@ def hostcmd_deploy(base_path, project_name, engine_name, vars_files=None,
                                    save_conductor=False, **params)
         params.update(push_options)
 
+    params['vault_files'] = config.vault_files
+
     engine_obj.await_conductor_command(
         'deploy', dict(config), base_path, params,
         save_container=config.get('settings', {}).get('save_conductor_container', False))
