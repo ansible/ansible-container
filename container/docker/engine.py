@@ -214,17 +214,26 @@ class Engine(BaseEngine):
         serialized_params = base64.b64encode(json.dumps(params).encode("utf-8")).decode()
         serialized_config = base64.b64encode(json.dumps(ordereddict_to_list(config)).encode("utf-8")).decode()
 
+        conductor_settings = config.get('settings', {}).get('conductor', {})
+
         if not volumes:
             volumes = {}
 
+        def _add_volume(vol):
+            volume_parts = vol.split(':')
+            volume_parts[0] = os.path.normpath(os.path.expanduser(volume_parts[0]))
+            volumes[volume_parts[0]] = {
+                'bind': volume_parts[1] if len(volume_parts) > 1 else volume_parts[0],
+                'mode': volume_parts[2] if len(volume_parts) > 2 else 'rw'
+            }
+
         if params.get('with_volumes'):
             for volume in params.get('with_volumes'):
-                volume_parts = volume.split(':')
-                volume_parts[0] = os.path.normpath(os.path.abspath(os.path.expanduser(volume_parts[0])))
-                volumes[volume_parts[0]] = {
-                    'bind': volume_parts[1] if len(volume_parts) > 1 else volume_parts[0],
-                    'mode': volume_parts[2] if len(volume_parts) > 2 else 'rw'
-                }
+                _add_volume(volume)
+
+        if conductor_settings.get('volumes'):
+            for volume in conductor_settings['volumes']:
+                _add_volume(volume)
 
         permissions = 'ro' if command != 'install' else 'rw'
         volumes[base_path] = {'bind': '/src', 'mode': permissions}
@@ -254,10 +263,20 @@ class Engine(BaseEngine):
             environ['DOCKER_HOST'] = 'unix:///var/run/docker.sock'
             volumes['/var/run/docker.sock'] = {'bind': '/var/run/docker.sock',
                                                'mode': 'rw'}
-        if params.get('with_variables'):
-            for var in params['with_variables']:
+
+        def _add_var_list(vars):
+            for var in vars:
                 key, value = var.split('=', 1)
                 environ[key] = value
+
+        if params.get('with_variables'):
+            _add_var_list(params['with_variables'])
+
+        if conductor_settings.get('environment'):
+            if isinstance(conductor_settings['environment'], dict):
+                environ.update(conductor_settings['environment'])
+            if isinstance(conductor_settings['environment'], list):
+                _add_var_list(conductor_settings['environment'])
 
         if roles_path:
             environ['ANSIBLE_ROLES_PATH'] = "%s:/src/roles:/etc/ansible/roles" % roles_path
