@@ -129,9 +129,14 @@ class Engine(BaseEngine):
         return self._client
 
     @property
-    def ansible_args(self):
-        """Additional commandline arguments necessary for ansible-playbook runs."""
-        return u'-c docker'
+    def ansible_build_args(self):
+        """Additional commandline arguments necessary for ansible-playbook runs during build"""
+        return '-c docker'
+
+    @property
+    def ansible_orchestrate_args(self):
+        """Additional commandline arguments necessary for ansible-playbook runs during orchestrate"""
+        return '-c local'
 
     @property
     def default_registry_url(self):
@@ -353,7 +358,8 @@ class Engine(BaseEngine):
                 raise exceptions.AnsibleContainerConductorException(
                     u'Conductor exited with status %s' % exit_code
                 )
-            elif command in ('run', 'destroy', 'stop', 'restart') and params.get('deployment_output_path'):
+            elif command in ('run', 'destroy', 'stop', 'restart') and params.get('deployment_output_path') \
+                    and not self.debug:
                 # Remove any ansible-playbook residue
                 output_path = params['deployment_output_path']
                 for path in ('files', 'templates'):
