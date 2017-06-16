@@ -268,7 +268,7 @@ class DockerfileParser(object):
             if '=' in label:
                 k, v = label.split('=', 1)
             elif ' ' in label:
-                # handle: 'maintainer me@foobar.com' 
+                # handle: 'maintainer me@foobar.com'
                 k, v = shlex.split(label)
             else:
                 continue
@@ -331,6 +331,8 @@ class DockerfileParser(object):
         ]))
 
         for src_spec in src_list:
+            if os.path.isdir(os.path.join(self.path, src_spec)):
+                url_and_tarball = False
             # ADD src can be a URL - look for a scheme
             if url_and_tarball and urlparse(src_spec).scheme in ['http', 'https']:
                 task = CommentedMap()
