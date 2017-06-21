@@ -5,7 +5,7 @@ provides some guidelines for when you're ready to ask questions, file issues, su
 Container projects. 
 
 For additional information about contributing to the project, or to review our *Code of Conduct* and our *Contributor's License
-Agreement*, please visit [Community Information and Contributing](<https://docs.ansible.com/ansible-container/community/index.html).
+Agreement*, please visit [Community Information and Contributing](https://docs.ansible.com/ansible-container/community/index.html).
 
 
 ## Ask questions and file issues
