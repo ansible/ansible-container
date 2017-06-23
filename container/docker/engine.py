@@ -812,13 +812,15 @@ class Engine(BaseEngine):
         return usr_mount['Name']
 
     @host_only
-    def import_project(self, base_path, import_from, bundle_files=False, **kwargs):
+    def import_project(self, base_path, import_from, bundle_files=False, force=False, **kwargs):
         from .importer import DockerfileImport
 
         dfi = DockerfileImport(base_path,
                                self.project_name,
                                import_from,
-                               bundle_files)
+                               bundle_files,
+                               force)
+
         dfi.run()
 
     @conductor_only

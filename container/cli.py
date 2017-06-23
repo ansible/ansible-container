@@ -224,6 +224,10 @@ class HostCommand(object):
                                     u'use this flag.', default=False)
         subparser.add_argument('import_from', action='store',
                                help=u'Path to project/context to import.')
+        subparser.add_argument('-f', '--force', action='store_true',
+                               help=u'Force overwrite of existing Ansible Container project directory',
+                               dest='force')
+
 
 
     @container.host_only
@@ -307,6 +311,14 @@ class HostCommand(object):
             sys.exit(1)
         except exceptions.AnsibleContainerMissingImage as e:
             logger.error(str(e), exc_info=False)
+            sys.exit(1)
+        except exceptions.AnsibleContainerImportDirDockerException as e:
+            logger.error('Dockerfile found in %s. Please run import from a different directory '
+                         'or specify a project directory using --project-path.' % e.args[1])
+            sys.exit(1)
+        except exceptions.AnsibleContainerImportExistsException as e:
+            logger.error('The target directory appears to already contain an Ansible Container project. '
+                         'Use --force, if you wish to overwrite it.')
             sys.exit(1)
         except Exception as e:
             if args.debug:
