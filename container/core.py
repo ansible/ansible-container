@@ -138,7 +138,7 @@ def hostcmd_prebake(distros, debug=False, cache=True, ignore_errors=False):
                                              distro,
                                              prebaking=True,
                                              cache=cache)
-        except Exception, e:
+        except Exception as e:
             logger.exception('Failure building prebaked image for %s', distro)
             if ignore_errors:
                 continue
