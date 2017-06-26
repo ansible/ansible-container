@@ -684,7 +684,8 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                             'done"',
                     entrypoint=[],
                     privileged=True,
-                    volumes=dict()
+                    volumes=dict(),
+                    environment=dict(ANSIBLE_CONTAINER=1)
                 )
 
                 if service.get('volumes'):
@@ -723,14 +724,14 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                     except ValueError:
                         # No /lib volume
                         pass
-                    run_kwargs['environment'] = dict(
+                    run_kwargs['environment'].update(dict(
                          LD_LIBRARY_PATH='/_usr/lib:/_usr/lib64:/_usr/local/lib{}'.format(extra_library_paths),
                          CPATH='/_usr/include:/_usr/local/include',
                          PATH='/usr/local/sbin:/usr/local/bin:'
                               '/usr/sbin:/usr/bin:/sbin:/bin:'
                               '/_usr/sbin:/_usr/bin:'
                               '/_usr/local/sbin:/_usr/local/bin',
-                         PYTHONPATH='/_usr/lib/python2.7')
+                         PYTHONPATH='/_usr/lib/python2.7'))
 
                 container_id = engine.run_container(cur_image_id, service_name, **run_kwargs)
 
