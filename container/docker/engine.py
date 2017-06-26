@@ -251,8 +251,11 @@ class Engine(BaseEngine):
 
         roles_path = None
         if params.get('roles_path'):
-            # User specified --roles-path
-            roles_path = os.path.normpath(os.path.abspath(os.path.expanduser(params.get('roles_path'))))
+            roles_path = params['roles_path']
+        elif conductor_settings.get('roles_path'):
+            roles_path = conductor_settings['roles_path']
+        if roles_path:
+            roles_path = os.path.normpath(os.path.abspath(os.path.expanduser(roles_path)))
             volumes[roles_path] = {'bind': roles_path, 'mode': 'ro'}
 
         environ = {}

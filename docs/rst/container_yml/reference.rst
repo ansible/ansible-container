@@ -56,20 +56,20 @@ settings are supported:
 Directive              Definition                                              
 ====================== =====================================================================
 project_name           Set the name of the project. Defaults to the basename of the project 
-                       directory. For built services, project_name is concatenated with service 
-                       name to form the built image name.
+                       directory. For built services, project_name is concatenated with
+                       service name to form the built image name.
 
-conductor_base         The Conductor container does the heavy lifting, and provides a portable
-                       Python runtime for building your target containers. It should be derived
-                       from the same distribution as you're building your target containers with.
+:ref:`conductor`       Configuration options for the conductor container.
 
-deployment_output_path The deployment_output_path is mounted to the Conductor container, and the 
-                       ``run`` and ``deployment`` commands then write generated Ansible playbooks to it.
-                       Defaults to ``./ansible-deployment``.
-:ref:`k8s_auth`        When deploying to K8s or OpenShift, provide API authentication details.
+deployment_output_path The deployment_output_path is mounted to the Conductor container,
+                       and the ``run`` and ``deployment`` commands then write generated
+                       Ansible playbooks to it. Defaults to ``./ansible-deployment``.
 
-:ref:`k8s_namespace`   When deploying to a K8s or OpenShift cluster, set the namespace, or project name, 
-                       in which to deploy the application
+:ref:`k8s_auth`        When deploying to K8s or OpenShift, provide API authentication
+                       details.
+
+:ref:`k8s_namespace`   When deploying to a K8s or OpenShift cluster, set the namespace, or
+                       project name in which to deploy the application
 ====================== =====================================================================
 
 Example
@@ -81,7 +81,8 @@ The following is a simple example of a ``settings`` section found in a ``contain
 
     version: '2'
     settings:
-      conductor_base: 'ubuntu:xenial'
+      conductor:
+        base: 'ubuntu:xenial'
       project_name: myproject
 
       k8s_namespace:
@@ -99,6 +100,28 @@ Implementation
 
 Some of the options within ``settings`` take a dictionary, or mapping, of multiple options. The following provides further
 information for these options:
+
+.. _conductor:
+
+conductor
+.........
+
+Configuration options for the Conductor container.
+
+====================== =======================================================================
+Directive              Definition
+====================== =======================================================================
+base                   Base image for the conductor. The Conductor container does the heavy
+                       lifting, and provides a portable Python runtime for building your
+                       target containers. It should be derived from the same distribution from
+                       which you're building the services.
+
+roles_path             Specify a local path containing Ansible roles.
+
+volumes                Provide a list of volumes to mount.
+
+environment            List or mapping of environment variables.
+====================== =======================================================================
 
 .. _k8s_auth:
 

@@ -36,18 +36,9 @@ When passing a registry name defined in the *registries* section of ``container.
 If no ``--push-to`` option is passed, and the ``--local-images`` option is not passed, then the default registry will be used. The current default is
 set to ``https://index.docker.io/v1/``.
 
-.. option:: --username
+.. option:: --roles-path ROLES_PATH
 
-If the registry requires authentication, pass the username.
-
-.. option:: --password
-
-If the registry requires authentication, pass a password. If the ``--username`` is provided without the ``--password`` option, you will
-be prompted for a password.
-
-.. option:: --email
-
-If registry authentication requires an email address, use to pass the email address.
+If using roles not found in the ``roles`` directory within the project, use this option to specify the local path containing the roles. The specified path will be mounted to the conductor container, making the roles available.
 
 .. option:: --tag
 
@@ -60,3 +51,16 @@ Define one or more environment variables in the Ansible Builder Container. Forma
 .. option:: --with-volumes WITH_VOLUMES [WITH_VOLUMES ...]
 
 Mount one or more volumes to the Conductor container. Specify volumes as strings using the Docker volume format.
+
+.. option:: --username
+
+If the registry requires authentication, pass the username.
+
+.. option:: --password
+
+If the registry requires authentication, pass a password. If the ``--username`` is provided without the ``--password`` option, you will
+be prompted for a password.
+
+.. option:: --email
+
+If registry authentication requires an email address, use to pass the email address.

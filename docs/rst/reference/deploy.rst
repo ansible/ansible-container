@@ -68,6 +68,14 @@ When passing a registry name defined in the *registries* section of ``container.
 If no ``--push-to`` option is passed, and the ``--local-images`` option is not passed, then the default registry will be used. The current default is
 set to ``https://index.docker.io/v1/``.
 
+.. option:: --roles-path ROLES_PATH
+
+If using roles not found in the ``roles`` directory within the project, use this option to specify the local path containing the roles. The specified path will be mounted to the conductor container, making the roles available.
+
+.. option:: --tag
+
+Tag the images prior to pushing.
+
 .. option:: --with-variables WITH_VARIABLES [WITH_VARIABLES ...]
 
 Define one or more environment variables in the Ansible Builder Container. Format each variable as a key=value string.
@@ -89,6 +97,3 @@ be prompted for a password.
 
 If registry authentication requires an email address, use to pass the email address.
 
-.. option:: --tag
-
-Tag the images prior to pushing.

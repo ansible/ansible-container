@@ -64,6 +64,9 @@ class HostCommand(object):
 
     def subcmd_common_parsers(self, parser, subparser, cmd):
         if cmd in ('build', 'run', 'deploy', 'push', 'restart', 'stop', 'destroy'):
+            subparser.add_argument('--roles-path', action='store', default=None,
+                                   help=u'Specify a local path containing Ansible roles.')
+
             subparser.add_argument('--with-volumes', '-v', action='store', nargs='+',
                                    help=u'Mount one or more volumes to the Conductor. '
                                         u'Specify volumes as strings using the Docker volume format.',
@@ -121,9 +124,6 @@ class HostCommand(object):
                                     u'previously built image for your hosts. Disable '
                                     u'that with this flag.',
                                dest='purge_last', default=True)
-        subparser.add_argument('--roles-path', action='store', default=None,
-                               help=u'Specify a local path containing roles you want to '
-                                    u'use during the build process.')
         subparser.add_argument('--save-conductor-container', action='store_true',
                                help=u'Leave the Ansible Builder Container intact upon build completion. '
                                     u'Use for debugging and testing.', default=False)
