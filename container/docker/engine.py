@@ -1035,12 +1035,12 @@ class Engine(BaseEngine, DockerSecretsMixin):
             logger.info('Starting Docker build of Ansible Container Conductor image (please be patient)...')
             # FIXME: Error out properly if build of conductor fails.
             if self.debug:
-                for line_json in self.client.api.build(fileobj=tarball_file,
-                                                       decode=True,
-                                                       custom_context=True,
-                                                       tag=self.image_name_for_service('conductor'),
-                                                       rm=True,
-                                                       nocache=not cache):
+                for line in self.client.api.build(fileobj=tarball_file,
+                                                  custom_context=True,
+                                                  tag=tag,
+                                                  rm=True,
+                                                  nocache=not cache):
+                    line_json = json.loads(line)
                     try:
                         if line_json.get('status') == 'Downloading':
                             # skip over lines that give spammy byte-by-byte
