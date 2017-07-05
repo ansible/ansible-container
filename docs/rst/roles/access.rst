@@ -20,6 +20,7 @@ In ``container.yml``, refer to roles by name. For example, if the role ``apache`
 locally, then the following will execute the role during ``build``: 
 
 .. code-block:: yaml
+
 version: '2'
 services:
   web:
