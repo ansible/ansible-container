@@ -1,6 +1,7 @@
 FROM {{ conductor_base }}
 ENV ANSIBLE_CONTAINER=1
 {% set distro = conductor_base.split(':')[0] %}
+{% set distro_version = conductor_base.split(':')[1] %}
 {% for envar in environment %}
 ENV {{ envar }}
 {% endfor %}
@@ -31,6 +32,10 @@ RUN apt-get update -y && \
     cd /usr/bin && \
     rm -f lsb_release && \
     ln -fs python2.7 python && \
+    {% if distro_version in ["precise"] %}
+    cd /usr && \
+    ln -fs ../../include/python2.7 local/include/python2.7 && \
+    {% endif %}
     apt-get clean
 {% elif distro in ["alpine"] %}
 # openssh is necessary until this is fixed: https://github.com/ansible/ansible/issues/24705
