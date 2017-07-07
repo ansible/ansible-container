@@ -102,6 +102,11 @@ class BaseAnsibleContainerConfig(Mapping):
             return self._config['settings']['vault_password_file']
 
     @property
+    def save_conductor(self):
+        return self._config.get('settings', {}).get('save_conductor_container', False) or \
+               self._config.get('settings', {}).get('conductor', {}).get('save', False)
+
+    @property
     @abstractproperty
     def image_namespace(self):
         # When pushing images or deploying, we need to know the default namespace

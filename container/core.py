@@ -155,7 +155,7 @@ def hostcmd_build(base_path, project_name, engine_name, vars_files=None,
     logger.debug('Config settings', config=config, rawsettings=config.get('settings'),
                  conf=type(config), settings=config.get('settings', {}))
 
-    save_container = config.get('settings', {}).get('save_conductor_container', False)
+    save_container = config.save_conductor
     if kwargs.get('save_conductor_container'):
         # give precedence to CLI option
         save_container = True
@@ -194,11 +194,10 @@ def hostcmd_deploy(base_path, project_name, engine_name, vars_files=None,
     params['vault_files'] = config.vault_files
 
     engine_obj.await_conductor_command(
-        'deploy', dict(config), base_path, params,
-        save_container=config.get('settings', {}).get('save_conductor_container', False))
+        'deploy', dict(config), base_path, params, save_container=config.save_conductor)
 
 @host_only
-def hostcmd_run(base_path, project_name, engine_name, vars_files=None, cache=True,
+def hostcmd_run(base_path, project_name, engine_name, vars_files=None, cache=True, ask_vault_password=False,
                 **kwargs):
     assert_initialized(base_path)
     logger.debug('Got extra args to `run` command', arguments=kwargs)
@@ -225,9 +224,11 @@ def hostcmd_run(base_path, project_name, engine_name, vars_files=None, cache=Tru
 
     logger.debug('Params passed to conductor for run', params=params)
 
+    if ask_vault_password:
+        params['vault_password'] = getpass.getpass(u"Enter the vault password: ")
+
     engine_obj.await_conductor_command(
-        'run', dict(config), base_path, params,
-        save_container=config.get('settings', {}).get('save_conductor_container', False))
+        'run', dict(config), base_path, params, save_container=config.save_conductor)
 
 @host_only
 def hostcmd_destroy(base_path, project_name, engine_name, vars_files=None, cache=True, **kwargs):
@@ -253,8 +254,7 @@ def hostcmd_destroy(base_path, project_name, engine_name, vars_files=None, cache
         params.update(kwargs)
 
     engine_obj.await_conductor_command(
-        'destroy', dict(config), base_path, params,
-        save_container=config.get('settings', {}).get('save_conductor_container', False))
+        'destroy', dict(config), base_path, params, save_container=config.save_conductor)
 
 @host_only
 def hostcmd_stop(base_path, project_name, engine_name, vars_files=None, force=False, services=[],
@@ -277,8 +277,7 @@ def hostcmd_stop(base_path, project_name, engine_name, vars_files=None, force=Fa
         params.update(kwargs)
 
     engine_obj.await_conductor_command(
-        'stop', dict(config), base_path, params,
-        save_container=config.get('settings', {}).get('save_conductor_container', False))
+        'stop', dict(config), base_path, params, save_container=config.save_conductor)
 
 
 @host_only
@@ -301,8 +300,7 @@ def hostcmd_restart(base_path, project_name, engine_name, vars_files=None, force
         params.update(kwargs)
 
     engine_obj.await_conductor_command(
-        'restart', dict(config), base_path, params,
-        save_container=config.get('settings', {}).get('save_conductor_container', False))
+        'restart', dict(config), base_path, params, save_container=config.save_conductor)
 
 
 @host_only
@@ -323,7 +321,7 @@ def hostcmd_push(base_path, project_name, engine_name, vars_files=None, **kwargs
                 config.image_namespace,
                 engine_obj,
                 config,
-                save_conductor=config.get('settings', {}).get('save_conductor_container', False),
+                save_conductor=config.save_conductor,
                 **kwargs)
 
 
@@ -337,7 +335,7 @@ def push_images(base_path, image_namespace, engine_obj, config, **kwargs):
     url = engine_obj.default_registry_url
     registry_name = engine_obj.default_registry_name
     namespace = image_namespace
-    save_conductor = config.get('settings', {}).get('save_conductor_container', False)
+    save_conductor = config.save_conductor
     repository_prefix = None
     pull_from_url = None
 
@@ -408,7 +406,7 @@ def push_images(base_path, image_namespace, engine_obj, config, **kwargs):
 def hostcmd_install(base_path, project_name, engine_name, **kwargs):
     assert_initialized(base_path)
     config = get_config(base_path, engine_name=engine_name, project_name=project_name)
-    save_conductor = config.get('settings', {}).get('save_conductor_container', False)
+    save_conductor = config.save_conductor
     engine_obj = load_engine(['INSTALL'],
                              engine_name, config.project_name,
                              config['services'], **kwargs)
@@ -502,7 +500,8 @@ def set_path_ownership(path, uid, gid):
 
 @conductor_only
 def run_playbook(playbook, engine, service_map, ansible_options='', local_python=False, debug=False,
-                 deployment_output_path=None, tags=None, build=False, **kwargs):
+                 deployment_output_path=None, tags=None, build=False, vault_password=None,
+                 vault_password_file=None, **kwargs):
     uid, gid = kwargs.get('host_user_uid', 1), kwargs.get('host_user_gid', 1)
     return_code = 0
     try:
@@ -546,19 +545,30 @@ def run_playbook(playbook, engine, service_map, ansible_options='', local_python
         if rc:
             raise OSError('Could not bind-mount /src into tmpdir')
 
+        if vault_password_file:
+            vault_password_file = '--vault-password-file {}'.format(vault_password_file)
+
         ansible_args = dict(inventory=quote(inventory_path),
                             playbook=quote(playbook_path),
                             debug_maybe='-vvvv' if debug else '',
                             build_args=engine.ansible_build_args if build else '',
                             orchestrate_args=engine.ansible_orchestrate_args if not build else '',
                             ansible_playbook=engine.ansible_exec_path,
-                            ansible_options=' '.join(ansible_options) or '')
+                            ansible_options=' '.join(ansible_options) or '',
+                            vault_password_file=vault_password_file if vault_password_file else '')
+
         if tags:
             ansible_args['ansible_options'] += ' --tags={} '.format(','.join(tags))
         else:
             pass
+
         # env = os.environ.copy()
         # env['ANSIBLE_REMOTE_TEMP'] = '/tmp/.ansible-${USER}/tmp'
+
+        env = {}
+        env.update(os.environ)
+        if vault_password:
+            env['ANSIBLE_VAULT_PASSWORD'] = vault_password
 
         ansible_cmd = ('{ansible_playbook} '
                        '{debug_maybe} '
@@ -566,7 +576,9 @@ def run_playbook(playbook, engine, service_map, ansible_options='', local_python
                        '-i {inventory} '
                        '{build_args} '
                        '{orchestrate_args} '
-                       '{playbook}').format(**ansible_args)
+                       '{playbook} '
+                       '{vault_password_file}').format(**ansible_args)
+
         logger.debug('Running Ansible Playbook', command=ansible_cmd, cwd='/src')
         process = subprocess.Popen(ansible_cmd,
                                    shell=True,
@@ -574,7 +586,7 @@ def run_playbook(playbook, engine, service_map, ansible_options='', local_python
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.STDOUT,
                                    cwd='/src',
-                                   #env=env
+                                   env=env
                                    )
 
         log_iter = iter(process.stdout.readline, '')
