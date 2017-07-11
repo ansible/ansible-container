@@ -685,7 +685,14 @@ class Engine(BaseEngine):
         build_stamp = self.get_build_stamp_for_image(image_id)
         tag = tag or build_stamp
 
-        repository = "%s/%s-%s" % (namespace, repository_prefix or self.project_name, service_name)
+        if repository_prefix:
+            image_name = "{}-{}".format(self.repository_prefix, service_name)
+        elif repository_prefix is None:
+            image_name = "{}-{}".format(self.project_name, service_name)
+        elif repository_prefix == '':
+            image_name = service_name
+        repository = "{}/{}".format(namespace, image_name)
+
         if url != self.default_registry_url:
             url = REMOVE_HTTP.sub('', url)
             repository = "%s/%s" % (url.rstrip('/'), repository)
