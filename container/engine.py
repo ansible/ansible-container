@@ -133,6 +133,10 @@ class BaseEngine(object):
     def get_image_id_by_tag(self, tag):
         raise NotImplementedError()
 
+    @conductor_only
+    def pull_image_by_tag(self, image_name):
+        raise NotImplementedError
+
     def get_latest_image_id_for_service(self, service_name):
         raise NotImplementedError()
 

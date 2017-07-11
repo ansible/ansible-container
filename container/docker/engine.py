@@ -297,8 +297,8 @@ class Engine(BaseEngine):
                          u"container", conductor_path)
             volumes[conductor_path] = {'bind': '/_ansible/container', 'mode': 'rw'}
 
-        if command in ('login', 'push') and params.get('config_path'):
-            config_path = params.get('config_path')
+        if command in ('login', 'push', 'build'):
+            config_path = params.get('config_path') or self.auth_config_path
             volumes[config_path] = {'bind': config_path,
                                     'mode': 'rw'}
 
@@ -498,6 +498,18 @@ class Engine(BaseEngine):
         if image and image.tags:
             build_stamp = [tag for tag in image.tags if not tag.endswith(':latest')][0].split(':')[-1]
         return build_stamp
+
+    @conductor_only
+    def pull_image_by_tag(self, image):
+        repo, tag = image.split(':')
+        if not tag:
+            tag = 'latest'
+        logger.debug("Pulling image {}:{}".format(repo, tag))
+        try:
+            image_id = self.client.images.pull(repo, tag=tag)
+        except docker_errors.APIError as exc:
+            raise exceptions.AnsibleContainerException("Failed to pull {}: {}".format(image_name, str(exc)))
+        return image_id
 
     @log_runs
     @conductor_only

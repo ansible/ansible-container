@@ -641,6 +641,12 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
             continue
         logger.info(u'Building service...', service=service_name, project=project_name)
         cur_image_id = engine.get_image_id_by_tag(service['from'])
+        if not cur_image_id:
+            cur_image_id = engine.pull_image_by_tag(service['from'])
+            if not cur_image_id:
+                raise AnsibleContainerException(
+                    "Failed to find image {}. Try `docker image pull {}`".format(service['from'])
+                )
         # the fingerprint hash tracks cacheability
         fingerprint_hash = hashlib.sha256('%s::' % cur_image_id)
         logger.debug(u'Base fingerprint hash = %s', fingerprint_hash.hexdigest(),
