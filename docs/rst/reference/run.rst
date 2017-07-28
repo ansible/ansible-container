@@ -19,6 +19,14 @@ Remove containers for services not defined in ``container.yml``.
 
 If using roles not found in the ``roles`` directory within the project, use this option to specify the local path containing the roles. The specified path will be mounted to the conductor container, making the roles available.
 
+.. option:: -vault-file VAULT_FILES [VAULT_FILES ...]
+
+Path to a vault file that will be used to populate secrets.
+
+.. option:: --vault-password-file VAULT_PASSWORD_FILE
+
+An optional file containing the vault password in plain text.
+
 .. option:: --with-variables WITH_VARIABLES [WITH_VARIABLES ...]
 
 Define one or more environment variables in the Conductor container. Format each variable as a key=value string.
