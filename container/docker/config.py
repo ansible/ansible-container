@@ -2,7 +2,7 @@
 from __future__ import absolute_import
 
 import copy
-from six import iteritems
+from six import iteritems, string_types
 
 from ..config import BaseAnsibleContainerConfig
 from ..utils.visibility import getLogger
@@ -29,4 +29,3 @@ class AnsibleContainerConfig(BaseAnsibleContainerConfig):
                     for engine_name in self.remove_engines:
                         if engine_name in self._config['volumes'][vol_key]:
                             del self._config['volumes'][vol_key][engine_name]
-

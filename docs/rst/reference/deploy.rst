@@ -9,6 +9,7 @@ The cloud platform is determined by the engine used to generate the deployment. 
 Use the ``--engine`` option to choose the engine. For example:
 
 .. code-block:: bash
+
     $ ansible-container --engine k8s deploy
 
 The ``deploy`` command maps your ``container.yml`` file to a cloud configuration, depending on the engine. See the :doc:`../../container_yml/reference`
@@ -97,3 +98,6 @@ be prompted for a password.
 
 If registry authentication requires an email address, use to pass the email address.
 
+.. option:: --vault-file VAULT_FILES [VAULT_FILES ...]
+
+Path to a vault file that will be used to populate secrets.
