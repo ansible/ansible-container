@@ -78,7 +78,7 @@ vault_files            List of Ansible vault files, where each entry is a file p
                        Files are decrypted in the conductor at playbook runtime, making
                        variables available to playbooks and roles.
 
-vault_password_fault   Path to a file containing a clear text password that can be used to
+vault_password_file    Path to a file containing a clear text password that can be used to
                        decrypt any vault files.
 ====================== =====================================================================
 
