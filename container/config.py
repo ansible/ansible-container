@@ -329,13 +329,8 @@ class AnsibleContainerConductorConfig(Mapping):
                 dict(processed)))
 
     def _process_top_level_sections(self):
-<<<<<<< HEAD
         self._config['settings'] = self._config.get('settings', yaml.compat.ordereddict())
         for section in ['volumes', 'registries', 'secrets']:
-=======
-        self._config['settings'] = self._config.get('settings', ordereddict())
-        for section in ['volumes', 'registries']:
->>>>>>> Work around ordereddict failures.
             logger.debug('Processing section...', section=section)
             setattr(self, section, dict(self._process_section(self._config.get(section, ordereddict()))))
 

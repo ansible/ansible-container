@@ -20,9 +20,9 @@ import sys
 import tarfile
 
 from ruamel.yaml.comments import CommentedMap
-from six import reraise, iteritems, string_types
+from six import reraise, iteritems, string_types, PY3
 
-if six.PY3:
+if PY3:
     from functools import reduce
 try:
     import httplib as StatusCodes
@@ -1002,7 +1002,7 @@ class Engine(BaseEngine, DockerSecretsMixin):
                         arcname='container-src/conductor-build/conductor-requirements.yml')
 
             utils.jinja_render_to_temp(TEMPLATES_PATH,
-                                       'conductor-dockerfile.j2', temp_dir,
+                                       'conductor-src-dockerfile.j2', temp_dir,
                                        'Dockerfile',
                                        conductor_base=base_image,
                                        docker_version=DOCKER_VERSION,

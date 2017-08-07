@@ -1,12 +1,12 @@
 Ansible Container has been contribued to by the following authors:
 This list is automatically generated - please file an issue for corrections)
 
-Joshua "jag" Ginsberg <jag@ansible.com>
 Chris Houseknecht <chouseknecht@ansible.com>
+Joshua "jag" Ginsberg <jag@ansible.com>
 Ryan Brown <sb@ryansb.com>
 Shubham Minglani <shubham@linux.com>
-Matt Clay <matt@mystile.com>
 Pierre-Louis Bonicoli <pierre-louis@libregerbil.fr>
+Matt Clay <matt@mystile.com>
 Greg DeKoenigsberg <greg.dekoenigsberg@gmail.com>
 Marc Sensenich <marc-sensenich@users.noreply.github.com>
 Sandra Wills <swills@ansible.com>
@@ -22,33 +22,44 @@ Fabian von Feilitzsch <fabianvf@users.noreply.github.com>
 Charlie Drage <charlie@charliedrage.com>
 Roderick Randolph <roderickrandolph@users.noreply.github.com>
 Will Refvem <wbrefvem@gmail.com>
-Sebastien Plisson <sebastien.plisson@gmail.com>
 Mike Hume <mhumeSF@gmail.com>
+Sebastien Plisson <sebastien.plisson@gmail.com>
 Gerard Braad <me@gbraad.nl>
 ekultails <ekultails@gmail.com>
 Evgeni Golov <evgeni@golov.de>
-Will Thames <wthames@redhat.com>
-Vadim Rutkovsky <roignac@gmail.com>
 Joseph Callen <jcpowermac@gmail.com>
+Vadim Rutkovsky <roignac@gmail.com>
 Grzegorz Nosek <root@localdomain.pl>
 Abhishek Pratap Singh <abhishek@linux.com>
+Will Thames <wthames@redhat.com>
 Todd Barr <tbarr@ansible.com>
 Florian Dambrine <Lowess@users.noreply.github.com>
-Will Refvem <wbrefvem@users.noreply.github.com>
 Julien Pivotto <roidelapluie@gmail.com>
-Daniel Heitmann <dictvm@horrendum.de>
+Will Refvem <wbrefvem@users.noreply.github.com>
 Arnaud Moret <arnaud.moret@gmail.com>
+Daniel Heitmann <dictvm@horrendum.de>
 marc-sensenich <marc-sensenich@users.noreply.github.com>
 Ted Timmons <ted@perljam.net>
-Bruce Becker <brucellino@gmail.com>
 Jeff Geerling <geerlingguy@mac.com>
+Bruce Becker <brucellino@gmail.com>
 Evan Zeimet <evan.zeimet@cdw.com>
 John Matthews <jwmatthews@gmail.com>
 Sean Summers <ssummer3@nd.edu>
 Alex Yanchenko <alex@yanchenko.com>
 Balazs Zagyvai <github.zagyi@spamgourmet.com>
-Trishna Guha <trishnaguha17@gmail.com>
-Ali Asad Lotia <ali.asad.lotia@gmail.com>
+Jakub Błaszczyk <jakub.blaszczyk@hybris.com>
+koralsky <karol.ossowski@gmail.com>
+Gabor Lekeny <gabor.lekeny@gmail.com>
+szinck1 <szinck@gmail.com>
+Aaron Cowdin <aaronthebaron@users.noreply.github.com>
+fignew <thomas@vorget.com>
+grimmjow <ryanbrown.dev@gmail.com>
 Erik Nelson <erik@nsk.io>
+John R Barker <john@johnrbarker.com>
+Trishna Guha <trishnaguha17@gmail.com>
 Chrrrles Paul <chrrrles@users.noreply.github.com>
+Ali Asad Lotia <ali.asad.lotia@gmail.com>
+Shea Stewart <shea.stewart@arctiq.ca>
+Sidharth Surana <ssurana@vmware.com>
 Andrea De Pirro <andrea.depirro@yameveo.com>
+Michael Carden <mike.carden@gmail.com>
