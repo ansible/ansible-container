@@ -7,13 +7,14 @@ logger = getLogger(__name__)
 import os
 import hashlib
 import importlib
+import json
 
 from datetime import datetime
 from distutils import dir_util
-
 from jinja2 import Environment, FileSystemLoader
+from ruamel.yaml.comments import CommentedMap
 from ruamel import yaml
-from six import iteritems
+from six import iteritems, string_types
 
 
 from ..exceptions import AnsibleContainerException, \
@@ -251,6 +252,9 @@ def get_role_fingerprint(role_name):
             yield None
 
     hash_obj = hashlib.sha256()
+    # Account for variables passed to the role by including the invocation string
+    hash_obj.update((json.dumps(role_name) if not isinstance(role_name, string_types) else role_name) + '::')
+    # Add each of the role's files and directories
     hash_role(hash_obj, resolve_role_to_path(role_name))
     return hash_obj.hexdigest()
 

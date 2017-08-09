@@ -11,6 +11,7 @@ import getpass
 import gzip
 import hashlib
 import io
+import json
 import os
 import re
 import ruamel
@@ -646,8 +647,7 @@ def apply_role_to_container(role, container_id, service_name, engine, vars={},
 def conductorcmd_build(engine_name, project_name, services, cache=True, local_python=False,
                        ansible_options='', debug=False, config_vars=None, **kwargs):
     engine = load_engine(['BUILD'], engine_name, project_name, services, **kwargs)
-    logger.info(u'%s integration engine loaded. Build starting.',
-        engine.display_name, project=project_name)
+    logger.info(u'%s integration engine loaded. Build starting.', engine.display_name, project=project_name)
     services_to_build = kwargs.get('services_to_build') or services.keys()
     for service_name, service in services.items():
         if service_name not in services_to_build:
@@ -662,7 +662,8 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                     "Failed to find image {}. Try `docker image pull {}`".format(service['from'])
                 )
         # the fingerprint hash tracks cacheability
-        fingerprint_hash = hashlib.sha256('%s::' % cur_image_id)
+        service_defaults = json.dumps(service['defaults']) if service.get('defaults') else ''
+        fingerprint_hash = hashlib.sha256('%s::%s' % (cur_image_id, service_defaults))
         logger.debug(u'Base fingerprint hash = %s', fingerprint_hash.hexdigest(),
                      service=service_name, hash=fingerprint_hash.hexdigest())
         cache_busted = not cache
