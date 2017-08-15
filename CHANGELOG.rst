@@ -17,10 +17,10 @@ Minor changes
 - Added ``--vars-files`` option to ``stop`` and ``restart`` commands
 - Pull missing images during ``build``
 - Added ``vars_files`` directive to ``settings`` section of ``container.yml`` 
-- Suport for multiple roles paths
+- Support for multiple roles paths
 - Install the ``sudo`` package to Debian based conductors
 - Add environment variables defined via ``--with-variable``, or the ``environment`` section of ``settings.conductor`` in ``container.yml``, to the conductor image
-- Add full role definition string to the cache fingerprint, making the build cache a little more accurrate 
+- Add full role definition string to the cache fingerprint, making the build cache a little more accurate 
 
 Deprecations
 ````````````
