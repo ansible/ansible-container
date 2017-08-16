@@ -291,7 +291,11 @@ class Engine(BaseEngine, DockerSecretsMixin):
             params['vault_files'] = vault_paths
 
         permissions = 'ro' if command != 'install' else 'rw'
-        volumes[base_path] = {'bind': '/src', 'mode': permissions}
+        if params.get('src_mount_path'):
+            src_path = params['src_mount_path']
+        else:
+            src_path = base_path
+        volumes[src_path] = {'bind': '/src', 'mode': permissions}
 
         if params.get('deployment_output_path'):
             deployment_path = params['deployment_output_path']
@@ -382,6 +386,10 @@ class Engine(BaseEngine, DockerSecretsMixin):
         # Anytime a playbook is executed, /src is bind mounted to a tmpdir, and that seems to
         # require privileged=True
         run_kwargs['privileged'] = True
+
+        # Support optional volume driver for mounting named volumes to the Conductor
+        if params.get('volume_driver'):
+            run_kwargs['volume_driver'] = params['volume_driver']
 
         logger.debug('Docker run:', image=image_id, params=run_kwargs)
         try:
