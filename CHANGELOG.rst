@@ -31,7 +31,7 @@ None.
 Closed Pull Requests
 ````````````````````
 - `699 Adds changelog <https://github.com/ansible/ansible-container/pull/699>`_
-- `698 Add CLI options to specify /src mount path and volume driver <https://github.com/ansible/ansible-container/pull/698>`
+- `698 Add CLI options to specify /src mount path and volume driver <https://github.com/ansible/ansible-container/pull/698>`_
 - `695 Removes service level defaults from cache fingerprint <https://github.com/ansible/ansible-container/pull/695>`_
 - `690 Mount secrets consistent with Kubernetes <https://github.com/ansible/ansible-container/pull/690>`_
 - `689 Add conductor environment during build <https://github.com/ansible/ansible-container/pull/689>`_
