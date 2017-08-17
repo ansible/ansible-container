@@ -21,8 +21,8 @@ Minor changes
 - Install the ``sudo`` package to Debian based conductors
 - Add environment variables defined via ``--with-variable``, or the ``environment`` section of ``settings.conductor`` in ``container.yml``, to the conductor image
 - Add full role definition string to the cache fingerprint, making the build cache a little more accurate
-- Added `--src-mount-path` option to `build` command
-- Added `--volume-driver` option to `build` command
+- Added ``--src-mount-path`` option to ``build`` command
+- Added ``--volume-driver`` option to ``build`` command
 
 Deprecations
 ````````````
