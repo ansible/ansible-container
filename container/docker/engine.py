@@ -316,6 +316,7 @@ class Engine(BaseEngine, DockerSecretsMixin):
                 expanded_roles_path.append(role_path)
                 volumes[role_path] = {'bind': role_path, 'mode': 'ro'}
 
+        # environ = {'ANSIBLE_KEEP_REMOTE_FILES': '1'}
         environ = {}
         if os.environ.get('DOCKER_HOST'):
             environ['DOCKER_HOST'] = os.environ['DOCKER_HOST']
@@ -858,6 +859,8 @@ class Engine(BaseEngine, DockerSecretsMixin):
 
             tarball.add(os.path.join(FILES_PATH, 'get-pip.py'),
                         arcname='contrib/get-pip.py')
+            tarball.add(os.path.join(FILES_PATH, 'mister-meeseeks.py'),
+                        arcname='bin/mister-meeseeks.py')
 
             container_dir = os.path.dirname(container.__file__)
             tarball.add(container_dir, arcname='container-src')

@@ -63,7 +63,7 @@ class BaseEngine(object):
 
     @property
     def python_interpreter_path(self):
-        return u'/_usr/bin/python'
+        return u'/_usr/bin/mister-meeseeks.py'
 
     @property
     def default_registry_url(self):

@@ -767,8 +767,7 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                          PATH='/usr/local/sbin:/usr/local/bin:'
                               '/usr/sbin:/usr/bin:/sbin:/bin:'
                               '/_usr/sbin:/_usr/bin:'
-                              '/_usr/local/sbin:/_usr/local/bin',
-                         PYTHONPATH='/_usr/lib/python2.7'))
+                              '/_usr/local/sbin:/_usr/local/bin'))
 
                 container_id = engine.run_container(cur_image_id, service_name, **run_kwargs)
 
