@@ -20,7 +20,7 @@ Ways to submit feedback:
 Releases
 --------
 
-- `Current: Release 0.1.0 <./docs/rst/roadmaps/roadmap_1_0_0.rst>`_
+- `Current: Release 1.0.0 <./docs/rst/roadmaps/roadmap_1_0_0.rst>`_
 - `Release 0.9.0 <./docs/rst/roadmaps/roadmap_0_9_0.rst>`_
 - `Release 0.3.0 <./docs/rst/roadmaps/roadmap_0_3_0.rst>`_
 - `Release 0.2.0 <./docs/rst/roadmaps/roadmap_0_2_0.rst>`_
