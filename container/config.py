@@ -113,7 +113,7 @@ class BaseAnsibleContainerConfig(Mapping):
         pass
 
     @abstractmethod
-    def set_env(self, env):
+    def set_env(self, env, config=None):
         """
         Loads config from container.yml,  and stores the resulting dict to self._config.
 
@@ -121,12 +121,14 @@ class BaseAnsibleContainerConfig(Mapping):
         :return: None
         """
         assert env in ['dev', 'prod']
-        try:
-            config = yaml.round_trip_load(open(self.config_path))
-        except IOError:
-            raise AnsibleContainerNotInitializedException()
-        except yaml.YAMLError as exc:
-            raise AnsibleContainerConfigException(u"Parsing container.yml - %s" % unicode(exc))
+
+        if not config:
+            try:
+                config = yaml.round_trip_load(open(self.config_path))
+            except IOError:
+                raise AnsibleContainerNotInitializedException()
+            except yaml.YAMLError as exc:
+                raise AnsibleContainerConfigException(u"Parsing container.yml - %s" % unicode(exc))
 
         self._validate_config(config)
 
@@ -134,22 +136,7 @@ class BaseAnsibleContainerConfig(Mapping):
             if not service_config or isinstance(service_config, string_types):
                 raise AnsibleContainerConfigException(u"Error: no definition found in container.yml for service %s."
                                                       % service)
-            if isinstance(service_config, dict):
-                dev_overrides = service_config.pop('dev_overrides', {})
-                if env == 'dev':
-                    service_config.update(dev_overrides)
-            if 'volumes' in service_config:
-                # Expand ~, ${HOME}, ${PWD}, etc. found in the volume src path
-                updated_volumes = []
-                for volume in service_config['volumes']:
-                    vol_pieces = volume.split(':')
-                    vol_pieces[0] = path.normpath(path.expandvars(path.expanduser(vol_pieces[0])))
-                    updated_volumes.append(':'.join(vol_pieces))
-                service_config['volumes'] = updated_volumes
-
-            for engine_name in self.remove_engines:
-                if engine_name in service_config:
-                    del service_config[engine_name]
+            self._update_service_config(env, service_config)
 
         # Insure settings['pwd'] = base_path. Will be used later by conductor to resolve $PWD in volumes.
         if config.get('settings', None) is None:
@@ -160,6 +147,24 @@ class BaseAnsibleContainerConfig(Mapping):
 
         logger.debug(u"Parsed config", config=config)
         self._config = config
+
+    def _update_service_config(self, env, service_config):
+        if isinstance(service_config, dict):
+            dev_overrides = service_config.pop('dev_overrides', {})
+            if env == 'dev':
+                service_config.update(dev_overrides)
+        if 'volumes' in service_config:
+            # Expand ~, ${HOME}, ${PWD}, etc. found in the volume src path
+            updated_volumes = []
+            for volume in service_config['volumes']:
+                vol_pieces = volume.split(':')
+                vol_pieces[0] = path.normpath(path.expandvars(path.expanduser(vol_pieces[0])))
+                updated_volumes.append(':'.join(vol_pieces))
+            service_config['volumes'] = updated_volumes
+
+        for engine_name in self.remove_engines:
+            if engine_name in service_config:
+                del service_config[engine_name]
 
     def _resolve_defaults(self, config):
         """

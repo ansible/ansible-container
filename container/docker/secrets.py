@@ -89,11 +89,12 @@ class DockerSecretsMixin(object):
 
         if secrets_to_disk:
             tasks = []
+            logger.debug("SECRETS TO DISK", secrets=secrets_to_disk)
             for secret_name, secret in iteritems(secrets_to_disk):
                 for path in secret['paths']:
                     tasks.append({
                         'name': 'Write secret to Docker volume',
-                        'shell': "mkdir -p " + secret['subdir'] + " && echo '{{ " + secret['variable'] + " }}' >" +\
+                        'shell': "mkdir -p " + secret['subdir'] + " && echo '{{ " + secret['variable'] + " }}' >" +
                                  path,
                         'tags': ['start', 'restart', 'stop']
                     })

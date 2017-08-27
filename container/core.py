@@ -34,7 +34,8 @@ from six.moves.urllib.parse import urljoin
 
 from .exceptions import AnsibleContainerAlreadyInitializedException,\
                         AnsibleContainerRegistryAttributeException, \
-                        AnsibleContainerException
+                        AnsibleContainerException, \
+                        AnsibleContainerConfigException
 from .utils import *
 from . import __version__, host_only, conductor_only, ENV
 from .config import DEFAULT_CONDUCTOR_BASE
@@ -180,10 +181,10 @@ def hostcmd_build(base_path, project_name, engine_name, vars_files=None, **kwarg
         'build', dict(config), base_path, kwargs, save_container=save_container)
 
 @host_only
-def hostcmd_deploy(base_path, project_name, engine_name, vars_files=None,
-                   cache=True, **kwargs):
+def hostcmd_deploy(base_path, project_name, engine_name, vars_files=None, cache=True, vault_files=None, **kwargs):
     assert_initialized(base_path)
-    config = get_config(base_path, vars_files=vars_files, engine_name=engine_name, project_name=project_name)
+    config = get_config(base_path, vars_files=vars_files, engine_name=engine_name, project_name=project_name,
+                        vault_files=vault_files)
     local_images = kwargs.get('local_images')
     output_path = kwargs.pop('deployment_output_path', None) or config.deployment_path
 
@@ -671,6 +672,11 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
             logger.debug('Skipping service %s...', service_name)
             continue
         logger.info(u'Building service...', service=service_name, project=project_name)
+        if not service.get('from'):
+            raise AnsibleContainerConfigException(
+                "Expecting service to have 'from' attribute. None found when evaluating "
+                "service: {}.".format(service_name)
+            )
         cur_image_id = engine.get_image_id_by_tag(service['from'])
         if not cur_image_id:
             cur_image_id = engine.pull_image_by_tag(service['from'])
@@ -932,9 +938,16 @@ def conductorcmd_push(engine_name, project_name, services, **kwargs):
     username, password = engine.login(username, password, email, url, config_path)
 
     # Push each image that has been built using Ansible roles
-    for service_name, service_config in services.items():
-        if service_config.get('roles'):
+    for name, service in iteritems(services):
+        if service.get('containers'):
+            for c in service['containers']:
+                if 'roles' in c:
+                    cname = '%s-%s' % (name, c['container_name'])
+                    image_id = engine.get_latest_image_id_for_service(cname)
+                    engine.push(image_id, cname, url=url, tag=tag, namespace=namespace, username=username,
+                                password=password, repository_prefix=repository_prefix)
+        elif 'roles' in service:
             # if the service has roles, it's an image we should push
-            image_id = engine.get_latest_image_id_for_service(service_name)
-            engine.push(image_id, service_name, url=url, tag=tag, namespace=namespace, username=username,
+            image_id = engine.get_latest_image_id_for_service(name)
+            engine.push(image_id, name, url=url, tag=tag, namespace=namespace, username=username,
                         password=password, repository_prefix=repository_prefix)

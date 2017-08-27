@@ -186,10 +186,33 @@ class Engine(BaseEngine, DockerSecretsMixin):
         return u'%s_%s' % (self.project_name, service_name)
 
     def image_name_for_service(self, service_name):
-        if service_name == 'conductor' or self.services[service_name].get('roles'):
+        if service_name == 'conductor':
             return u'%s-%s' % (self.project_name.lower(), service_name.lower())
-        else:
-            return self.services[service_name].get('from')
+        result = None
+        for name, service in iteritems(self.services):
+            if service.get('containers'):
+                for c in service['containers']:
+                    container_service_name = u"%s-%s" % (name, c['container_name'])
+                    if container_service_name == service_name:
+                        if c.get('roles'):
+                            result = u'%s-%s' % (self.project_name.lower(), container_service_name.lower())
+                        else:
+                            result = c.get('from')
+                        break
+            elif name == service_name:
+                if service.get('roles'):
+                    result = u'%s-%s' % (self.project_name.lower(), name.lower())
+                else:
+                    result = service.get('from')
+            if result:
+                break
+
+        if result is None:
+            raise exceptions.AnsibleContainerConfigException(
+                u"Failed to resolve image for service {}. The service or container definition "
+                u"is likely missing a 'from' attribute".format(service_name)
+            )
+        return result
 
     def run_kwargs_for_service(self, service_name):
         to_return = self.services[service_name].copy()
@@ -828,7 +851,10 @@ class Engine(BaseEngine, DockerSecretsMixin):
                 line = json.loads(line)
                 if type(line) is dict and 'error' in line:
                     plainLogger.error(line['error'])
-                if type(line) is dict and 'status' in line:
+                    raise exceptions.AnsibleContainerException(
+                        "Failed to push image. {}".format(line['error'])
+                    )
+                elif type(line) is dict and 'status' in line:
                     if line['status'] != last_status:
                         plainLogger.info(line['status'])
                     last_status = line['status']

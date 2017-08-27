@@ -110,7 +110,7 @@ Unfortunately, there is `a bug <https://github.com/moby/moby/issues/12327>`_ pre
 
 You can resolve this issue by switching to a different graph backend, e.g. `devicemapper`.
 
-.. code-lbock:: bash
+.. code-block:: bash
 
     $ docker info | grep Storage
     Storage Driver: devicemapper

@@ -12,7 +12,6 @@ import json
 from datetime import datetime
 from distutils import dir_util
 from jinja2 import Environment, FileSystemLoader
-from ruamel.yaml.comments import CommentedMap
 from ruamel import yaml
 from six import iteritems, string_types
 
@@ -43,10 +42,11 @@ conductor_dir = os.path.dirname(container.__file__)
 make_temp_dir = MakeTempDir
 
 
-def get_config(base_path, vars_files=None, engine_name=None, project_name=None):
+def get_config(base_path, vars_files=None, engine_name=None, project_name=None, vault_files=None):
     mod = importlib.import_module('.%s.config' % engine_name,
                                   package='container')
-    return mod.AnsibleContainerConfig(base_path, vars_files=vars_files, engine_name=engine_name, project_name=project_name)
+    return mod.AnsibleContainerConfig(base_path, vars_files=vars_files, engine_name=engine_name,
+                                      project_name=project_name, vault_files=vault_files)
 
 
 def assert_initialized(base_path):

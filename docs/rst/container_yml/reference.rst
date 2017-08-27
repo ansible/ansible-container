@@ -223,6 +223,8 @@ build                 Run Dockerfile based build
 cap_add               Add container capabilities
 cap_drop              Drop container capabilities
 command               Command executed by the container at startup             |checkmark|
+containers            List of containers comprising the service. Use to deploy
+                      multiple containers to a single pod. See :doc:`pods`     |checkmark|
 container_name        Custom container name
 cpuset                CPUs in which to allow execution
 cpu_shares            CPU shares (relative weight)
@@ -564,8 +566,8 @@ By default, existing objects are patched when attributes differ from those speci
 
 .. _deployment_sub:
 
-deployment
-..........
+deployments
+...........
 
 Container objects are created by way of Deployments (or Deployment Configs on OpenShift), and each service will be translated into a Deployment that creates and manages the container.
 
