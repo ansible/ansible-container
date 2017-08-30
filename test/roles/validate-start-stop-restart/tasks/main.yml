@@ -35,8 +35,7 @@
   debug: var=docker_ps.stdout_lines
 
 - name: Get docker_logs
-  command: docker logs "test{{ item.name }}_{{ item.name }}_1"
-  with_items: "{{ distros }}"
+  command: docker logs "test{{ distro.name|replace('-','') }}_{{ distro.name }}_1"
   register: docker_logs
 
 - name: Show docker_logs
