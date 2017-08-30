@@ -25,11 +25,11 @@ RUN ["chmod", "755", "/usr/sbin/dumb-init"]
 
 # I am defaults
 ARG apache_port=8000
-ARG apache_pid_file={{ item.0.httpd_pid_file }}
-ARG apache_run_user={{ item.0.httpd_user }}
-ARG apache_run_group={{ item.0.httpd_run_group }}
-ARG apache_log_dir={{ item.0.httpd_logdir }}
-ARG apache_lock_dir={{ item.0.httpd_lock_dir }}
+ARG apache_pid_file={{ distro.httpd_pid_file }}
+ARG apache_run_user={{ distro.httpd_user }}
+ARG apache_run_group={{ distro.httpd_run_group }}
+ARG apache_log_dir={{ distro.httpd_logdir }}
+ARG apache_lock_dir={{ distro.httpd_lock_dir }}
 ENV APACHE_PORT=${apache_port}
 ENV APACHE_PID_FILE=${apache_pid_file}
 ENV APACHE_RUN_USER=${apache_run_user}
