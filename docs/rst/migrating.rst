@@ -176,10 +176,7 @@ Additionally, the ``import`` command creates a ``container.yml`` file that defin
         roles:
         - mynodeapp
 
-The name of the service in matches the name of the original project directory.
-
-Note that the default :ref:`conductor_container` base image matches the ``FROM`` in the Dockerfile. It's best to ensure that your Conductor derives from the same distribution as your target containers, so since the `node container derives from Debian Jessie <https://github.com/nodejs/docker-node/blob/a82c9dcd3f85ff8055f56c53e6d8f31c5ae28ed7/7.9/Dockerfile#L1>`_
-it would make sense to change the ``conductor_base`` key value to ``debian:jessie``.
+Note in the above that the default :ref:`conductor_container` base image matches the ``FROM`` in the Dockerfile. It's best to ensure that your Conductor derives from the same distribution as your target containers, so since the `node container derives from Debian Jessie <https://github.com/nodejs/docker-node/blob/a82c9dcd3f85ff8055f56c53e6d8f31c5ae28ed7/7.9/Dockerfile#L1>`_ it would make sense to change the ``conductor_base`` key value to ``debian:jessie``.
 
 Migrating from Ansible Container 0.4.x and earlier
 --------------------------------------------------
