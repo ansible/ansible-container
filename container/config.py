@@ -12,7 +12,7 @@ from os import path
 import copy
 import json
 import re
-from six import add_metaclass, iteritems, PY2, string_types
+from six import add_metaclass, iteritems, PY2, string_types, text_type
 
 from collections import Mapping
 from .utils.ordereddict import ordereddict
@@ -128,7 +128,7 @@ class BaseAnsibleContainerConfig(Mapping):
             except IOError:
                 raise AnsibleContainerNotInitializedException()
             except yaml.YAMLError as exc:
-                raise AnsibleContainerConfigException(u"Parsing container.yml - %s" % unicode(exc))
+                raise AnsibleContainerConfigException(u"Parsing container.yml - %s" % text_type(exc))
 
         self._validate_config(config)
 
@@ -229,12 +229,12 @@ class BaseAnsibleContainerConfig(Mapping):
             try:
                 config = yaml.round_trip_load(open(abspath))
             except yaml.YAMLError as exc:
-                raise AnsibleContainerConfigException(u"YAML exception: %s" % unicode(exc))
+                raise AnsibleContainerConfigException(u"YAML exception: %s" % text_type(exc))
         else:
             try:
                 config = json.load(open(abspath))
             except Exception as exc:
-                raise AnsibleContainerConfigException(u"JSON exception: %s" % unicode(exc))
+                raise AnsibleContainerConfigException(u"JSON exception: %s" % text_type(exc))
         return iteritems(config)
 
     TOP_LEVEL_WHITELIST = [
