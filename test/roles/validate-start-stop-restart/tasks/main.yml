@@ -24,10 +24,16 @@
 - include: includes/show-output.yml output_file=./task.output registered_output="{{ output }}"
 
 - name: Wait until built containers are running
-  docker_container:
-    name: "test{{ distro.name|replace('-','') }}_{{ distro.name }}_1"
+  command: "docker inspect test{{ distro.name|replace('-','') }}_{{ distro.name }}_1  --format='{{'{{'}} .State.Status {{'}}'}}'"
   register: container_run_status
-  until: container_run_status.ansible_facts.docker_container.State.Status == 'running'
+  until: container_run_status.stdout == 'running'
+  tags:
+    - restart
+    - run
+
+- name: Note start time
+  command: "docker inspect test{{ distro.name|replace('-','') }}_{{ distro.name }}_1  --format='{{'{{'}} .State.StartedAt {{'}}'}}'"
+  register: container_run_start
   tags:
     - restart
     - run
@@ -44,22 +50,25 @@
 
 - include: includes/show-output.yml output_file=./task.output registered_output="{{ output }}"
 
-- name: Get new container start times
-  docker_container:
-    name: "test{{ distro.name|replace('-','') }}_{{ distro.name }}_1"
+- name: Wait until built containers are running
+  command: "docker inspect test{{ distro.name|replace('-','') }}_{{ distro.name }}_1  --format='{{'{{'}} .State.Status {{'}}'}}'"
   register: container_restart_status
-  until: container_restart_status.ansible_facts.docker_container.State.Status == 'running'
+  until: container_restart_status.stdout == 'running'
   tags:
     - restart
+    - run
 
-- name: Debug
-  debug:
-    msg: "{{ container_run_status }}"
+- name: Note start time
+  command: "docker inspect test{{ distro.name|replace('-','') }}_{{ distro.name }}_1  --format='{{'{{'}} .State.StartedAt {{'}}'}}'"
+  register: container_restart_start
+  tags:
+    - restart
+    - run
 
 - name: Ensure containers were restarted
   assert:
     that:
-      - container_run_status.ansible_facts.docker_container.State.StartedAt != container_restart_status.ansible_facts.docker_container.State.StartedAt
+      - container_run_start.stdout != container_restart_start.stdout
   tags:
     - restart
 
@@ -79,11 +88,9 @@
 
 - include: includes/show-output.yml output_file=./task.output registered_output="{{ output }}"
 
-- name: Ensure containers were stopped
-  docker_container:
-    name: 'test{{ distro.name|replace("-","") }}_{{ distro.name }}_1'
-    state: 'stopped'
-  register: output
-  failed_when: output.changed
+- name: Wait until built containers are stop
+  command: "docker inspect test{{ distro.name|replace('-','') }}_{{ distro.name }}_1  --format='{{'{{'}} .State.Status {{'}}'}}'"
+  register: container_stop_status
+  until: container_stop_status.stdout != 'running'
   tags:
     - stop
