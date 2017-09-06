@@ -3,6 +3,7 @@ dist: trusty
 sudo: required
 env:
   - BASE_DISTRO: 'centos:7'
+  - BASE_DISTRY: 'fedora:26'
   - BASE_DISTRO: 'fedora:25'
   - BASE_DISTRO: 'fedora:24'
   - BASE_DISTRO: 'debian:jessie'

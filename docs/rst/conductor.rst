@@ -27,7 +27,7 @@ ready-built image will be pulled from Docker Hub and used. We offer ready-built
 base images for:
 
   * CentOS 7
-  * Fedora 24 and 25
+  * Fedora 24, 25, and 26
   * Debian Jessie, Stretch, and Wheezy
   * Ubuntu Precise, Trusty, Xenial, and Zesty
   * Alpine 3.4 and 3.5
