@@ -21,6 +21,7 @@ deployment.
 
    installation
    getting_started
+   conductor
    migrating
    registry_auth
    reference/index

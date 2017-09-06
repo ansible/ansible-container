@@ -28,6 +28,9 @@ your Conductor container base image as well, so that what the Conductor exports
 to your target containers contains ``apk`` and other binary dependencies you will
 likely need.
 
+For more about how the Conductor container gets built, available pre-baked Conductor images, and
+how to build your own Conductor image, see :doc:`conductor`.
+
 
 Dipping a Toe In - Starting from Scratch
 ----------------------------------------
