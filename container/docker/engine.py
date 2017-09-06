@@ -1039,16 +1039,16 @@ class Engine(BaseEngine, DockerSecretsMixin):
                                                   custom_context=True,
                                                   tag=tag,
                                                   rm=True,
+                                                  decode=True,
                                                   nocache=not cache):
-                    line_json = json.loads(line)
                     try:
-                        if line_json.get('status') == 'Downloading':
+                        if line.get('status') == 'Downloading':
                             # skip over lines that give spammy byte-by-byte
                             # progress of downloads
                             continue
-                        elif 'errorDetail' in line_json:
+                        elif 'errorDetail' in line:
                             raise exceptions.AnsibleContainerException(
-                                "Error building conductor image: {0}".format(line_json['errorDetail']['message']))
+                                "Error building conductor image: {0}".format(line['errorDetail']['message']))
                     except ValueError:
                         pass
                     except exceptions.AnsibleContainerException:
@@ -1056,7 +1056,7 @@ class Engine(BaseEngine, DockerSecretsMixin):
 
                     # this bypasses the fancy colorized logger for things that
                     # are just STDOUT of a process
-                    plainLogger.debug(text.to_text(line_json.get('stream', json.dumps(line_json))).rstrip())
+                    plainLogger.debug(text.to_text(line.get('stream', json.dumps(line))).rstrip())
                 return self.get_image_id_by_tag(tag)
             else:
                 image = self.client.images.build(fileobj=tarball_file,
