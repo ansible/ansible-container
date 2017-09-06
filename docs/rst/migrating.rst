@@ -49,7 +49,7 @@ To migrate the above to an Ansible Container project, start by creating a new pr
 
 Now from within the ``acnode`` directory, run ``ansible-container import ../node`` to perform the import. Once completed, you will see output similar to the following that explains what the import did, and describes each file it produced:
 
-.. code-block::bash
+.. code-block:: bash
 
     $ ansible-container import ../node
     
