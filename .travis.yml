@@ -46,5 +46,9 @@ after_success:
   - bash <(curl -s https://codecov.io/bash) -F unit        -f test/reports/unit/coverage.xml
   - bash <(curl -s https://codecov.io/bash) -F integration -f test/reports/integration/coverage.xml
 
+after_failure:
+  - docker logs `docker ps -lq`
+  - docker inspect `docker ps -lq`
+
 notifications:
   email: false
