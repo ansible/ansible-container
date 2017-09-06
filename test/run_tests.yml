@@ -28,7 +28,7 @@
         httpd_logdir: "/var/log/apache2"
         httpd_rundir: "/var/run/apache2"
         httpd_pid_file: "/var/run/apache2/apache2.pid"
-        httpd_bin: "/usr/sbin/apache2"
+        httpd_bin: "/usr/sbin/apache2ctl"
         httpd_user: "www-data"
         httpd_run_group: "www-data"
         httpd_lock_dir: "/var/run/apache2"
