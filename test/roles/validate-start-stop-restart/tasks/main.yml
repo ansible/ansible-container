@@ -23,37 +23,11 @@
 
 - include: includes/show-output.yml output_file=./task.output registered_output="{{ output }}"
 
-- name: Wait for containers to start
-  wait_for:
-    timeout: 10
-
-- name: Get docker_ps
-  command: docker ps -a
-  register: docker_ps
-
-- name: Show docker_ps
-  debug: var=docker_ps.stdout_lines
-
-- name: Get docker_logs
-  command: docker logs "test{{ distro.name|replace('-','') }}_{{ distro.name }}_1"
-  register: docker_logs
-
-- name: Show docker_logs
-  debug: var=docker_logs.results
-
 - name: Wait until built containers are running
   docker_container:
     name: "test{{ distro.name|replace('-','') }}_{{ distro.name }}_1"
   register: container_run_status
   until: container_run_status.ansible_facts.docker_container.State.Status == 'running'
-  tags:
-    - restart
-    - run
-
-- name: Get container start times
-  command: "docker inspect test{{ item.name }}_{{ item.name }}_1 --format '{% raw %}{{ .State.StartedAt }}{% endraw %}'"
-  with_items: "{{ distros }}"
-  register: container_run_startedat
   tags:
     - restart
     - run
@@ -75,13 +49,6 @@
     name: "test{{ distro.name|replace('-','') }}_{{ distro.name }}_1"
   register: container_restart_status
   until: container_restart_status.ansible_facts.docker_container.State.Status == 'running'
-  tags:
-    - restart
-
-- name: Get container restart times
-  command: "docker inspect test{{ item.name }}_{{ item.name }}_1 --format '{% raw %}{{ .State.StartedAt }}{% endraw %}'"
-  with_items: "{{ distros }}"
-  register: container_restart_startedat
   tags:
     - restart
 
@@ -118,14 +85,5 @@
     state: 'stopped'
   register: output
   failed_when: output.changed
-  tags:
-    - stop
-
-- name: Ensure containers stop
-  assert:
-    that:
-      - item.0.stdout == 'exited'
-  with_together:
-    - "{{ container_status.results }}"
   tags:
     - stop
