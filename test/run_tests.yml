@@ -26,7 +26,7 @@
         httpd_conf_dest: "/etc/apache2/ports.conf"
         httpd_pageroot: "/var/www/html/"
         httpd_logdir: "/var/log/apache2"
-        httpd_rundir: "/run/apache2"
+        httpd_rundir: "/var/run/apache2"
         httpd_pid_file: "/var/run/apache2/apache2.pid"
         httpd_bin: "/usr/sbin/apache2"
         httpd_user: "www-data"
