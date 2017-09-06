@@ -34,6 +34,7 @@ ENV APACHE_PORT=${apache_port}
 ENV APACHE_PID_FILE=${apache_pid_file}
 ENV APACHE_RUN_USER=${apache_run_user}
 ENV APACHE_RUN_GROUP=${apache_run_group}
+ENV APACHE_RUN_DIR={{ distro.template.httpd_rundir }}
 ENV APACHE_LOG_DIR=${apache_log_dir}
 ENV APACHE_LOCK_DIR=${apache_lock_dir}
 
