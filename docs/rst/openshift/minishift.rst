@@ -31,19 +31,19 @@ Prerequisites
 - Prior to running the role, clear your terminal session of any DOCKER* environment variables.
 - sudo access is required in order to install packages
 
-**OSX**
+**Mac OS**
 
 If you're running on a Mac, you'll need the following installed:
 
 - `homebrew <https://brew.sh>`_ 
-- `Ansible 2.1+ <https://docs.ansible.com>`_
+- `Ansible 2.4+ <https://docs.ansible.com>`_
 
 **Linux**
 
 For Linux platforms, have the following installed:
 
 - KVM installed and working. The role installs the Docker Machine driver for KVM, but it assumes KVM is already installed, and working.
-- Ansible 2.2+
+- Ansible 2.4+
 
 
 **Fedora**
