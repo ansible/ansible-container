@@ -58,12 +58,6 @@ RUN cd /_ansible && \
     PYTHONPATH=. LC_ALL="en_US.UTF-8" python container/conductor-build/setup.py develop -v && \
     ansible-galaxy install -p /etc/ansible/roles -r container/conductor-build/conductor-requirements.yml
 
-# The COPY here will break cache if the requirements or ansible.cfg has changed
-COPY /build-src /_ansible/build
-RUN ( test -f /_ansible/build/ansible-requirements.txt && pip install --no-cache-dir -r /_ansible/build/ansible-requirements.txt || true ) && \
-    ( test -f /_ansible/build/requirements.yml && ansible-galaxy install -p /etc/ansible/roles -r /_ansible/build/requirements.yml || true ) && \
-    ( test -f /_ansible/build/ansible.cfg && cp /_ansible/build/ansible.cfg /etc/ansible/ansible.cfg || true)
-
 {% if distro in ["centos"] %}
 # Removing python-chardet removed yum-utils, and now that we're done pip-installing things,
 # we'll put it back.
