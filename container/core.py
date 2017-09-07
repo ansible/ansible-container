@@ -788,8 +788,8 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                         # No /lib volume
                         pass
                     run_kwargs['environment'].update(dict(
-                         LD_LIBRARY_PATH='/_usr/lib:/_usr/lib64:/_usr/local/lib{}'.format(extra_library_paths),
-                         CPATH='/_usr/include:/_usr/local/include',
+                         LD_LIBRARY_PATH='/usr/lib:/usr/lib64:/_usr/lib:/_usr/lib64:/_usr/local/lib{}'.format(extra_library_paths),
+                         CPATH='/usr/include:/usr/local/include:/_usr/include:/_usr/local/include',
                          PATH='/usr/local/sbin:/usr/local/bin:'
                               '/usr/sbin:/usr/bin:/sbin:/bin:'
                               '/_usr/sbin:/_usr/bin:'
