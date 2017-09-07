@@ -7,8 +7,8 @@
   vars:
     templates:
       redhat: &redhat
-        package_update_command: "dnf update -y"
-        httpd_install_command: "dnf install -y httpd"
+        package_update_command: "yum update -y"
+        httpd_install_command: "yum install -y httpd"
         httpd_conf_src: "redhat/httpd.conf"
         httpd_conf_dest: "/etc/httpd/conf/httpd.conf"
         httpd_pageroot: "/var/www/html/"
