@@ -28,6 +28,9 @@ your Conductor container base image as well, so that what the Conductor exports
 to your target containers contains ``apk`` and other binary dependencies you will
 likely need.
 
+For more about how the Conductor container gets built, available pre-baked Conductor images, and
+how to build your own Conductor image, see :doc:`conductor`.
+
 
 Dipping a Toe In - Starting from Scratch
 ----------------------------------------
@@ -67,9 +70,10 @@ The ``container.yml`` file is a file in YAML-syntax that describes the services
 in your project, how to build and run them, the repositories to push them to,
 and more.
 
-The ``container.yml`` file is very similar to the Docker Compose version 2 schema. Much like
-Docker Compose, this file describes the orchestration of your app. Ansible Container uses this file
-to determine what images to build, what containers to run and connect, and what images to push to
+The ``container.yml`` file is similar to the other multi-container orchestration formats, like
+Docker Compose or OpenCompose. Much like these other formats, this file describes the
+orchestration of your app. Ansible Container uses this file to determine what images to
+build, what containers to run and connect, and what images to push to
 your repository. Additionally, when Ansible Container generates an Ansible playbook to ship and
 orchestrate your images in the cloud, this file describes the configuration target for your
 entire container infrastructure. It is automatically run, but it also saves the playbook for
@@ -83,6 +87,9 @@ By way of an example, consider the below ``container.yml`` file:
     services:
       web:
         from: "centos:7"
+        roles:
+          - common
+          - apache
         ports:
           - "80:80"
         command: ["/usr/bin/dumb-init", "/usr/sbin/apache2ctl", "-D", "FOREGROUND"]
@@ -96,7 +103,9 @@ Things to note:
 2. Each of the containers you wish to orchestrate should be under the `services` key.
 3. For supported `service` keys, see :doc:`container_yml/reference`.
 4. The image you specify should be the base image that your containers will start from.
-   Ansible Container will use your playbook to build upon this base image.
+   Ansible Container will use your roles to build upon this base image. Each role you
+   specify needs to be in a `roles/` directory in your project, in your `requirements.yml` file,
+   or in the `--roles-path` you specify at runtime in the command line.
 5. You may optionally specify a `dev_overrides` section. During build and in generating
    the Ansible roles to deploy your app to the cloud, this section will be
    ignored. However, when running your containers locally for your development environment,
@@ -110,9 +119,9 @@ Things to note:
 meta.yml
 ````````
 You can share your project on `Ansible Galaxy <https://galaxy.ansible.com>`_ for
-others to use as a template for building projects of their own. Provide the
-requested information in ``meta.yml``, and then log into Galaxy to import it into
-the Ansible Container project template registry.
+others to use as a template for building projects of their own. These templates are called
+"Container Apps". Provide the requested information in ``meta.yml``, and then log into
+Galaxy to import it into the Ansible Container project template registry.
 
 ansible-requirements.txt
 ````````````````````````
@@ -133,6 +142,8 @@ ansible.cfg
 ```````````
 Set Ansible configuration settings within the build container. For more
 information see `Configuration File <http://docs.ansible.com/ansible/intro_configuration.html>`_.
+Do note that overriding some of the settings, like `roles_path`, might have unexpected results,
+due to Ansible using the Conductor container as its execution environment.
 
 .. _example-project:
 

@@ -41,5 +41,3 @@ distros:
 #    httpd_logdir: "/var/log/httpd"
 #    httpd_bin: "/usr/sbin/httpd"
 #    httpd_user: "apache"
-
-

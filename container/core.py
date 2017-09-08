@@ -126,6 +126,26 @@ def hostcmd_init(base_path, project=None, force=False, **kwargs):
                                  **context)
         logger.info('Ansible Container initialized.')
 
+@host_only
+def hostcmd_prebake(distros, debug=False, cache=True, ignore_errors=False):
+    logger.info('Prebaking distros...', distros=distros, cache=cache)
+    engine_obj = load_engine(['BUILD_CONDUCTOR'], 'docker', os.getcwd(), {}, debug=debug)
+    from .docker.engine import PREBAKED_DISTROS
+    for distro in (distros or PREBAKED_DISTROS):
+        logger.info('Now prebaking Conductor image for %s', distro)
+        try:
+            engine_obj.build_conductor_image(os.getcwd(),
+                                             distro,
+                                             prebaking=True,
+                                             cache=cache)
+        except Exception as e:
+            logger.exception('Failure building prebaked image for %s', distro)
+            if ignore_errors:
+                continue
+        except KeyboardInterrupt:
+            if ignore_errors:
+                continue
+
 
 @host_only
 def hostcmd_build(base_path, project_name, engine_name, vars_files=None, **kwargs):
@@ -768,13 +788,14 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                         # No /lib volume
                         pass
                     run_kwargs['environment'].update(dict(
-                         LD_LIBRARY_PATH='/_usr/lib:/_usr/lib64:/_usr/local/lib{}'.format(extra_library_paths),
-                         CPATH='/_usr/include:/_usr/local/include',
+                         LD_LIBRARY_PATH='/usr/lib:/usr/lib64:/_usr/lib:/_usr/lib64:/_usr/local/lib{}'.format(extra_library_paths),
+                         CPATH='/usr/include:/usr/local/include:/_usr/include:/_usr/local/include',
                          PATH='/usr/local/sbin:/usr/local/bin:'
                               '/usr/sbin:/usr/bin:/sbin:/bin:'
                               '/_usr/sbin:/_usr/bin:'
                               '/_usr/local/sbin:/_usr/local/bin',
-                         PYTHONPATH='/_usr/lib/python2.7'))
+                         # PYTHONPATH='/_usr/lib/python2.7'
+                    ))
 
                 container_id = engine.run_container(cur_image_id, service_name, **run_kwargs)
 
