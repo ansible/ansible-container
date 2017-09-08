@@ -1,5 +1,7 @@
 - hosts: localhost
   gather_facts: no
+  vars:
+    cwd: "{{ lookup('env', 'PWD') }}"
   tasks:
     - name: Get version tag
       command: python -c "import container, sys; sys.stdout.write(container.__version__)"
@@ -22,7 +24,7 @@
         - release
     - name: Make tempdir for tests
       tempfile:
-        path: /tmp
+        path: "/tmp"
         state: directory
       notify: Cleanup tempdir
       tags:
@@ -32,15 +34,34 @@
       command: virtualenv "{{ tempdir.path }}/venv"
       tags:
         - test
+    - name: Make tmp/src dir
+      file:
+        name: "{{ tempdir.path }}/src"
+        state: directory
+      tags:
+        - test
+    - name: Unarchive the sdist
+      command: "tar -xzf {{ cwd }}/dist/ansible-container-{{ ansible_container_version }}.tar.gz"
+      args:
+        chdir: "{{ tempdir.path }}/src"
+      tags:
+        - test
     - name: Install from sdist
-      command: >
-          {{ tempdir.path }}/venv/pip install
-          ./dist/ansible-container-{{ ansible_container_version }}.tar.gz[docker]
+      command: "{{ tempdir.path }}/venv/bin/pip install -e .[docker]"
+      args:
+        chdir: "{{ tempdir.path }}/src/ansible-container-{{ ansible_container_version }}"
+      tags:
+        - test
+    - name: Install ansible
+      command: "{{ tempdir.path }}/venv/bin/pip install ansible>=2.3"
       tags:
         - test
     - name: Run full test suite
-      command: >
-        {{ tempdir.path }}/bin/python setup.py test --ansible-args="-vvv"
+      command: "{{ tempdir.path }}/venv/bin/ansible-playbook -vvv test/run_tests.yml"
+      args:
+        chdir: "{{ cwd }}"
+      environment:
+        TMPDIR: /tmp
       tags:
         - test
     - name: Preflight checks [git branch]
