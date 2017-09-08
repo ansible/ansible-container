@@ -1017,6 +1017,7 @@ class Engine(BaseEngine, DockerSecretsMixin):
             #                arcname=context_file)
 
             if prebaking:
+                self.client.images.pull(*base_image.split(':', 1))
                 self._prepare_prebake_manifest(base_path, base_image, temp_dir,
                                                tarball)
                 tag = 'container-conductor-%s:%s' % (base_image.replace(':', '-'),
