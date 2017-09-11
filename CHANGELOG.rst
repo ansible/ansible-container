@@ -6,7 +6,9 @@ Ansible Container Changes by Release
 
 Major changes
 `````````````
+- Pre-baked conductor images for major releases of CentOS, Fedora, Debian, Ubuntu and Alpine
 - Added support for ``secrets``, which uses Ansible Vault to seed secret objects in Docker, K8s, and OpenShift
+- Added support for mulit-container pods
 
 Minor changes
 `````````````
@@ -30,6 +32,9 @@ None.
 
 Closed Pull Requests
 ````````````````````
+- `715 Updates Jinja template doc <https://github.com/ansible/ansible-container/pull/715>`_
+- `712 Update ROADMAP.rst to reflect 1.0.0 correctly <https://github.com/ansible/ansible-container/pull/712>`_
+- `702 Require the Docker >= 2.4.0 Python library (#564) <https://github.com/ansible/ansible-container/pull/702>`_
 - `699 Adds changelog <https://github.com/ansible/ansible-container/pull/699>`_
 - `698 Add CLI options to specify /src mount path and volume driver <https://github.com/ansible/ansible-container/pull/698>`_
 - `695 Removes service level defaults from cache fingerprint <https://github.com/ansible/ansible-container/pull/695>`_
