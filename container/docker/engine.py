@@ -948,6 +948,7 @@ class Engine(BaseEngine, DockerSecretsMixin):
         utils.jinja_render_to_temp(TEMPLATES_PATH,
                                    'conductor-local-dockerfile.j2', temp_dir,
                                    'Dockerfile',
+                                   original_base=base_image,
                                    conductor_base=conductor_base,
                                    docker_version=DOCKER_VERSION)
         tarball.add(os.path.join(temp_dir, 'Dockerfile'),
