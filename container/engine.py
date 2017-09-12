@@ -32,21 +32,29 @@ class BaseEngine(object):
     CAP_PUSH = False
     CAP_RUN = False
     CAP_VERSION = False
+    CAP_SIM_SECRETS = False
 
-    def __init__(self, project_name, services, debug=False, selinux=True, **kwargs):
+    def __init__(self, project_name, services, debug=False, selinux=True, devel=False, **kwargs):
         self.project_name = project_name
         self.services = services
         self.debug = debug
+        self.devel = devel
         self.selinux = selinux
         self.volumes = kwargs.pop('volume_data', None)
+        self.secrets = kwargs.pop('secrets', None)
 
     @property
     def display_name(self):
         return __name__.split('.')[-2].capitalize()
 
     @property
-    def ansible_args(self):
-        """Additional commandline arguments necessary for ansible-playbook runs."""
+    def ansible_build_args(self):
+        """Additional commandline arguments necessary for ansible-playbook runs during build"""
+        raise NotImplementedError()
+
+    @property
+    def ansible_orchestrate_args(self):
+        """Additional commandline arguments necessary for ansible-playbook runs during orchestrate"""
         raise NotImplementedError()
 
     @property
@@ -127,6 +135,10 @@ class BaseEngine(object):
     def get_image_id_by_tag(self, tag):
         raise NotImplementedError()
 
+    @conductor_only
+    def pull_image_by_tag(self, image_name):
+        raise NotImplementedError
+
     def get_latest_image_id_for_service(self, service_name):
         raise NotImplementedError()
 
@@ -157,14 +169,14 @@ class BaseEngine(object):
         raise NotImplementedError()
 
     @conductor_only
-    def push(self, image_id, service_name, repository_data):
+    def push(self, image_id, service_name, **kwargs):
         """
         Push an image to a registry.
         """
         raise NotImplementedError()
 
     @host_only
-    def build_conductor_image(self, base_path, base_image, cache=True):
+    def build_conductor_image(self, base_path, base_image, cache=True, environment=[]):
         raise NotImplementedError()
 
     def get_runtime_volume_id(self, mount_point):
@@ -190,5 +202,13 @@ class BaseEngine(object):
         """
         Read authentication data stored at config_path for the regisrtry url, and
         return the username
+        """
+        raise NotImplementedError()
+
+    @conductor_only
+    def pre_deployment_setup(self, **kwargs):
+        """
+        Perform any setup tasks required prior to writing the Ansible playbook.
+        return None
         """
         raise NotImplementedError()

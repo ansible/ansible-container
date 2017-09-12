@@ -19,7 +19,6 @@ from . import exceptions
 from container.config import AnsibleContainerConductorConfig
 from container.utils import list_to_ordereddict
 
-from collections import OrderedDict
 from logging import config
 LOGGING = {
         'version': 1,
@@ -60,24 +59,31 @@ class HostCommand(object):
                           # 'purge': 'Delete all Ansible Container instances, volumes, and images',
                           # FIXME: implement status command
                           # 'status': 'Query the status of your project's containers/images',
-                          'deploy': 'Deploy your built images into production'
+                          'deploy': 'Deploy your built images into production',
                           }
 
     def subcmd_common_parsers(self, parser, subparser, cmd):
         if cmd in ('build', 'run', 'deploy', 'push', 'restart', 'stop', 'destroy'):
+            subparser.add_argument('--roles-path', action='store', default=[], nargs='+',
+                                   help=u'Specify a local path containing Ansible roles.')
+
             subparser.add_argument('--with-volumes', '-v', action='store', nargs='+',
                                    help=u'Mount one or more volumes to the Conductor. '
                                         u'Specify volumes as strings using the Docker volume format.',
                                    default=[])
+            subparser.add_argument('--volume-driver', action='store',
+                                   help=u'Specify volume driver to use when mounting named volumes '
+                                        u'to the Conductor.',
+                                   default=None)
             subparser.add_argument('--with-variables', '-e', action='store', nargs='+',
                                    help=u'Define one or more environment variables in the '
                                         u'Conductor. Format each variable as a key=value string.',
                                    default=[])
 
-        if cmd in ('build', 'run', 'deploy', 'push'):
-            subparser.add_argument('--roles-path', action='store', default=None,
-                                   help=u'Specify a local path containing roles you want to '
-                                        u'use in the Conductor.')
+        if cmd in ('run', 'stop', 'restart', 'destroy'):
+            subparser.add_argument('--production', action='store_true',
+                               help=u'Run with the production configuration.',
+                               default=False, dest='production')
 
         if cmd in ('deploy', 'push'):
             subparser.add_argument('--username', action='store',
@@ -91,28 +97,25 @@ class HostCommand(object):
                                    help=u'If authentication with the registry is required, provide a valid password.',
                                    dest='password', default=None)
             subparser.add_argument('--push-to', action='store',
-                                   help=(u'Name of a registry defined in container.yml or the actual URL of the registry, '
-                                         u'including the namespace. If passing a URL, an example would be: '
-                                         u'"https://registry.example.com:5000/myproject"'),
+                                   help=(u'Name of a registry defined in container.yml, or a registry URL. When '
+                                         u'providing a URL, include the repository or project namespace.'),
                                    dest='push_to', default=None)
             subparser.add_argument('--tag', action='store',
                                    help=u'Tag the images before pushing.',
                                    dest='tag', default=None)
-
 
     def subcmd_init_parser(self, parser, subparser):
         subparser.add_argument('--server', '-s', action='store',
                                default='https://galaxy.ansible.com/',
                                help=u'Use a different Galaxy server URL')
         subparser.add_argument('project', nargs='?', action='store',
-                               help=u'Use a project template instead of making a '
-                                    u'blank project from an Ansible Container project '
-                                    u'from Ansible Galaxy.')
+                               help=(u'Rather than starting with a blank project, use a project template '
+                                     u'from an Ansible Container project downloaded from the Ansible Galaxy '
+                                     u'web site.'))
         subparser.add_argument('--force', '-f', action='store_true',
                                help=u'Overrides the requirement that init be run'
                                     u'in an empty directory, for example'
                                     u'if a virtualenv exists in the directory.')
-
 
     def subcmd_build_parser(self, parser, subparser):
         subparser.add_argument('--flatten', action='store_true',
@@ -128,19 +131,33 @@ class HostCommand(object):
         subparser.add_argument('--save-conductor-container', action='store_true',
                                help=u'Leave the Ansible Builder Container intact upon build completion. '
                                     u'Use for debugging and testing.', default=False)
+        subparser.add_argument('--services', action='store',
+                               help=u'Rather than build all services, only build specific services.',
+                               nargs='+', dest='services_to_build', default=None)
         subparser.add_argument('--no-cache', action='store_false',
+                               help=u'Shortcut for --no-conductor-cache and --no-container-cache.',
+                               dest='cache', default=True)
+        subparser.add_argument('--no-conductor-cache', action='store_false',
+                               help=u'Ansible Container caches conductor images during builds '
+                                    u'and reuses the conductor image if it determines no '
+                                    u'changes have been made necessitating rebuild. '
+                                    u'You may disable conductor caching with this flag.',
+                               dest='conductor_cache', default=True)
+        subparser.add_argument('--no-container-cache', action='store_false',
                                help=u'Ansible Container caches image layers during builds '
                                     u'and reuses existing layers if it determines no '
                                     u'changes have been made necessitating rebuild. '
                                     u'You may disable layer caching with this flag.',
-                               dest='cache', default=True)
+                               dest='container_cache', default=True)
         subparser.add_argument('--use-local-python', action='store_true',
                                help=u'Prevents Ansible Container from bringing its own Python runtime '
                                     u'into target containers in order to run Ansible. Use when the target '
                                     u'already has an installed Python runtime.',
                                dest='local_python', default=False)
-        subparser.add_argument('--no-conductor-runtime', action='store_false',
-                               help=u'')
+        subparser.add_argument('--src-mount-path', action='store',
+                               help=u'Specify the host path that should be mounted to the conductor at /src.'
+                                    u'Defaults to the directory from which ansible-container was invoked.',
+                               dest='src_mount_path', default=None)
         subparser.add_argument('ansible_options', action='store',
                                help=u'Provide additional commandline arguments to '
                                     u'Ansible in executing your playbook. If you '
@@ -160,17 +177,26 @@ class HostCommand(object):
         subparser.add_argument('--local-images', action='store_true',
                                help=u'Prevents images from being pushed to the default registry',
                                default=False, dest='local_images')
+        subparser.add_argument('--vault-file', action='store',
+                               help=u'A vault file to use to populate secrets',
+                               nargs='+', default=[], dest='vault_files')
         self.subcmd_common_parsers(parser, subparser, 'deploy')
 
     def subcmd_run_parser(self, parser, subparser):
         subparser.add_argument('service', action='store',
                                help=u'The specific services you want to run',
                                nargs='*')
-        subparser.add_argument('--production', action='store_true',
-                               help=u'Run the production configuration locally',
-                               default=False, dest='production')
         subparser.add_argument('-d', '--detached', action='store_true',
                                help=u'Run the application in detached mode', dest='detached')
+        subparser.add_argument('--vault-file', action='store',
+                               help=u'A vault file to use to populate secrets',
+                               nargs='+', default=[], dest='vault_files')
+        subparser.add_argument('--vault-password-file', action='store',
+                               help=u'An optional file containing the vault password',
+                               dest='vault_password_file')
+        subparser.add_argument('--ask-vault-pass', action='store_true',
+                               help=u'Asks for the fault file password at run time',
+                               dest='ask_vault_pass')
         self.subcmd_common_parsers(parser, subparser, 'run')
 
 
@@ -218,6 +244,10 @@ class HostCommand(object):
                                     u'use this flag.', default=False)
         subparser.add_argument('import_from', action='store',
                                help=u'Path to project/context to import.')
+        subparser.add_argument('-f', '--force', action='store_true',
+                               help=u'Force overwrite of existing Ansible Container project directory',
+                               dest='force')
+
 
 
     @container.host_only
@@ -240,9 +270,10 @@ class HostCommand(object):
         parser.add_argument('--project-name', '-n', action='store', dest='project_name',
                             help=u'Specify an alternate name for your project. Defaults '
                                  u'to the directory it lives in.', default=None)
-        parser.add_argument('--var-file', action='store',
-                            help=u'Path to a YAML or JSON formatted file providing variables for '
-                                 u'Jinja2 templating in container.yml.', default=None)
+        parser.add_argument('--vars-files', '--var-file', '--vars-file', action='append',
+                            help=u'One or or more YAML or JSON formatted files providing variables for '
+                                 u'Jinja2 style variable substitution in container.yml.',
+                            default=[], dest='vars_files')
         parser.add_argument('--no-selinux', action='store_false', dest='selinux',
                             help=u"Disables the 'Z' option from being set on volumes automatically "
                                  u"mounted to the build container.", default=True)
@@ -267,11 +298,11 @@ class HostCommand(object):
         try:
             getattr(core, u'hostcmd_{}'.format(args.subcommand))(**vars(args))
         except exceptions.AnsibleContainerAlreadyInitializedException as e:
-            logger.error('{0}'.format(e), exc_info=False)
+            logger.error("Project already initialized. Use the --force option.")
             sys.exit(1)
         except exceptions.AnsibleContainerNotInitializedException:
             logger.error('No Ansible Container project data found - do you need to '
-                    'run "ansible-container init"?', exc_info=False)
+                         'run "ansible-container init"?', exc_info=False)
             sys.exit(1)
         except exceptions.AnsibleContainerNoAuthenticationProvidedException:
             logger.error('No authentication provided, unable to continue', exc_info=False)
@@ -302,6 +333,14 @@ class HostCommand(object):
         except exceptions.AnsibleContainerMissingImage as e:
             logger.error(str(e), exc_info=False)
             sys.exit(1)
+        except exceptions.AnsibleContainerImportDirDockerException as e:
+            logger.error('Dockerfile found in %s. Please run import from a different directory '
+                         'or specify a project directory using --project-path.' % e.args[1])
+            sys.exit(1)
+        except exceptions.AnsibleContainerImportExistsException as e:
+            logger.error('The target directory appears to already contain an Ansible Container project. '
+                         'Use --force, if you wish to overwrite it.')
+            sys.exit(1)
         except Exception as e:
             if args.debug:
                 logger.exception('Unknown exception %s' % e, exc_info=True)
@@ -310,7 +349,6 @@ class HostCommand(object):
             sys.exit(1)
 
 host_commandline = HostCommand()
-
 
 def decode_b64json(encoded_params):
     # Using object_pairs_hook to preserve the original order of any dictionaries
@@ -357,4 +395,10 @@ def conductor_commandline():
         conductor_config.services,
         volume_data=conductor_config.volumes,
         repository_data=conductor_config.registries,
+        secrets=conductor_config.secrets,
         **params)
+
+
+if __name__ == '__main__':
+    logger = getLogger('container')
+    host_commandline()

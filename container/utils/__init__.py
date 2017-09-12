@@ -6,12 +6,14 @@ logger = getLogger(__name__)
 
 import os
 import hashlib
+import importlib
+import json
+
 from datetime import datetime
 from distutils import dir_util
-
 from jinja2 import Environment, FileSystemLoader
 from ruamel import yaml
-from six import iteritems
+from six import iteritems, string_types
 
 
 from ..exceptions import AnsibleContainerException, \
@@ -40,11 +42,11 @@ conductor_dir = os.path.dirname(container.__file__)
 make_temp_dir = MakeTempDir
 
 
-def get_config(base_path, var_file=None, engine_name=None):
-    # To avoid circular import
-    from ..config import AnsibleContainerConfig
-
-    return AnsibleContainerConfig(base_path, var_file=var_file, engine_name=engine_name)
+def get_config(base_path, vars_files=None, engine_name=None, project_name=None, vault_files=None):
+    mod = importlib.import_module('.%s.config' % engine_name,
+                                  package='container')
+    return mod.AnsibleContainerConfig(base_path, vars_files=vars_files, engine_name=engine_name,
+                                      project_name=project_name, vault_files=vault_files)
 
 
 def assert_initialized(base_path):
@@ -124,9 +126,9 @@ def metadata_to_image_config(metadata):
         'command': ('Cmd', None),
         'working_dir': ('WorkingDir', None),
         'entrypoint': ('Entrypoint', None),
-        'volumes': ('Volumes', lambda _list: {parts[0]:{}
-                                              for parts in [v.split()
-                                                            for v in _list]}),
+        #'volumes': ('Volumes', lambda _list: {parts[0]:{}
+        #                                      for parts in [v.split()
+        #                                                    for v in _list]}),
         'labels': ('Labels', None),
         'onbuild': ('OnBuild', None)
     }
@@ -140,7 +142,7 @@ def metadata_to_image_config(metadata):
         Cmd='',
         WorkingDir='',
         Entrypoint=None,
-        Volumes={},
+        #Volumes={},
         Labels={},
         OnBuild=[]
     )
@@ -197,7 +199,12 @@ def create_role_from_templates(role_name=None, role_path=None,
 
 @container.conductor_only
 def resolve_role_to_path(role_name):
-    loader, variable_manager = DataLoader(), VariableManager()
+    loader = DataLoader()
+    try:
+        variable_manager = VariableManager(loader=loader)
+    except TypeError:
+        # If Ansible prior to ansible/ansible@8f97aef1a365
+        variable_manager = VariableManager()
     role_obj = RoleInclude.load(data=role_name, play=None,
                                 variable_manager=variable_manager,
                                 loader=loader)
@@ -245,6 +252,9 @@ def get_role_fingerprint(role_name):
             yield None
 
     hash_obj = hashlib.sha256()
+    # Account for variables passed to the role by including the invocation string
+    hash_obj.update((json.dumps(role_name) if not isinstance(role_name, string_types) else role_name) + '::')
+    # Add each of the role's files and directories
     hash_role(hash_obj, resolve_role_to_path(role_name))
     return hash_obj.hexdigest()
 
@@ -274,9 +284,9 @@ def ordereddict_to_list(config):
     # If configuration top-level key is an orderedict, convert to list of tuples, providing a
     # means to preserve key order. Call prior to encoding a config dict.
     result = {}
-    for key, value in config.iteritems():
+    for key, value in iteritems(config):
         if isinstance(value, yaml.compat.ordereddict):
-            result[key] = value.items()
+            result[key] = list(value.items())
         else:
             result[key] = value
     return result
@@ -285,8 +295,8 @@ def ordereddict_to_list(config):
 def list_to_ordereddict(config):
     # If configuration top-level key is a list, convert it to an ordereddict.
     # Call post decoding of a config dict.
-    result = {}
-    for key, value in config.iteritems():
+    result = yaml.compat.ordereddict()
+    for key, value in iteritems(config):
         if isinstance(value, list):
             result[key] = yaml.compat.ordereddict(value)
         else:
