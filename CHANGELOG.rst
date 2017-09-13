@@ -1,8 +1,12 @@
 Ansible Container Changes by Release
 ====================================
 
-0.9.2 - Active development
+0.9.3 - Active development
 --------------------------
+
+
+0.9.2 - Release 12-Sep-2017
+---------------------------
 
 Major changes
 `````````````
