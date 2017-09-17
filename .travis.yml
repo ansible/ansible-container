@@ -36,8 +36,8 @@ script:
 - python ./setup.py test --ansible-args="-vvv"
 - if [ -f ./task.output ]; then cat task.output; fi
 after_success:
-- if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then docker login -u ${DOCKER_HUB_USER} -p ${DOCKER_HUB_PASSWORD} fi
-- if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then python ./prebake.py fi
+- if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then docker login -u ${DOCKER_HUB_USER} -p ${DOCKER_HUB_PASSWORD}; fi
+- if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then python ./prebake.py; fi
 - bash <(curl -s https://codecov.io/bash) -F unit        -f test/reports/unit/coverage.xml
 - bash <(curl -s https://codecov.io/bash) -F integration -f test/reports/integration/coverage.xml
 after_failure:
