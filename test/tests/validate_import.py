@@ -74,7 +74,7 @@ def test_shell():
 # ROLE TASK TESTS
 
 def test_add_from_url():
-    url = 'https://github.com/Yelp/dumb-init/releases/download/v1.0.2/dumb-init_1.0.2_amd64'
+    url = 'https://github.com/Yelp/dumb-init/releases/download/v1.2.0/dumb-init_1.2.0_amd64'
     target = '/usr/sbin/dumb-init'
     assert any(
         [task.get('get_url') == {'url': url, 'dest': target, 'mode': 0o600, 'validate_certs': 'no'}

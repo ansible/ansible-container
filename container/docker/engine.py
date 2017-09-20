@@ -198,7 +198,7 @@ class Engine(BaseEngine, DockerSecretsMixin):
 
     @property
     def secrets_mount_path(self):
-        return os.path.join(os.sep, 'run', 'secrets')
+        return os.path.join(os.sep, 'docker', 'secrets')
 
     def container_name_for_service(self, service_name):
         return u'%s_%s' % (self.project_name, service_name)

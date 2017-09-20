@@ -46,6 +46,9 @@
         httpd_run_group: "apache"
         httpd_lock_dir: "/run/apache2"
     distros:
+      - name: "rhel-7"
+        base_image: "rhel7:latest"
+        template: *redhat
       - name: "centos-7"
         base_image: "centos:7"
         template: *redhat

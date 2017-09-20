@@ -9,7 +9,7 @@ RUN {{ distro.template.package_update_command }} && \
     chown -R {{ distro.template.httpd_user }} {{ distro.template.httpd_rundir }}
 
 # Install dumb-init from URL - get_url module
-ADD https://github.com/Yelp/dumb-init/releases/download/v1.0.2/dumb-init_1.0.2_amd64 /usr/sbin/dumb-init
+ADD https://github.com/Yelp/dumb-init/releases/download/v1.2.0/dumb-init_1.2.0_amd64 /usr/sbin/dumb-init
 
 # Install httpd.conf - copy module
 ADD {{ distro.template.httpd_conf_src }} {{ distro.template.httpd_conf_dest }}
