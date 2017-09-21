@@ -15,14 +15,14 @@ import container
 
 version = container.__version__
 
-BAKE_DISTRO = os.getenv('BAKE_DISTRO');
+BASE_DISTRO = os.getenv('BASE_DISTRO');
 
-if BAKE_DISTRO:
-    subprocess.check_call(['python', 'setup.py', 'prebake', '--distros', BAKE_DISTRO])
+if BASE_DISTRO:
+    subprocess.check_call(['python', 'setup.py', 'prebake', '--distros', BASE_DISTRO])
 else: 
     subprocess.check_call(['python', 'setup.py', 'prebake'])
 
-for distro in [BAKE_DISTRO] or PREBAKED_DISTROS:
+for distro in [BASE_DISTRO] or PREBAKED_DISTROS:
     print('Uploading %s...' % distro)
     distro_key = distro.replace(':', '-')
     print(['docker', 'tag',
