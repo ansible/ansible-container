@@ -25,7 +25,7 @@ class AnsibleContainerConfig(BaseAnsibleContainerConfig):
         except IOError:
             raise AnsibleContainerNotInitializedException()
         except yaml.YAMLError as exc:
-            raise AnsibleContainerConfigException(u"Parsing container.yml - %s" % unicode(exc))
+            raise AnsibleContainerConfigException(u"Parsing container.yml - %s" % exc)
 
         new_services = yaml.compat.ordereddict()
         for service_name, service_config in iteritems(config.get('services') or {}):
