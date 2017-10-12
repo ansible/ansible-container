@@ -148,6 +148,14 @@ class BaseAnsibleContainerConfig(Mapping):
         logger.debug(u"Parsed config", config=config)
         self._config = config
 
+    def set_services(self, services):
+        if not services:
+            return
+        remove_services = list(set(self._config['services']) - set(services))
+        if remove_services:
+            for service in remove_services:
+                del self._config['services'][service]
+
     def _update_service_config(self, env, service_config):
         if isinstance(service_config, dict):
             dev_overrides = service_config.pop('dev_overrides', {})

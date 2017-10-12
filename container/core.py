@@ -11,7 +11,6 @@ import getpass
 import gzip
 import hashlib
 import io
-import json
 import os
 import re
 import ruamel
@@ -240,6 +239,9 @@ def hostcmd_run(base_path, project_name, engine_name, vars_files=None, cache=Tru
     if not kwargs['production']:
         config.set_env('dev')
 
+    services = kwargs.pop('service')
+    config.set_services(services)
+
     logger.debug('hostcmd_run configuration', config=config.__dict__)
 
     engine_obj = load_engine(['RUN'],
@@ -321,6 +323,9 @@ def hostcmd_restart(base_path, project_name, engine_name, vars_files=None, force
     config = get_config(base_path, vars_files=vars_files, engine_name=engine_name,  project_name=project_name)
     if not kwargs['production']:
         config.set_env('dev')
+
+    services = kwargs.pop('service')
+    config.set_services(services)
 
     engine_obj = load_engine(['RUN'],
                              engine_name, config.project_name,
