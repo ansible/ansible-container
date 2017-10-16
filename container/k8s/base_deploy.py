@@ -425,7 +425,10 @@ class K8sBaseDeploy(object):
                 ])
                 # When the engine requests a 'stop', set replicas to 0, stopping all containers
                 template['spec']['replicas'] = 1 if not engine_state == 'stop' else 0
-                template['spec']['strategy'] = CommentedMap([('type', default_strategy)])
+                if default_strategy:
+                    template['spec']['strategy'] = {}
+                    for service_key, service_value in iteritems(default_strategy):
+                        self.copy_attribute(template['spec']['strategy'], service_key, service_value)
 
                 if volumes:
                     template['spec']['template']['spec']['volumes'] = volumes

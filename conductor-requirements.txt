@@ -3,7 +3,7 @@ https://github.com/openshift/openshift-restclient-python/archive/master.tar.gz#e
 PyYAML>=3.12
 docker-compose>=1.14
 requests>=2
-ruamel.yaml>=0.14.2
+ruamel.yaml>=0.15.34
 six>=1.10
 structlog[dev]>=16.1
 python-string-utils>=0.6.0
