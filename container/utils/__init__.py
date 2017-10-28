@@ -43,16 +43,28 @@ conductor_dir = os.path.dirname(container.__file__)
 make_temp_dir = MakeTempDir
 
 
-def get_config(base_path, vars_files=None, engine_name=None, project_name=None, vault_files=None):
+def get_config(base_path, vars_files=None, engine_name=None, project_name=None, vault_files=None, config_file=None):
     mod = importlib.import_module('.%s.config' % engine_name,
                                   package='container')
     return mod.AnsibleContainerConfig(base_path, vars_files=vars_files, engine_name=engine_name,
-                                      project_name=project_name, vault_files=vault_files)
+                                      project_name=project_name, vault_files=vault_files, config_file=config_file)
 
 
-def assert_initialized(base_path):
+def resolve_config_path(base_path, config_file):
+    if not config_file:
+        raise AnsibleContainerNotInitializedException(
+            "Missing config_file. This is a bug, as it should have defaulted to 'container.yml'. "
+            "Please report this incident, so we can put a halt to such shinanigans!"
+        )
+    # The config file may live outside the project path. However, when no path specified, look for it in project path.
+    if os.path.dirname(config_file):
+        return config_file
+    return os.path.join(base_path, config_file)
+
+
+def assert_initialized(base_path, config_file=None):
     ansible_dir = os.path.normpath(base_path)
-    container_file = os.path.join(ansible_dir, 'container.yml')
+    container_file = resolve_config_path(base_path, config_file)
     if not all((
         os.path.exists(ansible_dir), os.path.isdir(ansible_dir),
         os.path.exists(container_file), os.path.isfile(container_file),
