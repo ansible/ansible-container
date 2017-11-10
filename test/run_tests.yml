@@ -1,5 +1,5 @@
 ---
-- name: Run Ansible Container tests
+- name: Run Ansible Container integration tests
   hosts: localhost
   connection: local
   gather_facts: false
@@ -92,11 +92,14 @@
     - name: Check BASE_DISTRO environment variable
       debug:
         msg: "BASE_DISTRO is {{ lookup('env', 'BASE_DISTRO') }}"
+      tags: always
     - set_fact:
         BASE_DISTRO: "{{ lookup('env', 'BASE_DISTRO') }}"
+      tags: always
     - set_fact:
         filtered: "{{ distros|selectattr('base_image', 'equalto', BASE_DISTRO)|list }}"
       when: BASE_DISTRO != ""
+      tags: always
     - name: Validate container lifecycle
       include_role:
         name: validate-build-and-import
@@ -104,6 +107,10 @@
       # with_items: "{% if lookup('env', 'BASE_DISTRO') %}{{ distros|selectattr('base_image', 'equalto', lookup('env', 'BASE_DISTRO'))|list }}{% else %}{{ distros }}{% endif %}"
       loop_control:
         loop_var: "distro"
-  # roles:
-  #   - validate-config
+      tags: basic
+    - name: "Validate rebuild features (centos:7 only)"
+      when: BASE_DISTRO == "" or BASE_DISTRO == distros[0].base_image
+      include_role:
+        name: validate-rebuild-features
+      tags: rebuild
 

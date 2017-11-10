@@ -28,7 +28,7 @@ except ImportError:
 
 import requests
 
-from six import iteritems
+from six import iteritems, text_type
 from six.moves.urllib.parse import urljoin
 
 from .exceptions import AnsibleContainerAlreadyInitializedException,\
@@ -163,29 +163,27 @@ def hostcmd_build(base_path, project_name, engine_name, vars_files=None, **kwarg
     if engine_obj.service_is_running('conductor'):
         engine_obj.stop_container(conductor_container_id, forcefully=True)
 
-    if conductor_image_id is None or not kwargs.get('devel'):
-        #TODO once we get a conductor running, figure out how to know it's running
-        if engine_obj.CAP_BUILD_CONDUCTOR:
-            env_vars = []
-            if config.get('settings', {}).get('conductor', {}).get('environment', {}):
-                environment = config['settings']['conductor']['environment']
-                if isinstance(environment, dict):
-                    for key, value in iteritems(environment):
-                        env_vars.append('{}={}'.format(key, value))
-                else:
-                    env_vars = environment
-            if kwargs.get('with_variables'):
-                env_vars += kwargs['with_variables']
+    if engine_obj.CAP_BUILD_CONDUCTOR:
+        env_vars = []
+        if config.get('settings', {}).get('conductor', {}).get('environment', {}):
+            environment = config['settings']['conductor']['environment']
+            if isinstance(environment, dict):
+                for key, value in iteritems(environment):
+                    env_vars.append('{}={}'.format(key, value))
+            else:
+                env_vars = environment
+        if kwargs.get('with_variables'):
+            env_vars += kwargs['with_variables']
 
-            engine_obj.build_conductor_image(
-                base_path,
-                config.conductor_base,
-                cache=conductor_cache,
-                environment=env_vars
-            )
-        else:
-            logger.warning(u'%s does not support building the Conductor image.',
-                           engine_obj.display_name, engine=engine_obj.display_name)
+        engine_obj.build_conductor_image(
+            base_path,
+            config.conductor_base,
+            cache=conductor_cache,
+            environment=env_vars
+        )
+    else:
+        logger.warning(u'%s does not support building the Conductor image.',
+                       engine_obj.display_name, engine=engine_obj.display_name)
 
     if conductor_container_id:
         engine_obj.delete_container(conductor_container_id)
@@ -699,6 +697,103 @@ def apply_role_to_container(role, container_id, service_name, engine, vars={},
             exit_code=rc)
     return rc
 
+#### BUILD UTILITY FUNCTIONS ####
+
+def _find_base_image_id(engine, service_name, service):
+    if not service.get('from'):
+        raise AnsibleContainerConfigException(
+            "Expecting service to have 'from' attribute. None found when "
+            "evaluating "
+            "service: {}.".format(service_name)
+        )
+    image_id = engine.get_image_id_by_tag(service['from'])
+    if not image_id:
+        image_id = engine.pull_image_by_tag(service['from'])
+        if not image_id:
+            raise AnsibleContainerException(
+                "Failed to find image {}. Try `docker image pull {}`".format(
+                    service['from'])
+            )
+    return image_id
+
+def _intermediate_build_container_name(engine, service_name, image_fingerprint, role):
+    return u'%s-%s-%s' % (engine.container_name_for_service(service_name),
+        image_fingerprint[:8],
+        role)
+
+def _run_intermediate_build_container(engine, container_name, cur_image_id, service_name, service,
+                                      **kwargs):
+    run_kwargs = dict(
+        # Maybe we can let Docker choose this name?
+        name=container_name,
+        user='root',
+        working_dir='/',
+        command='sh -c "while true; do sleep 1; '
+                'done"',
+        entrypoint=[],
+        privileged=True,
+        volumes=dict(),
+        environment=dict(ANSIBLE_CONTAINER=1)
+    )
+
+    if service.get('volumes'):
+        for volume in service['volumes']:
+            pieces = volume.split(':')
+            src = pieces[0]
+            bind = pieces[0]
+            mode = 'rw'
+            if len(pieces) > 1:
+                bind = pieces[1]
+            if len(pieces) > 2:
+                mode = pieces[2]
+            run_kwargs[u'volumes'][src] = {u'bind': bind, u'mode': mode}
+
+    if not kwargs['local_python']:
+        # If we're on a debian based distro, we need the correct architecture
+        # to allow python to load dynamically loaded shared libraries
+        extra_library_paths = ''
+        try:
+            architecture = subprocess.check_output(['dpkg-architecture',
+                                                    '-qDEB_HOST_MULTIARCH'])
+            architecture = architecture.strip()
+            logger.debug(u'Detected architecture %s', architecture,
+                         service=service_name, architecture=architecture)
+            extra_library_paths = (':/_usr/lib/{0}:/_usr/local/lib/{0}'
+                                   ':/_lib/{0}').format(architecture)
+        except Exception:
+            # we're not on debian/ubuntu or a system without multiarch support
+            pass
+
+        # Use the conductor's Python runtime
+        run_kwargs['volumes'][engine.get_runtime_volume_id('/usr')] = {
+            'bind': '/_usr', 'mode': 'ro'}
+        try:
+            run_kwargs['volumes'][engine.get_runtime_volume_id('/lib')] = {
+                'bind': '/_lib', 'mode': 'ro'}
+            extra_library_paths += ":/_lib"
+        except ValueError:
+            # No /lib volume
+            pass
+        run_kwargs['environment'].update(dict(
+            LD_LIBRARY_PATH='/usr/lib:/usr/lib64:/_usr/lib:/_usr/lib64:/_usr'
+                            '/local/lib{}'.format(
+                extra_library_paths),
+            CPATH='/usr/include:/usr/local/include:/_usr/include:/_usr/local'
+                  '/include',
+            PATH='/usr/local/sbin:/usr/local/bin:'
+                 '/usr/sbin:/usr/bin:/sbin:/bin:'
+                 '/_usr/sbin:/_usr/bin:'
+                 '/_usr/local/sbin:/_usr/local/bin',
+            # PYTHONPATH='/_usr/lib/python2.7'
+        ))
+
+    # Remove the previous intermediate container if it exists before recreating.
+    engine.stop_container(container_name)
+    engine.delete_container(container_name)
+    container_id = engine.run_container(cur_image_id, service_name,
+                                        **run_kwargs)
+    return container_id
+
 
 @conductor_only
 def conductorcmd_build(engine_name, project_name, services, cache=True, local_python=False,
@@ -712,39 +807,42 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
             logger.debug('Skipping service %s...', service_name)
             continue
         logger.info(u'Building service...', service=service_name, project=project_name)
-        if not service.get('from'):
-            raise AnsibleContainerConfigException(
-                "Expecting service to have 'from' attribute. None found when evaluating "
-                "service: {}.".format(service_name)
-            )
-        cur_image_id = engine.get_image_id_by_tag(service['from'])
-        if not cur_image_id:
-            cur_image_id = engine.pull_image_by_tag(service['from'])
-            if not cur_image_id:
-                raise AnsibleContainerException(
-                    "Failed to find image {}. Try `docker image pull {}`".format(service['from'])
-                )
+        cur_image_id = _find_base_image_id(engine, service_name, service)
+        artifact_breadcrumbs = []
+
         # the fingerprint hash tracks cacheability
         fingerprint_hash = hashlib.sha256('%s::' % cur_image_id)
+        # The variables handed to us are also important to cacheability
+        fingerprint_hash.update(text_type(config_vars))
         logger.debug(u'Base fingerprint hash = %s', fingerprint_hash.hexdigest(),
                      service=service_name, hash=fingerprint_hash.hexdigest())
+
+        # Presume cache is still good unless we're not caching at all
         cache_busted = not cache
 
         cur_container_id = engine.get_container_id_for_service(service_name)
         if cur_container_id:
             if engine.service_is_running(service_name):
                 engine.stop_container(cur_container_id, forcefully=True)
-            engine.delete_container(cur_container_id)
 
         if service.get('roles'):
             for role in service['roles']:
+                cur_image_fingerprint = fingerprint_hash.hexdigest()
                 role_fingerprint = get_role_fingerprint(role)
                 fingerprint_hash.update(role_fingerprint)
+                logger.info('Fingerprint for this layer: %s', fingerprint_hash.hexdigest(),
+                            service=service_name, role=role, parent_image_id=cur_image_id,
+                            parent_fingerprint=cur_image_fingerprint)
 
                 if not cache_busted:
                     logger.debug(u'Still trying to keep cache.', service=service_name)
                     cached_image_id = engine.get_image_id_by_fingerprint(
                         fingerprint_hash.hexdigest())
+                    int_container_name = _intermediate_build_container_name(
+                        engine, service_name, cur_image_fingerprint, role
+                    )
+                    int_container_id = engine.get_container_id_by_name(
+                        int_container_name)
                     if cached_image_id:
                         # We can reuse the cached image
                         logger.debug(u'Cached layer found for service',
@@ -752,76 +850,57 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                         cur_image_id = cached_image_id
                         logger.info(u'Applied role %s from cache', role,
                                     service=service_name, role=role)
+                        # Nothing more to be done for this role, so move on to the
+                        # next one. Don't throw away the build container though.
+                        if int_container_id:
+                            artifact_breadcrumbs.append(int_container_id)
                         continue
                     else:
+                        # This means the cache is busted. However we may still
+                        # be able to do an optimized rebuild, reusing the build
+                        # container from this layer and reapplying the role.
+                        logger.info(u'Cached layer for for role %s not found or '
+                                    u'invalid.', role, service=service_name,
+                                    fingerprint=fingerprint_hash.hexdigest(),
+                                    cur_image_id=cur_image_id)
                         cache_busted = True
-                        logger.debug(u'Cache busted! No layer found',
-                            service=service_name,
-                            fingerprint=fingerprint_hash.hexdigest(),
-                        )
-                run_kwargs = dict(
-                    name=engine.container_name_for_service(service_name),
-                    user='root',
-                    working_dir='/',
-                    command='sh -c "while true; do sleep 1; '
-                            'done"',
-                    entrypoint=[],
-                    privileged=True,
-                    volumes=dict(),
-                    environment=dict(ANSIBLE_CONTAINER=1)
-                )
+                        if int_container_id:
+                            # There is still an intermediate build container.
+                            logger.info(u'Reusing intermediate build container '
+                                        u'%s to reapply role %s.',
+                                        int_container_name, role,
+                                        service=service_name)
+                            container_id = engine.start_container(int_container_id)
+                        else:
+                            logger.info(u'Could not locate intermediate build '
+                                        u'container to reapply role %s. '
+                                        u'Applying role on image %s as '
+                                        u'container %s.',
+                                        role, cur_image_id, int_container_name,
+                                        cur_image_fingerprint=cur_image_fingerprint,
+                                        service=service_name)
 
-                if service.get('volumes'):
-                    for volume in service['volumes']:
-                        pieces = volume.split(':')
-                        src = pieces[0]
-                        bind = pieces[0]
-                        mode = 'rw'
-                        if len(pieces) > 1:
-                            bind = pieces[1]
-                        if len(pieces) > 2:
-                            mode = pieces[2]
-                        run_kwargs[u'volumes'][src] = {u'bind': bind, u'mode': mode}
+                            container_id = _run_intermediate_build_container(
+                                engine, int_container_name, cur_image_id, service_name, service,
+                                local_python=local_python
+                            )
+                else:
+                    int_container_name = _intermediate_build_container_name(
+                        engine, service_name, cur_image_fingerprint, role
+                    )
+                    logger.info(u'Applying role %s on image %s as container %s',
+                                role, cur_image_id, int_container_name,
+                                service=service_name)
+                    container_id = _run_intermediate_build_container(
+                        engine, int_container_name, cur_image_id, service_name, service,
+                        local_python=local_python
+                    )
 
-                if not local_python:
-                    # If we're on a debian based distro, we need the correct architecture
-                    # to allow python to load dynamically loaded shared libraries
-                    extra_library_paths = ''
-                    try:
-                        architecture = subprocess.check_output(['dpkg-architecture',
-                                                                   '-qDEB_HOST_MULTIARCH'])
-                        architecture = architecture.strip()
-                        logger.debug(u'Detected architecture %s', architecture,
-                                       service=service_name, architecture=architecture)
-                        extra_library_paths = (':/_usr/lib/{0}:/_usr/local/lib/{0}'
-                                               ':/_lib/{0}').format(architecture)
-                    except Exception:
-                        # we're not on debian/ubuntu or a system without multiarch support
-                        pass
-
-                    # Use the conductor's Python runtime
-                    run_kwargs['volumes'][engine.get_runtime_volume_id('/usr')] = {'bind': '/_usr', 'mode': 'ro'}
-                    try:
-                        run_kwargs['volumes'][engine.get_runtime_volume_id('/lib')] = {'bind': '/_lib', 'mode': 'ro'}
-                        extra_library_paths += ":/_lib"
-                    except ValueError:
-                        # No /lib volume
-                        pass
-                    run_kwargs['environment'].update(dict(
-                         LD_LIBRARY_PATH='/usr/lib:/usr/lib64:/_usr/lib:/_usr/lib64:/_usr/local/lib{}'.format(extra_library_paths),
-                         CPATH='/usr/include:/usr/local/include:/_usr/include:/_usr/local/include',
-                         PATH='/usr/local/sbin:/usr/local/bin:'
-                              '/usr/sbin:/usr/bin:/sbin:/bin:'
-                              '/_usr/sbin:/_usr/bin:'
-                              '/_usr/local/sbin:/_usr/local/bin',
-                         # PYTHONPATH='/_usr/lib/python2.7'
-                    ))
-
-                container_id = engine.run_container(cur_image_id, service_name, **run_kwargs)
-
-                while not engine.service_is_running(service_name):
+                artifact_breadcrumbs.append(container_id)
+                while not engine.service_is_running(service_name,
+                                                    container_id=container_id):
                     time.sleep(0.2)
-                logger.debug('Container running', id=container_id)
+                logger.debug('Container confirmed running', id=container_id)
 
                 rc = apply_role_to_container(role, container_id, service_name,
                                              engine, vars=config_vars,
@@ -843,14 +922,24 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                     image_id = engine.commit_role_as_layer(container_id,
                                                            service_name,
                                                            fingerprint_hash.hexdigest(),
+                                                           role,
                                                            service,
                                                            with_name=is_last_role)
-                    logger.info(u'Committed layer as image', service=service_name, image=image_id)
-                engine.delete_container(container_id)
+                    logger.info(u'Committed layer as image', service=service_name,
+                                image=image_id, role=role,
+                                fingerprint=fingerprint_hash.hexdigest(),)
+                # engine.delete_container(container_id)
                 cur_image_id = image_id
             # Tag the image also as latest:
             engine.tag_image_as_latest(service_name, cur_image_id)
             logger.info(u'Build complete.', service=service_name)
+            logger.info(u'Cleaning up stale build artifacts.', service=service_name)
+            for container_id in engine.get_intermediate_container_ids_for_service(service_name):
+                if container_id not in artifact_breadcrumbs:
+                    logger.debug(u'Container id %s not found as part of this build. Cleansing it.',
+                                 container_id, service=service_name)
+                    engine.stop_container(container_id)
+                    engine.delete_container(container_id)
         else:
             logger.info(u'Service had no roles specified. Nothing to do.', service=service_name)
     logger.info(u'All images successfully built.')

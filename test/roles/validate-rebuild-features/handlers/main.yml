@@ -1,0 +1,6 @@
+# handlers/main.yml
+---
+- name: Cleanup temp dir
+  file:
+    name: "{{ tempdir.path }}"
+    state: absent
