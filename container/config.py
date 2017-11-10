@@ -72,10 +72,14 @@ class BaseAnsibleContainerConfig(Mapping):
     def project_name(self):
         if self.cli_project_name:
             # Give precedence to CLI args
+            self._validate_project_name(self.cli_project_name)
             return self.cli_project_name
         if self._config.get('settings', {}).get('project_name', None):
             # Look for settings.project_name
+            self._validate_project_name(self._config['settings']['project_name'])
             return self._config['settings']['project_name']
+        logger.info("Setting project_name not defined. Fallback to current directory name.")
+        self._validate_project_name(os.path.basename(self.base_path))
         return os.path.basename(self.base_path)
 
     @property
@@ -333,6 +337,15 @@ class BaseAnsibleContainerConfig(Mapping):
             else:
                 if config[top_level] is None:
                     config[top_level] = ordereddict()
+
+    def _validate_project_name(self, project_name):
+        """
+        Validates that the project_name starts with an alphanumeric value.
+        Raises an Exception if the project_name is invalid
+        """
+        if re.match(r"^[a-zA-Z0-9]{1}.*", project_name) == None:
+            raise AnsibleContainerConfigException(u"Invalid project_name {0}\n".format(project_name)
+                + u"The project_name has to start with an alphanumeric character.")
 
     def __getitem__(self, item):
         return self._config[item]
