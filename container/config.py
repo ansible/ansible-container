@@ -16,6 +16,7 @@ from six import add_metaclass, iteritems, PY2, string_types, text_type
 
 from collections import Mapping
 from .utils.ordereddict import ordereddict
+from .utils import resolve_config_path
 from ruamel import yaml
 import container
 
@@ -52,11 +53,12 @@ class BaseAnsibleContainerConfig(Mapping):
     engine_list = ['docker', 'openshift', 'k8s']
 
     @container.host_only
-    def __init__(self, base_path, vars_files=None, engine_name=None, project_name=None, vault_files=None):
+    def __init__(self, base_path, vars_files=None, engine_name=None, project_name=None, vault_files=None,
+                 config_file=None):
         self.base_path = base_path
         self.cli_vars_files = vars_files
         self.engine_name = engine_name
-        self.config_path = path.join(self.base_path, 'container.yml')
+        self.config_path = resolve_config_path(base_path, config_file)
         self.cli_project_name = project_name
         self.cli_vault_files = vault_files
         self.remove_engines = set(self.engine_list) - set([engine_name])

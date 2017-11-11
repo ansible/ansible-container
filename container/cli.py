@@ -277,6 +277,8 @@ class HostCommand(object):
         parser.add_argument('--no-selinux', action='store_false', dest='selinux',
                             help=u"Disables the 'Z' option from being set on volumes automatically "
                                  u"mounted to the build container.", default=True)
+        parser.add_argument('--config-file', '-c', action='store', dest='config_file', default='container.yml',
+                            help=u"Configuration filename. Defaults to 'container.yml'")
 
         subparsers = parser.add_subparsers(title='subcommand', dest='subcommand')
         subparsers.required = True

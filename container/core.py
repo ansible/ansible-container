@@ -36,6 +36,7 @@ from .exceptions import AnsibleContainerAlreadyInitializedException,\
                         AnsibleContainerException, \
                         AnsibleContainerConfigException
 from .utils import *
+from .utils import resolve_config_path
 from . import __version__, host_only, conductor_only, ENV
 from .config import DEFAULT_CONDUCTOR_BASE
 from container.utils.loader import load_engine
@@ -48,8 +49,8 @@ REMOVE_HTTP = re.compile('^https?://')
 
 
 @host_only
-def hostcmd_init(base_path, project=None, force=False, **kwargs):
-    container_cfg = os.path.join(base_path, 'container.yml')
+def hostcmd_init(base_path, project=None, force=False, config_file=None, **kwargs):
+    container_cfg = resolve_config_path(base_path, config_file)
     if os.path.exists(container_cfg) and not force:
         raise AnsibleContainerAlreadyInitializedException()
 
@@ -147,10 +148,11 @@ def hostcmd_prebake(distros, debug=False, cache=True, ignore_errors=False):
 
 
 @host_only
-def hostcmd_build(base_path, project_name, engine_name, vars_files=None, **kwargs):
+def hostcmd_build(base_path, project_name, engine_name, vars_files=None, config_file=None, **kwargs):
     conductor_cache = kwargs['cache'] and kwargs['conductor_cache']
-    config = get_config(base_path, vars_files=vars_files, engine_name=engine_name, project_name=project_name)
-
+    assert_initialized(base_path, config_file)
+    config = get_config(base_path, vars_files=vars_files, engine_name=engine_name, project_name=project_name,
+                        config_file=config_file)
     requested_services = kwargs.get('services_to_build')
     config.check_requested_services(requested_services)
 
@@ -204,10 +206,11 @@ def hostcmd_build(base_path, project_name, engine_name, vars_files=None, **kwarg
         'build', dict(config), base_path, kwargs, save_container=save_container)
 
 @host_only
-def hostcmd_deploy(base_path, project_name, engine_name, vars_files=None, cache=True, vault_files=None, **kwargs):
-    assert_initialized(base_path)
+def hostcmd_deploy(base_path, project_name, engine_name, vars_files=None, cache=True, vault_files=None,
+                   config_file=None, **kwargs):
+    assert_initialized(base_path, config_file)
     config = get_config(base_path, vars_files=vars_files, engine_name=engine_name, project_name=project_name,
-                        vault_files=vault_files)
+                        vault_files=vault_files, config_file=config_file)
     local_images = kwargs.get('local_images')
     output_path = kwargs.pop('deployment_output_path', None) or config.deployment_path
 
@@ -236,10 +239,11 @@ def hostcmd_deploy(base_path, project_name, engine_name, vars_files=None, cache=
 
 @host_only
 def hostcmd_run(base_path, project_name, engine_name, vars_files=None, cache=True, ask_vault_pass=False,
-                **kwargs):
-    assert_initialized(base_path)
+                config_file=None, **kwargs):
+    assert_initialized(base_path, config_file)
     logger.debug('Got extra args to `run` command', arguments=kwargs)
-    config = get_config(base_path, vars_files=vars_files, engine_name=engine_name, project_name=project_name)
+    config = get_config(base_path, vars_files=vars_files, engine_name=engine_name, project_name=project_name,
+                        config_file=config_file)
     if not kwargs['production']:
         config.set_env('dev')
 
@@ -275,10 +279,11 @@ def hostcmd_run(base_path, project_name, engine_name, vars_files=None, cache=Tru
         'run', dict(config), base_path, params, save_container=config.save_conductor)
 
 @host_only
-def hostcmd_destroy(base_path, project_name, engine_name, vars_files=None, cache=True, **kwargs):
-    assert_initialized(base_path)
+def hostcmd_destroy(base_path, project_name, engine_name, vars_files=None, cache=True, config_file=None, **kwargs):
+    assert_initialized(base_path, config_file)
     logger.debug('Got extra args to `destroy` command', arguments=kwargs)
-    config = get_config(base_path, vars_files=vars_files, engine_name=engine_name, project_name=project_name)
+    config = get_config(base_path, vars_files=vars_files, engine_name=engine_name, project_name=project_name,
+                        config_file=config_file)
     if not kwargs['production']:
         config.set_env('dev')
 
@@ -301,9 +306,11 @@ def hostcmd_destroy(base_path, project_name, engine_name, vars_files=None, cache
         'destroy', dict(config), base_path, params, save_container=config.save_conductor)
 
 @host_only
-def hostcmd_stop(base_path, project_name, engine_name, vars_files=None, force=False, services=[],
+def hostcmd_stop(base_path, project_name, engine_name, vars_files=None, force=False, services=[], config_file=None,
                  **kwargs):
-    config = get_config(base_path, vars_files=vars_files, engine_name=engine_name, project_name=project_name)
+    assert_initialized(base_path, config_file)
+    config = get_config(base_path, vars_files=vars_files, engine_name=engine_name, project_name=project_name,
+                        config_file=config_file)
     if not kwargs['production']:
         config.set_env('dev')
 
@@ -329,9 +336,11 @@ def hostcmd_stop(base_path, project_name, engine_name, vars_files=None, force=Fa
 
 
 @host_only
-def hostcmd_restart(base_path, project_name, engine_name, vars_files=None, force=False, services=[],
+def hostcmd_restart(base_path, project_name, engine_name, vars_files=None, force=False, services=[], config_file=None,
                     **kwargs):
-    config = get_config(base_path, vars_files=vars_files, engine_name=engine_name,  project_name=project_name)
+    assert_initialized(base_path, config_file)
+    config = get_config(base_path, vars_files=vars_files, engine_name=engine_name,  project_name=project_name,
+                        config_file=config_file)
     if not kwargs['production']:
         config.set_env('dev')
 
@@ -358,14 +367,15 @@ def hostcmd_restart(base_path, project_name, engine_name, vars_files=None, force
 
 
 @host_only
-def hostcmd_push(base_path, project_name, engine_name, vars_files=None, **kwargs):
+def hostcmd_push(base_path, project_name, engine_name, vars_files=None, config_file=None, **kwargs):
     """
     Push images to a registry. Requires authenticating with the registry prior to starting
     the push. If your engine's config file does not already contain an authorization for the
     registry, pass username and/or password. If you exclude password, you will be prompted.
     """
-    assert_initialized(base_path)
-    config = get_config(base_path, vars_files=vars_files, engine_name=engine_name, project_name=project_name)
+    assert_initialized(base_path, config_file)
+    config = get_config(base_path, vars_files=vars_files, engine_name=engine_name, project_name=project_name,
+                        config_file=config_file)
 
     engine_obj = load_engine(['LOGIN', 'PUSH'],
                              engine_name, config.project_name,
@@ -457,9 +467,9 @@ def push_images(base_path, image_namespace, engine_obj, config, **kwargs):
 
 
 @host_only
-def hostcmd_install(base_path, project_name, engine_name, **kwargs):
-    assert_initialized(base_path)
-    config = get_config(base_path, engine_name=engine_name, project_name=project_name)
+def hostcmd_install(base_path, project_name, engine_name, config_file=None, **kwargs):
+    assert_initialized(base_path, config_file)
+    config = get_config(base_path, engine_name=engine_name, project_name=project_name, config_file=config_file)
     save_conductor = config.save_conductor
     engine_obj = load_engine(['INSTALL'],
                              engine_name, config.project_name,
@@ -471,12 +481,12 @@ def hostcmd_install(base_path, project_name, engine_name, **kwargs):
                                        save_container=save_conductor)
 
 @host_only
-def hostcmd_version(base_path, project_name, engine_name, **kwargs):
+def hostcmd_version(base_path, project_name, engine_name, config_file=None, **kwargs):
     print('Ansible Container, version', __version__)
     if kwargs.get('debug', False):
         print(u', '.join(os.uname()))
         print(sys.version, sys.executable)
-        assert_initialized(base_path)
+        assert_initialized(base_path, config_file)
         engine_obj = load_engine(['VERSION'],
                                  engine_name,
                                  project_name or os.path.basename(base_path),
@@ -485,7 +495,7 @@ def hostcmd_version(base_path, project_name, engine_name, **kwargs):
 
 
 @host_only
-def hostcmd_import(base_path, project_name, engine_name, **kwargs):
+def hostcmd_import(base_path, project_name, engine_name, config_file=None, **kwargs):
     engine_obj = load_engine(['IMPORT'],
                              engine_name,
                              project_name or os.path.basename(base_path),
