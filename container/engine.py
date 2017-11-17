@@ -140,7 +140,7 @@ class BaseEngine(object):
             self.container_name_for_service(service_name)
         )
 
-    def get_intermediate_container_ids_for_servie(self, service_name):
+    def get_intermediate_containers_for_servie(self, service_name):
         raise NotImplementedError()
 
     def get_image_id_by_fingerprint(self, fingerprint):

@@ -11,6 +11,7 @@
     dest: "{{ tempdir.path }}/rebuild"
 - name: Build it
   command: "ansible-container --project-path {{ tempdir.path }}/rebuild --devel build --no-cache"
+  notify: Cleanup rebuild features containers and images
 - name: Validate build artifacts
   shell: pytest tests/validate_build_artifacts.py
   environment:
@@ -19,6 +20,7 @@
 - name: Grab the intermediate container ids
   shell: "docker ps -a | grep rebuild_foo | cut -c1-12"
   register: int_containers
+- debug: var=int_containers
 - name: Grab the image layer ids
   shell: "docker history rebuild-foo:latest | grep 'Ansible Container' | cut -c1-12"
   register: image_layers
@@ -40,14 +42,14 @@
 - name: Grab the intermediate container ids
   shell: "docker ps -a | grep rebuild_foo | cut -c1-12"
   register: rebuild_int_containers
-- pause: prompt=Wut.
+- debug: var=rebuild_int_containers
 - name: Ensure only 3 containers and only 3rd one is new (list is reverse sorted)
   assert:
     that:
       - rebuild_int_containers.stdout_lines|length == 3
       - rebuild_int_containers.stdout_lines[0] != int_containers.stdout_lines[0]
       - rebuild_int_containers.stdout_lines[1] == int_containers.stdout_lines[1]
-      - rebuild_int_contaienrs.stdout_lines[2] == int_containers.stdout_lines[2]
+      - rebuild_int_containers.stdout_lines[2] == int_containers.stdout_lines[2]
 
 
 

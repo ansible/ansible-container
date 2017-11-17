@@ -852,8 +852,7 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                                     service=service_name, role=role)
                         # Nothing more to be done for this role, so move on to the
                         # next one. Don't throw away the build container though.
-                        if int_container_id:
-                            artifact_breadcrumbs.append(int_container_id)
+                        artifact_breadcrumbs.append(int_container_name)
                         continue
                     else:
                         # This means the cache is busted. However we may still
@@ -896,7 +895,7 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                         local_python=local_python
                     )
 
-                artifact_breadcrumbs.append(container_id)
+                artifact_breadcrumbs.append(int_container_name)
                 while not engine.service_is_running(service_name,
                                                     container_id=container_id):
                     time.sleep(0.2)
@@ -934,12 +933,15 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
             engine.tag_image_as_latest(service_name, cur_image_id)
             logger.info(u'Build complete.', service=service_name)
             logger.info(u'Cleaning up stale build artifacts.', service=service_name)
-            for container_id in engine.get_intermediate_container_ids_for_service(service_name):
-                if container_id not in artifact_breadcrumbs:
-                    logger.debug(u'Container id %s not found as part of this build. Cleansing it.',
-                                 container_id, service=service_name)
-                    engine.stop_container(container_id)
-                    engine.delete_container(container_id)
+            intermediate_containers = list(engine.get_intermediate_containers_for_service(service_name))
+            logger.debug(u'Containers vs. artifacts', artifact_breadcrumbs=artifact_breadcrumbs,
+                         intermediate_containers=intermediate_containers)
+            for container_name in intermediate_containers:
+                if container_name not in artifact_breadcrumbs:
+                    logger.debug(u'Container name %s not found as part of this build. Cleansing it.',
+                                 container_name, service=service_name)
+                    engine.stop_container(container_name)
+                    engine.delete_container(container_name)
         else:
             logger.info(u'Service had no roles specified. Nothing to do.', service=service_name)
     logger.info(u'All images successfully built.')

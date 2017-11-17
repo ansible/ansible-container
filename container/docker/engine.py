@@ -557,17 +557,18 @@ class Engine(BaseEngine, DockerSecretsMixin):
             container_info = self.client.containers.get(name)
         except docker_errors.NotFound:
             logger.debug("Could not find container for %s", name,
-                         all_containers=self.client.containers.list())
+                         all_containers=[
+                             c.name for c in self.client.containers.list(all=True)])
             return None
         else:
             return container_info.id
 
-    def get_intermediate_container_ids_for_service(self, service_name):
+    def get_intermediate_containers_for_service(self, service_name):
         container_substring = self.container_name_for_service(service_name)
         for container in self.client.containers.list(all=True):
             if container.name.startswith(container_substring) and \
                             container.name != container_substring:
-                yield container.id
+                yield container.name
 
     def get_image_id_by_fingerprint(self, fingerprint):
         try:
