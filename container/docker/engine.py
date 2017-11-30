@@ -319,16 +319,24 @@ class Engine(BaseEngine, DockerSecretsMixin):
         pswd_file = params.get('vault_password_file') or config.get('settings', {}).get('vault_password_file')
         if pswd_file:
             pswd_file_path = os.path.normpath(os.path.abspath(os.path.expanduser(pswd_file)))
-            volumes[pswd_file_path] = {
-                'bind': pswd_file_path,
-                'mode': 'ro'
-            }
-            params['vault_password_file'] = pswd_file_path
+            if not os.path.exists(pswd_file_path):
+                logger.warning(u'Vault file %s specified but does not exist. Ignoring it.',
+                               pswd_file_path)
+            else:
+                volumes[pswd_file_path] = {
+                    'bind': pswd_file_path,
+                    'mode': 'ro'
+                }
+                params['vault_password_file'] = pswd_file_path
 
         vaults = params.get('vault_files') or config.get('settings', {}).get('vault_files')
         if vaults:
             vault_paths = [os.path.normpath(os.path.abspath(os.path.expanduser(v))) for v in vaults]
             for vault_path in vault_paths:
+                if not os.path.exists(vault_path):
+                    logger.warning(u'Vault file %s specified but does not exist. Ignoring it.',
+                                   vault_path)
+                    continue
                 volumes[vault_path] = {
                     'bind': vault_path,
                     'mode': 'ro'
