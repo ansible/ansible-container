@@ -945,8 +945,22 @@ class Engine(BaseEngine, DockerSecretsMixin):
                                    'Dockerfile',
                                    conductor_base=base_image,
                                    docker_version=DOCKER_VERSION)
+
         tarball.add(os.path.join(temp_dir, 'Dockerfile'),
                     arcname='Dockerfile')
+
+        utils.jinja_render_to_temp(TEMPLATES_PATH,
+                                   'atomic-help.j2', temp_dir,
+                                   'help.1',
+                                   ansible_container_version=container.__version__)
+        tarball.add(os.path.join(temp_dir, 'help.1'),
+                    arcname='help.1')
+
+        utils.jinja_render_to_temp(TEMPLATES_PATH,
+                                   'license.j2', temp_dir,
+                                   'LICENSE')
+        tarball.add(os.path.join(temp_dir, 'LICENSE'),
+                    arcname='LICENSE')
 
         container_dir = os.path.dirname(container.__file__)
         tarball.add(container_dir, arcname='container-src')
