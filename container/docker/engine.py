@@ -710,7 +710,7 @@ class Engine(BaseEngine, DockerSecretsMixin):
                              container_id,
                              service_name,
                              fingerprint,
-                             role,
+                             role_name,
                              metadata,
                              with_name=False):
         metadata = metadata.copy()
@@ -729,7 +729,7 @@ class Engine(BaseEngine, DockerSecretsMixin):
             image_changes.append(u'VOLUME %s' % (mount_point,))
         image_config = utils.metadata_to_image_config(metadata)
         image_config.setdefault('Labels', {})[self.FINGERPRINT_LABEL_KEY] = fingerprint
-        image_config['Labels'][self.ROLE_LABEL_KEY] = role
+        image_config['Labels'][self.ROLE_LABEL_KEY] = role_name
         commit_data = dict(
             repository=image_name if with_name else None,
             tag=image_version if with_name else None,

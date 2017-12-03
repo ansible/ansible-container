@@ -726,10 +726,8 @@ def _find_base_image_id(engine, service_name, service):
             )
     return image_id
 
-def _intermediate_build_container_name(engine, service_name, image_fingerprint, role):
-    return u'%s-%s-%s' % (engine.container_name_for_service(service_name),
-        image_fingerprint[:8],
-        role)
+def _intermediate_build_container_name(engine, service_name, image_fingerprint, role_name):
+    return u'%s-%s-%s' % (engine.container_name_for_service(service_name), image_fingerprint[:8], role_name)
 
 def _run_intermediate_build_container(engine, container_name, cur_image_id, service_name, service,
                                       **kwargs):
@@ -838,10 +836,11 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
         if service.get('roles'):
             for role in service['roles']:
                 cur_image_fingerprint = fingerprint_hash.hexdigest()
+                role_name = role if not isinstance(role, dict) else role.get('role')
                 role_fingerprint = get_role_fingerprint(role)
                 fingerprint_hash.update(role_fingerprint)
                 logger.info('Fingerprint for this layer: %s', fingerprint_hash.hexdigest(),
-                            service=service_name, role=role, parent_image_id=cur_image_id,
+                            service=service_name, role=role_name, parent_image_id=cur_image_id,
                             parent_fingerprint=cur_image_fingerprint)
 
                 if not cache_busted:
@@ -849,7 +848,7 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                     cached_image_id = engine.get_image_id_by_fingerprint(
                         fingerprint_hash.hexdigest())
                     int_container_name = _intermediate_build_container_name(
-                        engine, service_name, cur_image_fingerprint, role
+                        engine, service_name, cur_image_fingerprint, role_name
                     )
                     int_container_id = engine.get_container_id_by_name(
                         int_container_name)
@@ -858,8 +857,8 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                         logger.debug(u'Cached layer found for service',
                                      service=service_name, fingerprint=fingerprint_hash.hexdigest())
                         cur_image_id = cached_image_id
-                        logger.info(u'Applied role %s from cache', role,
-                                    service=service_name, role=role)
+                        logger.info(u'Applied role %s from cache', role_name,
+                                    service=service_name, role=role_name)
                         # Nothing more to be done for this role, so move on to the
                         # next one. Don't throw away the build container though.
                         artifact_breadcrumbs.append(int_container_name)
@@ -869,7 +868,7 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                         # be able to do an optimized rebuild, reusing the build
                         # container from this layer and reapplying the role.
                         logger.info(u'Cached layer for for role %s not found or '
-                                    u'invalid.', role, service=service_name,
+                                    u'invalid.', role_name, service=service_name,
                                     fingerprint=fingerprint_hash.hexdigest(),
                                     cur_image_id=cur_image_id)
                         cache_busted = True
@@ -877,7 +876,7 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                             # There is still an intermediate build container.
                             logger.info(u'Reusing intermediate build container '
                                         u'%s to reapply role %s.',
-                                        int_container_name, role,
+                                        int_container_name, role_name,
                                         service=service_name)
                             container_id = engine.start_container(int_container_id)
                         else:
@@ -885,7 +884,7 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                                         u'container to reapply role %s. '
                                         u'Applying role on image %s as '
                                         u'container %s.',
-                                        role, cur_image_id, int_container_name,
+                                        role_name, cur_image_id, int_container_name,
                                         cur_image_fingerprint=cur_image_fingerprint,
                                         service=service_name)
 
@@ -895,10 +894,10 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                             )
                 else:
                     int_container_name = _intermediate_build_container_name(
-                        engine, service_name, cur_image_fingerprint, role
+                        engine, service_name, cur_image_fingerprint, role_name
                     )
                     logger.info(u'Applying role %s on image %s as container %s',
-                                role, cur_image_id, int_container_name,
+                                role_name, cur_image_id, int_container_name,
                                 service=service_name)
                     container_id = _run_intermediate_build_container(
                         engine, int_container_name, cur_image_id, service_name, service,
@@ -919,7 +918,7 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                 logger.debug('Playbook run finished.', exit_code=rc)
                 if rc:
                     raise RuntimeError('Build failed.')
-                logger.info(u'Applied role to service', service=service_name, role=role)
+                logger.info(u'Applied role to service', service=service_name, role=role_name)
 
                 engine.stop_container(container_id, forcefully=True)
                 is_last_role = role is service['roles'][-1]
@@ -931,11 +930,11 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
                     image_id = engine.commit_role_as_layer(container_id,
                                                            service_name,
                                                            fingerprint_hash.hexdigest(),
-                                                           role,
+                                                           role_name,
                                                            service,
                                                            with_name=is_last_role)
                     logger.info(u'Committed layer as image', service=service_name,
-                                image=image_id, role=role,
+                                image=image_id, role=role_name,
                                 fingerprint=fingerprint_hash.hexdigest(),)
                 # engine.delete_container(container_id)
                 cur_image_id = image_id

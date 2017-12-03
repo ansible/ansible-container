@@ -214,23 +214,28 @@ def create_role_from_templates(role_name=None, role_path=None,
 
 
 @container.conductor_only
-def resolve_role_to_path(role_name):
+def resolve_role_to_path(role):
+    """
+    Given a role definition from a service's list of roles, returns the file path to the role
+    """
     loader = DataLoader()
     try:
         variable_manager = VariableManager(loader=loader)
     except TypeError:
         # If Ansible prior to ansible/ansible@8f97aef1a365
         variable_manager = VariableManager()
-    role_obj = RoleInclude.load(data=role_name, play=None,
+    role_obj = RoleInclude.load(data=role, play=None,
                                 variable_manager=variable_manager,
                                 loader=loader)
-    role_path = role_obj._role_path
-    return role_path
+    return role_obj._role_path
 
 
 @container.conductor_only
-def get_role_fingerprint(role_name):
-
+def get_role_fingerprint(role):
+    """
+    Given a role definition from a service's list of roles, returns a hexdigest based on the role definition,
+    the role contents, and the hexdigest of each dependency
+    """
     def hash_file(hash_obj, file_path):
         blocksize = 64 * 1024
         with open(file_path, 'rb') as ifs:
@@ -271,9 +276,9 @@ def get_role_fingerprint(role_name):
 
     hash_obj = hashlib.sha256()
     # Account for variables passed to the role by including the invocation string
-    hash_obj.update((json.dumps(role_name) if not isinstance(role_name, string_types) else role_name) + '::')
+    hash_obj.update((json.dumps(role) if not isinstance(role, string_types) else role) + '::')
     # Add each of the role's files and directories
-    hash_role(hash_obj, resolve_role_to_path(role_name))
+    hash_role(hash_obj, resolve_role_to_path(role))
     return hash_obj.hexdigest()
 
 
