@@ -443,7 +443,7 @@ class AnsibleContainerConductorConfig(Mapping):
                 )
                 services[service]['defaults'] = service_defaults
             else:
-                services[service] = {}
+                services[service] = service_data
         self.services = services
 
     def __getitem__(self, key):
