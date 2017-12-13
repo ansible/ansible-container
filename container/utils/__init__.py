@@ -249,6 +249,7 @@ def generate_playbook_for_role(service_name, vars, role):
     if isinstance(role, dict) and 'gather_facts' in role:
         # Allow disabling gather_facts at the role level
         playbook[0]['gather_facts'] = role.pop('gather_facts')
+    logger.debug('Playbook generated: %s', playbook)
     return playbook
 
 @container.conductor_only

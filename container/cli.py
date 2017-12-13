@@ -9,6 +9,7 @@ import sys
 import argparse
 import base64
 import json
+import subprocess
 
 import requests.exceptions
 
@@ -395,6 +396,15 @@ def conductor_commandline():
     if params.get('debug'):
         LOGGING['loggers']['container']['level'] = 'DEBUG'
     config.dictConfig(LOGGING)
+
+    # Copy a filtered subset of the mounted source into /src for use in builds
+    logger.info('Copying build context into Conductor container.')
+    p_obj = subprocess.Popen("rsync -q -a --filter=':- /_src/.dockerignore' /_src/ /src",
+                             shell=True, stderr=subprocess.PIPE)
+    p_obj.wait()
+    if p_obj.returncode:
+        logger.error('Error copying build context: %s', p_obj.stderr.read())
+        sys.exit(p_obj.returncode)
 
     containers_config = decoding_fn(args.config)
     conductor_config = AnsibleContainerConductorConfig(list_to_ordereddict(containers_config),
