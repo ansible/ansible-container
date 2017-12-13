@@ -681,21 +681,12 @@ def run_playbook(playbook, engine, service_map, ansible_options='', local_python
 
     return return_code
 
+
 @conductor_only
 def apply_role_to_container(role, container_id, service_name, engine, vars={},
                             local_python=False, ansible_options='',
                             debug=False):
-    playbook = [
-        {'hosts': service_name,
-         'vars': vars,
-         'roles': [role],
-         }
-    ]
-
-    if isinstance(role, dict) and 'gather_facts' in role:
-        # Allow disabling gather_facts at the role level
-        playbook[0]['gather_facts'] = role.pop('gather_facts')
-
+    playbook = generate_playbook_for_role(service_name, vars, role)
     container_metadata = engine.inspect_container(container_id)
     onbuild = container_metadata['Config']['OnBuild']
     # FIXME: Actually do stuff if onbuild is not null
@@ -837,7 +828,7 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
             for role in service['roles']:
                 cur_image_fingerprint = fingerprint_hash.hexdigest()
                 role_name = role if not isinstance(role, dict) else role.get('role')
-                role_fingerprint = get_role_fingerprint(role)
+                role_fingerprint = get_role_fingerprint(role, service_name, config_vars)
                 fingerprint_hash.update(role_fingerprint)
                 logger.info('Fingerprint for this layer: %s', fingerprint_hash.hexdigest(),
                             service=service_name, role=role_name, parent_image_id=cur_image_id,
