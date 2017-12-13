@@ -411,10 +411,10 @@ class AnsibleContainerConductorConfig(Mapping):
 
     def _process_services(self):
         services = ordereddict()
-        if not self._skip_services:
-            for service, service_data in self._config.get('services', ordereddict()).items():
-                logger.debug('Processing service...', service=service, service_data=service_data)
-                processed = ordereddict()
+        for service, service_data in self._config.get('services', ordereddict()).items():
+            logger.debug('Processing service...', service=service, service_data=service_data)
+            processed = ordereddict()
+            if not self._skip_services:
                 service_defaults = self.defaults.copy()
                 for idx in range(len(service_data.get('volumes', []))):
                     # To mount the project directory, let users specify `$PWD` and
@@ -442,6 +442,8 @@ class AnsibleContainerConductorConfig(Mapping):
                     templar=Templar(loader=None, variables=service_defaults)
                 )
                 services[service]['defaults'] = service_defaults
+            else:
+                services[service] = {}
         self.services = services
 
     def __getitem__(self, key):
