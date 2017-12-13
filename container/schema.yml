@@ -99,7 +99,9 @@ properties:
         roles:
           type: array
           items:
-            type: string
+            type:
+              - string
+              - object
   volumes:
     type: object
     additionalProperties:
