@@ -241,7 +241,7 @@ def resolve_role_to_path(role):
 def generate_playbook_for_role(service_name, vars, role):
     playbook = [
         {'hosts': service_name,
-         'vars': vars,
+         'vars': vars or {},
          'roles': [role],
          }
     ]
@@ -285,11 +285,11 @@ def get_role_fingerprint(role, service_name, config_vars):
                 hash_role(hash_obj, dependency_path)
         # However tasks within that role might reference files outside of the
         # role, like source code
-        play = Play.load(generate_playbook_for_role(service_name, role, vars))
+        play = Play.load(generate_playbook_for_role(service_name, config_vars, role)[0])
         play_context = PlayContext(play=play)
-        inv_man = InventoryManager(sources=[service_name])
+        inv_man = InventoryManager(None, sources=['%s,' % service_name])
         host = Host(service_name)
-        iterator = PlayIterator(inv_man, play, play_context, None, vars)
+        iterator = PlayIterator(inv_man, play, play_context, None, config_vars)
         while True:
             _, task = iterator.get_next_task_for_host(host)
             if task is None: break
