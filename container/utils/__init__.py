@@ -286,11 +286,13 @@ def get_role_fingerprint(role, service_name, config_vars):
                 hash_role(hash_obj, dependency_path)
         # However tasks within that role might reference files outside of the
         # role, like source code
+        loader = DataLoader()
+        var_man = VariableManager(loader=loader)
         play = Play.load(generate_playbook_for_role(service_name, config_vars, role)[0])
         play_context = PlayContext(play=play)
-        inv_man = InventoryManager(None, sources=['%s,' % service_name])
+        inv_man = InventoryManager(loader, sources=['%s,' % service_name])
         host = Host(service_name)
-        iterator = PlayIterator(inv_man, play, play_context, None, config_vars)
+        iterator = PlayIterator(inv_man, play, play_context, var_man, config_vars)
         while True:
             _, task = iterator.get_next_task_for_host(host)
             if task is None: break

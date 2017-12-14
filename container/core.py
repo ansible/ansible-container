@@ -591,21 +591,9 @@ def run_playbook(playbook, engine, service_map, ansible_options='', local_python
                     # Use local Python runtime
                     ofs.write('%s ansible_host="%s"\n' % (service_name, container_id))
 
-        if not os.path.exists(os.path.join(output_dir, 'files')):
-            os.mkdir(os.path.join(output_dir, 'files'))
-        if not os.path.exists(os.path.join(output_dir, 'templates')):
-            os.mkdir(os.path.join(output_dir, 'templates'))
 
         set_path_ownership(output_dir, uid, gid)
 
-        rc = subprocess.call(['mount', '--bind', '/src',
-                              os.path.join(output_dir, 'files')])
-        if rc:
-            raise OSError('Could not bind-mount /src into tmpdir')
-        rc = subprocess.call(['mount', '--bind', '/src',
-                              os.path.join(output_dir, 'templates')])
-        if rc:
-            raise OSError('Could not bind-mount /src into tmpdir')
 
         if vault_password_file:
             vault_password_file = '--vault-password-file {}'.format(vault_password_file)
@@ -666,13 +654,6 @@ def run_playbook(playbook, engine, service_map, ansible_options='', local_python
 
         return_code = process.returncode
     finally:
-        try:
-            rc = subprocess.call(['unmount',
-                                  os.path.join(output_dir, 'files')])
-            rc = subprocess.call(['unmount',
-                                  os.path.join(output_dir, 'templates')])
-        except Exception:
-            pass
         try:
             if remove_tmpdir:
                 shutil.rmtree(output_dir, ignore_errors=True)
