@@ -566,22 +566,17 @@ def run_playbook(playbook, engine, service_map, ansible_options='', local_python
                  vault_password_file=None, **kwargs):
     uid, gid = kwargs.get('host_user_uid', 1), kwargs.get('host_user_gid', 1)
     return_code = 0
+    inventory_path, vault_pass_path, playbook_path = '', '', ''
     try:
-        if deployment_output_path:
-            remove_tmpdir = False
-            output_dir = deployment_output_path
-        else:
-            remove_tmpdir = True
-            output_dir = tempfile.mkdtemp()
-
-        playbook_path = os.path.join(output_dir, 'playbook.yml')
+        output_dir = deployment_output_path or '/src'
+        playbook_fd, playbook_path = tempfile.mkstemp(suffix='.yml', dir=output_dir)
         logger.debug("writing playbook to {}".format(playbook_path))
         logger.debug("playbook", playbook=playbook)
-        with open(playbook_path, 'w') as ofs:
+        with os.fdopen(playbook_fd, 'w') as ofs:
             ofs.write(ruamel.yaml.round_trip_dump(playbook, indent=4, block_seq_indent=2, default_flow_style=False))
 
-        inventory_path = os.path.join(output_dir, 'hosts')
-        with open(inventory_path, 'w') as ofs:
+        inventory_fd, inventory_path = tempfile.mkstemp(dir=output_dir, prefix='hosts-')
+        with os.fdopen(inventory_fd, 'w') as ofs:
             for service_name, container_id in service_map.items():
                 if not local_python:
                     # Use Python runtime from conductor
@@ -599,8 +594,8 @@ def run_playbook(playbook, engine, service_map, ansible_options='', local_python
             vault_password_file = '--vault-password-file {}'.format(vault_password_file)
         elif vault_password:
             # User entered password
-            vault_pass_path = os.path.join(output_dir, '.vault-pass.txt')
-            with open(vault_pass_path, 'w') as ofs:
+            vault_pass_fd, vault_pass_path = tempfile.mkstemp(dir=output_dir, suffix='.vault-pass.txt')
+            with os.fdopen(vault_pass_fd, 'w') as ofs:
                 ofs.write(vault_password)
             vault_password_file = '--vault-password-file {}'.format(vault_pass_path)
 
@@ -655,8 +650,10 @@ def run_playbook(playbook, engine, service_map, ansible_options='', local_python
         return_code = process.returncode
     finally:
         try:
-            if remove_tmpdir:
-                shutil.rmtree(output_dir, ignore_errors=True)
+            if not deployment_output_path:
+                if os.path.exists(playbook_path): os.remove(playbook_path)
+                if os.path.exists(inventory_path): os.remove(inventory_path)
+                if os.path.exists(vault_pass_path): os.remove(vault_pass_path)
         except Exception:
             pass
 
