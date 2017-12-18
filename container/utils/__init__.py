@@ -30,17 +30,25 @@ if container.ENV == 'conductor':
         # Prior to ansible/ansible@8f97aef1a365, this was not in its own module
         from ansible.vars import VariableManager
     from ansible.parsing.dataloader import DataLoader
+    from ansible.playbook.play import Play
+    from ansible.playbook.play_context import PlayContext
+    from ansible.executor.play_iterator import PlayIterator
+    from ansible.inventory.manager import InventoryManager
+    from ansible.inventory.host import Host
 
 __all__ = ['conductor_dir', 'make_temp_dir', 'get_config', 'assert_initialized',
            'create_path', 'jinja_template_path', 'jinja_render_to_temp',
            'metadata_to_image_config', 'create_role_from_templates',
-           'resolve_role_to_path', 'get_role_fingerprint', 'get_content_from_role',
+           'resolve_role_to_path', 'generate_playbook_for_role',
+           'get_role_fingerprint', 'get_content_from_role',
            'get_metadata_from_role', 'get_defaults_from_role', 'text',
            'ordereddict_to_list', 'list_to_ordereddict', 'modules_to_install',
            'roles_to_install', 'ansible_config_exists', 'create_file']
 
 conductor_dir = os.path.dirname(container.__file__)
 make_temp_dir = MakeTempDir
+
+FILE_COPY_MODULES = ['synchronize', 'copy']
 
 
 def get_config(base_path, vars_files=None, engine_name=None, project_name=None, vault_files=None, config_file=None):
@@ -229,9 +237,23 @@ def resolve_role_to_path(role):
                                 loader=loader)
     return role_obj._role_path
 
+@container.conductor_only
+def generate_playbook_for_role(service_name, vars, role):
+    playbook = [
+        {'hosts': service_name,
+         'vars': vars or {},
+         'roles': [role],
+         }
+    ]
+
+    if isinstance(role, dict) and 'gather_facts' in role:
+        # Allow disabling gather_facts at the role level
+        playbook[0]['gather_facts'] = role.pop('gather_facts')
+    logger.debug('Playbook generated: %s', playbook)
+    return playbook
 
 @container.conductor_only
-def get_role_fingerprint(role):
+def get_role_fingerprint(role, service_name, config_vars):
     """
     Given a role definition from a service's list of roles, returns a hexdigest based on the role definition,
     the role contents, and the hexdigest of each dependency
@@ -255,13 +277,33 @@ def get_role_fingerprint(role):
                 hash_file(hash_obj, abs_file_path)
 
     def hash_role(hash_obj, role_path):
-        # A role is easy to hash - the hash of the role content with the
+        # Role content is easy to hash - the hash of the role content with the
         # hash of any role dependencies it has
         hash_dir(hash_obj, role_path)
         for dependency in get_dependencies_for_role(role_path):
             if dependency:
                 dependency_path = resolve_role_to_path(dependency)
                 hash_role(hash_obj, dependency_path)
+        # However tasks within that role might reference files outside of the
+        # role, like source code
+        loader = DataLoader()
+        var_man = VariableManager(loader=loader)
+        play = Play.load(generate_playbook_for_role(service_name, config_vars, role)[0])
+        play_context = PlayContext(play=play)
+        inv_man = InventoryManager(loader, sources=['%s,' % service_name])
+        host = Host(service_name)
+        iterator = PlayIterator(inv_man, play, play_context, var_man, config_vars)
+        while True:
+            _, task = iterator.get_next_task_for_host(host)
+            if task is None: break
+            if task.action in FILE_COPY_MODULES:
+                src = task.args.get('src')
+                if not os.path.exists(src) or not src.startswith(('/', '..')): continue
+                src = os.path.realpath(src)
+                if os.path.isfile(src):
+                    hash_file(hash_obj, src)
+                else:
+                    hash_dir(hash_obj, src)
 
     def get_dependencies_for_role(role_path):
         meta_main_path = os.path.join(role_path, 'meta', 'main.yml')

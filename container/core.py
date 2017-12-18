@@ -566,22 +566,17 @@ def run_playbook(playbook, engine, service_map, ansible_options='', local_python
                  vault_password_file=None, **kwargs):
     uid, gid = kwargs.get('host_user_uid', 1), kwargs.get('host_user_gid', 1)
     return_code = 0
+    inventory_path, vault_pass_path, playbook_path = '', '', ''
     try:
-        if deployment_output_path:
-            remove_tmpdir = False
-            output_dir = deployment_output_path
-        else:
-            remove_tmpdir = True
-            output_dir = tempfile.mkdtemp()
-
-        playbook_path = os.path.join(output_dir, 'playbook.yml')
+        output_dir = deployment_output_path or '/src'
+        playbook_fd, playbook_path = tempfile.mkstemp(suffix='.yml', dir=output_dir)
         logger.debug("writing playbook to {}".format(playbook_path))
         logger.debug("playbook", playbook=playbook)
-        with open(playbook_path, 'w') as ofs:
+        with os.fdopen(playbook_fd, 'w') as ofs:
             ofs.write(ruamel.yaml.round_trip_dump(playbook, indent=4, block_seq_indent=2, default_flow_style=False))
 
-        inventory_path = os.path.join(output_dir, 'hosts')
-        with open(inventory_path, 'w') as ofs:
+        inventory_fd, inventory_path = tempfile.mkstemp(dir=output_dir, prefix='hosts-')
+        with os.fdopen(inventory_fd, 'w') as ofs:
             for service_name, container_id in service_map.items():
                 if not local_python:
                     # Use Python runtime from conductor
@@ -591,28 +586,16 @@ def run_playbook(playbook, engine, service_map, ansible_options='', local_python
                     # Use local Python runtime
                     ofs.write('%s ansible_host="%s"\n' % (service_name, container_id))
 
-        if not os.path.exists(os.path.join(output_dir, 'files')):
-            os.mkdir(os.path.join(output_dir, 'files'))
-        if not os.path.exists(os.path.join(output_dir, 'templates')):
-            os.mkdir(os.path.join(output_dir, 'templates'))
 
         set_path_ownership(output_dir, uid, gid)
 
-        rc = subprocess.call(['mount', '--bind', '/src',
-                              os.path.join(output_dir, 'files')])
-        if rc:
-            raise OSError('Could not bind-mount /src into tmpdir')
-        rc = subprocess.call(['mount', '--bind', '/src',
-                              os.path.join(output_dir, 'templates')])
-        if rc:
-            raise OSError('Could not bind-mount /src into tmpdir')
 
         if vault_password_file:
             vault_password_file = '--vault-password-file {}'.format(vault_password_file)
         elif vault_password:
             # User entered password
-            vault_pass_path = os.path.join(output_dir, '.vault-pass.txt')
-            with open(vault_pass_path, 'w') as ofs:
+            vault_pass_fd, vault_pass_path = tempfile.mkstemp(dir=output_dir, suffix='.vault-pass.txt')
+            with os.fdopen(vault_pass_fd, 'w') as ofs:
                 ofs.write(vault_password)
             vault_password_file = '--vault-password-file {}'.format(vault_pass_path)
 
@@ -667,35 +650,21 @@ def run_playbook(playbook, engine, service_map, ansible_options='', local_python
         return_code = process.returncode
     finally:
         try:
-            rc = subprocess.call(['unmount',
-                                  os.path.join(output_dir, 'files')])
-            rc = subprocess.call(['unmount',
-                                  os.path.join(output_dir, 'templates')])
-        except Exception:
-            pass
-        try:
-            if remove_tmpdir:
-                shutil.rmtree(output_dir, ignore_errors=True)
+            if not deployment_output_path:
+                if os.path.exists(playbook_path): os.remove(playbook_path)
+                if os.path.exists(inventory_path): os.remove(inventory_path)
+                if os.path.exists(vault_pass_path): os.remove(vault_pass_path)
         except Exception:
             pass
 
     return return_code
 
+
 @conductor_only
 def apply_role_to_container(role, container_id, service_name, engine, vars={},
                             local_python=False, ansible_options='',
                             debug=False):
-    playbook = [
-        {'hosts': service_name,
-         'vars': vars,
-         'roles': [role],
-         }
-    ]
-
-    if isinstance(role, dict) and 'gather_facts' in role:
-        # Allow disabling gather_facts at the role level
-        playbook[0]['gather_facts'] = role.pop('gather_facts')
-
+    playbook = generate_playbook_for_role(service_name, vars, role)
     container_metadata = engine.inspect_container(container_id)
     onbuild = container_metadata['Config']['OnBuild']
     # FIXME: Actually do stuff if onbuild is not null
@@ -837,7 +806,7 @@ def conductorcmd_build(engine_name, project_name, services, cache=True, local_py
             for role in service['roles']:
                 cur_image_fingerprint = fingerprint_hash.hexdigest()
                 role_name = role if not isinstance(role, dict) else role.get('role')
-                role_fingerprint = get_role_fingerprint(role)
+                role_fingerprint = get_role_fingerprint(role, service_name, config_vars)
                 fingerprint_hash.update(role_fingerprint)
                 logger.info('Fingerprint for this layer: %s', fingerprint_hash.hexdigest(),
                             service=service_name, role=role_name, parent_image_id=cur_image_id,
