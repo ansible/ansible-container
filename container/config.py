@@ -18,6 +18,7 @@ from collections import Mapping
 from .utils.ordereddict import ordereddict
 from .utils import resolve_config_path
 from ruamel import yaml
+import jsonschema
 import container
 
 if container.ENV == 'conductor':
@@ -316,29 +317,15 @@ class BaseAnsibleContainerConfig(Mapping):
 
     OPTIONS_OPENSHIFT_WHITELIST = []
 
-    SUPPORTED_COMPOSE_VERSIONS = ['1', '2']
-
-    REQUIRED_TOP_LEVEL_KEYS = ['services']
-
-    # TODO: Add more schema validation
 
     def _validate_config(self, config):
-        for key in self.REQUIRED_TOP_LEVEL_KEYS:
-            if config.get(key, None) is None:
-                raise AnsibleContainerConfigException("Missing expected key '{}'".format(key))
-
-        for top_level in config:
-            if top_level not in self.TOP_LEVEL_WHITELIST:
-                raise AnsibleContainerConfigException("invalid key '{0}'".format(top_level))
-
-            if top_level == 'version':
-                if config['version'] not in self.SUPPORTED_COMPOSE_VERSIONS:
-                    raise AnsibleContainerConfigException("requested version is not supported")
-                if config['version'] == '1':
-                    logger.warning("Version '1' is deprecated. Consider upgrading to version '2'.")
-            else:
-                if config[top_level] is None:
-                    config[top_level] = ordereddict()
+        schema_path = os.path.join(os.path.dirname(__file__), 'schema.yml')
+        schema = yaml.safe_load(open(schema_path))
+        try:
+            jsonschema.validate(config, schema)
+        except jsonschema.ValidationError, e:
+            logger.error('The container.yml file is invalid: %s', e.message)
+            logger.debug(text_type(e))
 
     def _validate_project_name(self, project_name):
         """
