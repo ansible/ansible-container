@@ -30,6 +30,7 @@ before_install:
 - mkdir tmp
 - export TMPDIR=${PWD}/tmp
 script:
+- python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'
 - python ./setup.py prebake --distros ${BASE_DISTRO} --debug
 - python ./setup.py test --ansible-args="-vvv"
 - if [ -f ./task.output ]; then cat task.output; fi
