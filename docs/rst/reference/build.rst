@@ -7,6 +7,8 @@ The ``ansible-container build`` command starts the Conductor container, and runs
 
 Each playbook runs inside the Conductor, and executes tasks on the service container, using the Docker connection plugin. When finished, a commit is performed on the service container, the container is stopped, and an image is created for the service. At the end of a successful run of this command, a built image will exist for each custom service (i.e., a service defined with one or more Ansible roles). This is analogous to ``docker build``.
 
+During a build, your project's contents are provided as a build context in the Conductor container at the file path ``/src``. Any files or patterns specified in a ``.dockerignore`` file will not be included in this build context.
+
 .. option:: --flatten
 
 By default, Ansible Container commits the changes your playbook made to the base image, but it retains the original layers from that base image. Specifying this option, Ansible Container flattens the union filesystem of your image to a single layer. This does break caching, so builds won'e be able to reuse cached layers and will fully rebuild your services even if you haven't changed anything.
