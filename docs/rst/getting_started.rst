@@ -45,6 +45,7 @@ Ansible Container provides a convenient way to start your app by simply running
     container.yml
     meta.yml
     requirements.yml
+    .dockerignore
 
 Other ``ansible-container`` subcommands enable the container development workflow:
 
@@ -144,6 +145,14 @@ Set Ansible configuration settings within the build container. For more
 information see `Configuration File <http://docs.ansible.com/ansible/intro_configuration.html>`_.
 Do note that overriding some of the settings, like `roles_path`, might have unexpected results,
 due to Ansible using the Conductor container as its execution environment.
+
+.dockerignore
+`````````````
+During a build, it is commonplace to synchronize the source from your project into
+one of your target containers. However many such files are not appropriate to be
+part of that build context, such as your ``.git`` directory. The Docker Engine would
+ignore files or patterns contained in the ``.dockerignore`` file from the build context
+and for conformity, Ansible Container will do the same.
 
 .. _example-project:
 
