@@ -5,9 +5,9 @@ group: deprecated-2017Q4
 env:
   matrix:
   - BASE_DISTRO: centos:7
+  - BASE_DISTRO: fedora:27
   - BASE_DISTRO: fedora:26
   - BASE_DISTRO: fedora:25
-  - BASE_DISTRO: fedora:24
   - BASE_DISTRO: amazonlinux:2
   - BASE_DISTRO: debian:jessie
   - BASE_DISTRO: debian:stretch
@@ -15,7 +15,7 @@ env:
   - BASE_DISTRO: ubuntu:precise
   - BASE_DISTRO: ubuntu:trusty
   - BASE_DISTRO: ubuntu:xenial
-  - BASE_DISTRO: ubuntu:zesty
+  - BASE_DISTRO: ubuntu:artful
   - BASE_DISTRO: alpine:3.5
   - BASE_DISTRO: alpine:3.4
 services:
