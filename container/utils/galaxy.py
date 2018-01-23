@@ -18,7 +18,7 @@ from container.utils.visibility import getLogger
 
 logger = getLogger(__name__)
 
-ANSIBLE_CONTAINER_PATH = '/src'
+ANSIBLE_CONTAINER_PATH = '/_src'
 
 
 class AttrDict(dict):
