@@ -137,7 +137,7 @@ class AnsibleContainerGalaxy(object):
         if not container_yml['services']:
             container_yml['services'] = {}
         services = container_yml['services']
-        new_service_key = role_obj.name
+        new_service_key = role_obj.name.split('.', 1)[-1]
         if new_service_key in services:
             raise exceptions.AnsibleContainerGalaxyRoleException(
                 'Role defines service %s, but container.yml already has a service with this name' % new_service_key)
