@@ -288,7 +288,8 @@ def get_role_fingerprint(role, service_name, config_vars):
         # role, like source code
         loader = DataLoader()
         var_man = VariableManager(loader=loader)
-        play = Play.load(generate_playbook_for_role(service_name, config_vars, role)[0])
+        play = Play.load(generate_playbook_for_role(service_name, config_vars, role)[0],
+                         variable_manager=var_man, loader=loader)
         play_context = PlayContext(play=play)
         inv_man = InventoryManager(loader, sources=['%s,' % service_name])
         host = Host(service_name)
