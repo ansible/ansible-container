@@ -1,9 +1,8 @@
 Migrating to Ansible Container
 ==============================
 
-Starting a new project :ref:`from an Ansible Galaxy project template <example-project>`
-is pretty easy. But what if you've already got an existing project you'd like
-to use with Ansible Container?
+Starting a new project is pretty easy. But what if you've already got an
+existing project you'd like to use with Ansible Container?
 
 Migrating from a Dockerfile
 ---------------------------
@@ -42,14 +41,14 @@ By way of an example, let's imagine you have a directory named ``node`` that con
 
 To migrate the above to an Ansible Container project, start by creating a new project directory. You'll run the ``import`` command from within this new directory in order to keep generated artifacts separate from the existing project. For example, create a new directory named ``acnode`` next to the existing ``node`` directory, and set your working directory to ``acnode``, as follows:
 
-.. code-block:: bash 
+.. code-block:: console
 
     $ mkdir acnode
     $ cd acnode
 
 Now from within the ``acnode`` directory, run ``ansible-container import ../node`` to perform the import. Once completed, you will see output similar to the following that explains what the import did, and describes each file it produced:
 
-.. code-block:: bash
+.. code-block:: console
 
     $ ansible-container import ../node
     

@@ -38,7 +38,7 @@ Dipping a Toe In - Starting from Scratch
 Ansible Container provides a convenient way to start your app by simply running
 ``ansible-container init`` from within your project directory, which creates:
 
-.. code-block:: bash
+.. code-block:: none
 
     ansible.cfg
     ansible-requirements.txt
