@@ -170,7 +170,7 @@ def metadata_to_image_config(metadata):
         Labels={},
         OnBuild=[]
     )
-    
+
     for metadata_key, (key, translator) in iteritems(TRANSLATORS):
         if metadata_key in metadata:
             config[key] = (translator(metadata[metadata_key]) if translator
@@ -299,12 +299,13 @@ def get_role_fingerprint(role, service_name, config_vars):
             if task is None: break
             if task.action in FILE_COPY_MODULES:
                 src = task.args.get('src')
-                if not os.path.exists(src) or not src.startswith(('/', '..')): continue
-                src = os.path.realpath(src)
-                if os.path.isfile(src):
-                    hash_file(hash_obj, src)
-                else:
-                    hash_dir(hash_obj, src)
+                if src is not None:
+                    if not os.path.exists(src) or not src.startswith(('/', '..')): continue
+                    src = os.path.realpath(src)
+                    if os.path.isfile(src):
+                        hash_file(hash_obj, src)
+                    else:
+                        hash_dir(hash_obj, src)
 
     def get_dependencies_for_role(role_path):
         meta_main_path = os.path.join(role_path, 'meta', 'main.yml')
