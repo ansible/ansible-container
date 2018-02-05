@@ -58,7 +58,7 @@ Install the role
 
 Use the Ansible Galaxy client, which comes bundled with Ansible, to install the role. If you're not familiar with installing roles, start by establishing a local directory where roles will be installed and executed. The following example creates the directory ``roles`` in your home directory, and then adds ``ANSIBLE_ROLES_PATH=~/roles`` to the login script, ``.bashrc``:
 
-.. code-block:: bash
+.. code-block:: console
 
     # Set your home directory as the working directory
     $ cd ~
@@ -75,7 +75,7 @@ Use the Ansible Galaxy client, which comes bundled with Ansible, to install the 
 
 Now open a new terminal window or tab to create a new session and execute the login script, and then check that *ANSIBLE_ROLES_PATH* is defined:
 
-.. code-block:: bash
+.. code-block:: console
 
     # Check the environment for our new variable 
     $ env | grep ANSIBLE_ROLES
@@ -84,7 +84,7 @@ Now open a new terminal window or tab to create a new session and execute the lo
 
 To install the role to your new ``~/roles`` directory, run the following:
 
-.. code-block:: bash
+.. code-block:: console
 
     # Install the role
     $ ansible-galaxy install chouseknecht.minishift-up-role
@@ -94,7 +94,7 @@ Run the role
 
 Now that the role is installed, you can execute it using the included playbook. Use the following commands to copy the playbook to your home directory, review the defaults, and execute it:
 
-.. code-block:: bash
+.. code-block:: console
 
     # Set your home directory as the working directory
     $ cd ~ 
@@ -104,7 +104,7 @@ Now that the role is installed, you can execute it using the included playbook. 
 
 The ``minishift-up.yml`` playbook contains the following:
 
-.. code-block:: bash
+.. code-block:: yaml
 
     ---
     - name: Install minishift
@@ -130,7 +130,7 @@ You can impact these actions, and how Minishift is started, by changing the role
 
 After reviewing the role parameters, use the following to run the role:
 
-.. code-block:: bash
+.. code-block:: console
 
    # Run the minishift role
    $ ansible-playbook minishift-up-role.yml --ask-become-pass

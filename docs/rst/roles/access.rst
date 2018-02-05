@@ -12,7 +12,7 @@ option.
 
 For example, if roles are locally installed in ``/etc/ansible/roles``, the following will make the roles available inside the Conductor container:
 
-.. code-block:: bash
+.. code-block:: console
 
     $ ansible-container build --roles-path /etc/ansible/roles
 
