@@ -5,6 +5,8 @@
 
 Ansible Container is a tool for building Docker images and orchestrating containers using Ansible playbooks.
 
+**NOTE: Ansible Container is no longer under active development as of February 2018.**
+
 ## How it works
 
 Use Ansible Container to manage the container lifecycle from development, through testing, to production:
