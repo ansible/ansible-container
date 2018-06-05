@@ -272,7 +272,7 @@ def get_role_fingerprint(role, service_name, config_vars):
         for root, dirs, files in os.walk(dir_path, topdown=True):
             for file_path in files:
                 abs_file_path = os.path.join(root, file_path)
-                hash_obj.update(abs_file_path)
+                hash_obj.update(abs_file_path.encode('utf-8'))
                 hash_obj.update('::')
                 hash_file(hash_obj, abs_file_path)
 
