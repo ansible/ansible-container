@@ -24,7 +24,7 @@
 - include: includes/show-output.yml output_file=./task.output registered_output="{{ output }}"
 
 - name: Wait until built containers are running
-  command: "docker inspect --format='{{'{{'}} .State.Status {{'}}'}}' test{{ distro.name|replace('-','') }}_{{ distro.name }}_1"
+  command: "docker inspect --format='{{'{{'}} .State.Status {{'}}'}}' test-{{ distro.name }}_{{ distro.name }}_1"
   register: container_run_status
   until: container_run_status.stdout == 'running'
   retries: 6
@@ -34,7 +34,7 @@
     - run
 
 - name: Note start time
-  command: "docker inspect --format='{{'{{'}} .State.StartedAt {{'}}'}}' test{{ distro.name|replace('-','') }}_{{ distro.name }}_1"
+  command: "docker inspect --format='{{'{{'}} .State.StartedAt {{'}}'}}' test-{{ distro.name }}_{{ distro.name }}_1"
   register: container_run_start
   tags:
     - restart
@@ -53,7 +53,7 @@
 - include: includes/show-output.yml output_file=./task.output registered_output="{{ output }}"
 
 - name: Wait until built containers are running
-  command: "docker inspect --format='{{'{{'}} .State.Status {{'}}'}}' test{{ distro.name|replace('-','') }}_{{ distro.name }}_1"
+  command: "docker inspect --format='{{'{{'}} .State.Status {{'}}'}}' test-{{ distro.name }}_{{ distro.name }}_1"
   register: container_restart_status
   until: container_restart_status.stdout == 'running'
   retries: 6
@@ -63,7 +63,7 @@
     - run
 
 - name: Note start time
-  command: "docker inspect --format='{{'{{'}} .State.StartedAt {{'}}'}}' test{{ distro.name|replace('-','') }}_{{ distro.name }}_1"
+  command: "docker inspect --format='{{'{{'}} .State.StartedAt {{'}}'}}' test-{{ distro.name }}_{{ distro.name }}_1"
   register: container_restart_start
   tags:
     - restart
@@ -93,7 +93,7 @@
 - include: includes/show-output.yml output_file=./task.output registered_output="{{ output }}"
 
 - name: Wait until built containers are stop
-  command: "docker inspect --format='{{'{{'}} .State.Status {{'}}'}}' test{{ distro.name|replace('-','') }}_{{ distro.name }}_1"
+  command: "docker inspect --format='{{'{{'}} .State.Status {{'}}'}}' test-{{ distro.name }}_{{ distro.name }}_1"
   register: container_stop_status
   until: container_stop_status.stdout != 'running'
   retries: 6

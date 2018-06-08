@@ -16,7 +16,7 @@ RUN yum update -y && \
     yum clean all
 {% elif distro in ["amazonlinux"] %}
 RUN yum -y update && \
-    yum -y install make git gcc python27-devel rsync libffi-devel openssl-devel && \
+    yum -y install make git gcc python27-devel rsync libffi-devel openssl-devel tar && \
     yum clean all
 {% elif "rhel" in distro %}
 RUN yum -y update-minimal --disablerepo "*" \
