@@ -1082,6 +1082,11 @@ class Engine(BaseEngine, DockerSecretsMixin):
             req_yml_dir = (package_dir
                            if os.path.exists(os.path.join(package_dir, 'conductor-requirements.yml'))
                            else FILES_PATH)
+            for filename in ['pycharm-debug.egg']:
+                file_path = os.path.join(setup_py_dir, filename)
+                if os.path.exists(file_path):
+                    tarball.add(file_path,
+                                arcname=os.path.join('build-src', filename))
             tarball.add(os.path.join(setup_py_dir, 'setup.py'),
                         arcname='container-src/conductor-build/setup.py')
             tarball.add(os.path.join(req_txt_dir, 'conductor-requirements.txt'),
