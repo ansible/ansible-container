@@ -48,6 +48,9 @@ RUN apk add --no-cache -U python-dev make git curl rsync libffi libffi-dev opens
 RUN (curl https://bootstrap.pypa.io/get-pip.py | python - --no-cache-dir ) && \
     mkdir -p /etc/ansible/roles /_ansible/src && \
     mkdir -p /licenses && \
+    {% if distro_version in ["wheezy", "precise", "trusty"] %}
+    pip install -U pyopenssl ndg-httpsclient pyasn1 && \
+    {% endif %}
     (curl https://get.docker.com/builds/Linux/x86_64/docker-{{ docker_version }}.tgz \
        | tar -zxC /usr/local/bin/ --strip-components=1 docker/docker )
 
