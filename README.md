@@ -11,7 +11,7 @@ Use Ansible Container to manage the container lifecycle from development, throug
 
 * `ansible-container init`
 
-  Creates a directory *ansible* with files to get you started. Read the comments, and edit to suit your needs.
+  Creates files in the *current directory* to get you started. Read the comments, and edit to suit your needs.
 
 * `ansible-container install`
 
