@@ -323,6 +323,7 @@ class HostCommand(object):
         except exceptions.AnsibleContainerDockerConnectionRefused:
             logger.error('The connection to Docker was refused. Check your Docker environment configuration.',
                          exc_info=False)
+            sys.exit(1)
         except exceptions.AnsibleContainerDockerConnectionAborted as e:
             logger.error('The connection to Docker was aborted. Check your Docker environment configuration.\n'
                          'ErrorMessage: %s' % str(e),
