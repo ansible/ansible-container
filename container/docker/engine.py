@@ -87,7 +87,7 @@ PREBAKED_DISTROS = {
     'ubuntu:precise': ['ubuntu:12.04'],
     'ubuntu:trusty': ['ubuntu:14.04'],
     'ubuntu:xenial': ['ubuntu:16.04'],
-    'ubuntu:zesty': ['ubuntu:17.04'],
+    # 'ubuntu:zesty': ['ubuntu:17.04'],
     'alpine:3.5': ['alpine:latest'],
     'alpine:3.4': []
 }
@@ -989,7 +989,7 @@ class Engine(BaseEngine, DockerSecretsMixin):
         tarball.add(os.path.join(req_yml_dir, 'conductor-requirements.yml'),
                     arcname='container-src/conductor-build/conductor-requirements.yml')
 
-    def _prepare_conductor_manifest(self, base_path, base_image, temp_dir, tarball):
+    def _prepare_conductor_manifest(self, base_path, base_image, temp_dir, tarball, conductor_provider="ansible"):
         source_dir = os.path.normpath(base_path)
 
         for filename in ['ansible.cfg', 'ansible-requirements.txt',
@@ -1013,7 +1013,7 @@ class Engine(BaseEngine, DockerSecretsMixin):
                 container.__version__
             )
             if not self.get_image_id_by_tag(conductor_base):
-                conductor_base = 'ansible/%s' % conductor_base
+                conductor_base = '%s/%s' % (conductor_provider, conductor_base)
         else:
             conductor_base = 'container-conductor-%s:%s' % (
                 base_image.replace(':', '-'),
@@ -1042,7 +1042,7 @@ class Engine(BaseEngine, DockerSecretsMixin):
 
     @log_runs
     @host_only
-    def build_conductor_image(self, base_path, base_image, prebaking=False, cache=True, environment=None):
+    def build_conductor_image(self, base_path, base_image, prebaking=False, cache=True, environment=None, conductor_provider="ansible"):
         if environment is None:
             environment = []
         with utils.make_temp_dir() as temp_dir:
@@ -1098,11 +1098,6 @@ class Engine(BaseEngine, DockerSecretsMixin):
             tarball.add(os.path.join(temp_dir, 'Dockerfile'),
                         arcname='Dockerfile')
 
-            #for context_file in ['builder.sh', 'ansible-container-inventory.py',
-            #                     'ansible.cfg', 'wait_on_host.py', 'ac_galaxy.py']:
-            #    tarball.add(os.path.join(TEMPLATES_PATH, context_file),
-            #                arcname=context_file)
-
             if prebaking:
                 self.client.images.pull(*base_image.split(':', 1))
                 self._prepare_prebake_manifest(base_path, base_image, temp_dir,
@@ -1111,7 +1106,7 @@ class Engine(BaseEngine, DockerSecretsMixin):
                                                      container.__version__)
             else:
                 self._prepare_conductor_manifest(base_path, base_image, temp_dir,
-                                                 tarball)
+                                                 tarball, conductor_provider)
                 tag = self.image_name_for_service('conductor')
             logger.debug('Context manifest:')
             for tarinfo_obj in tarball.getmembers():

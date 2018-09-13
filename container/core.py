@@ -127,7 +127,7 @@ def hostcmd_init(base_path, project=None, force=False, config_file=None, **kwarg
         logger.info('Ansible Container initialized.')
 
 @host_only
-def hostcmd_prebake(distros, debug=False, cache=True, ignore_errors=False):
+def hostcmd_prebake(distros, debug=False, cache=True, ignore_errors=False, conductor_provider='ansible'):
     logger.info('Prebaking distros...', distros=distros, cache=cache)
     engine_obj = load_engine(['BUILD_CONDUCTOR'], 'docker', os.getcwd(), {}, debug=debug)
     from .docker.engine import PREBAKED_DISTROS
@@ -137,7 +137,9 @@ def hostcmd_prebake(distros, debug=False, cache=True, ignore_errors=False):
             engine_obj.build_conductor_image(os.getcwd(),
                                              distro,
                                              prebaking=True,
-                                             cache=cache)
+                                             cache=cache,
+                                             conductor_provider=conductor_provider
+                                             )
         except Exception as e:
             logger.exception('Failure building prebaked image for %s', distro)
             if ignore_errors:
@@ -176,12 +178,13 @@ def hostcmd_build(base_path, project_name, engine_name, vars_files=None, config_
                 env_vars = environment
         if kwargs.get('with_variables'):
             env_vars += kwargs['with_variables']
-
+        config_conductor_provider = config.get('settings', {}).get('conductor_provider', "ansible")
         engine_obj.build_conductor_image(
             base_path,
             config.conductor_base,
             cache=conductor_cache,
-            environment=env_vars
+            environment=env_vars,
+            conductor_provider=config_conductor_provider
         )
     else:
         logger.warning(u'%s does not support building the Conductor image.',
@@ -555,9 +558,11 @@ def set_path_ownership(path, uid, gid):
     os.chown(path, uid, gid)
     for root, dirs, files in os.walk(path):
         for d in dirs:
-            os.chown(os.path.join(root, d), uid, gid)
+            if not(os.path.islink(os.path.join(root, d))):
+                os.chown(os.path.join(root, d), uid, gid)
         for f in files:
-            os.chown(os.path.join(root, f), uid, gid)
+            if not(os.path.islink(os.path.join(root, f))):
+                os.chown(os.path.join(root, f), uid, gid)
 
 
 @conductor_only
