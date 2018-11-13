@@ -874,15 +874,16 @@ class Engine(BaseEngine, DockerSecretsMixin):
             for image in self.client.images.list(name=image_name):
                 logger.debug('Found image for service', tags=image.tags, id=image.short_id)
                 for tag in image.tags:
-                    logger.debug('Adding task to destroy image', tag=tag)
-                    playbook[len(playbook) - 1][u'tasks'].append({
-                        u'docker_image': {
-                            u'name': tag,
-                            u'state': u'absent',
-                            u'force': u'yes'
-                        },
-                        u'tags': u'destroy'
-                    })
+                    if tag.startswith(self.project_name):
+                        logger.debug('Adding task to destroy image', tag=tag)
+                        playbook[len(playbook) - 1][u'tasks'].append({
+                            u'docker_image': {
+                                u'name': tag,
+                                u'state': u'absent',
+                                u'force': u'yes'
+                            },
+                            u'tags': u'destroy'
+                        })
 
         if self.secrets and self.CAP_SIM_SECRETS:
             playbook.append(self.generate_remove_volume_play())
