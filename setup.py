@@ -55,7 +55,8 @@ class PrebakeConductors(distutils.cmd.Command):
         ('debug', None, 'Enable debug output'),
         ('no-cache', None, 'Cache me offline, how bout dat?'),
         ('ignore-errors', None, 'Ignore build failures and continue building other distros'),
-        ('distros=', None, 'Only pre-bake certain supported distros. Comma-separated.')
+        ('distros=', None, 'Only pre-bake certain supported distros. Comma-separated.'),
+        ('conductor-provider=', None, 'Possibility to specify custom provider, default ansible')
     ]
 
     def initialize_options(self):
@@ -64,6 +65,7 @@ class PrebakeConductors(distutils.cmd.Command):
         self.debug = False
         self.ignore_errors = False
         self.distros = ''
+        self.conductor_provider = 'ansible'
 
     def finalize_options(self):
         self.distros = self.distros.strip().split(',') if self.distros else []
@@ -78,7 +80,7 @@ class PrebakeConductors(distutils.cmd.Command):
             LOGGING['loggers']['container']['level'] = 'DEBUG'
         config.dictConfig(LOGGING)
         core.hostcmd_prebake(self.distros, debug=self.debug, cache=self.cache,
-                             ignore_errors=self.ignore_errors)
+                             ignore_errors=self.ignore_errors, conductor_provider=self.conductor_provider)
 
 if container.ENV == 'host':
     install_reqs = parse_requirements('requirements.txt', session=False)
