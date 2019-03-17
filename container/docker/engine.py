@@ -80,7 +80,7 @@ PREBAKED_DISTROS = {
     'fedora:27': ['fedora:latest'],
     'fedora:26': [],
     'fedora:25': [],
-    'amazonlinux:2': ['amazonlinux:2'],
+    #'amazonlinux:2': ['amazonlinux:2'],
     'debian:jessie': ['debian:8', 'debian:latest', 'debian:jessie-slim'],
     'debian:stretch': ['debian:9', 'debian:stretch-slim'],
     'debian:wheezy': ['debian:7', 'debian:wheezy-slim'],
@@ -692,7 +692,7 @@ class Engine(BaseEngine, DockerSecretsMixin):
         logger.debug("Exported service container as tarball", container=image_name)
 
         out = self.client.api.import_image_from_data(
-            raw_image.read(),
+            raw_image,
             repository=image_name,
             tag=image_version
         )
