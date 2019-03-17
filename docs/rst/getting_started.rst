@@ -403,8 +403,8 @@ output like this:
     Conductor terminated. Cleaning up.      command_rc=0 conductor_id=54f566e42f800de2c00842fbac32e25c13d863a86b351f38c695aba27ed0604c save_container=False
 
 Looking through it, we can see the steps it took: building the Conductor, the
-build cache looking at known fingerprints, the Ansible playbook executing, the
-and container image layer being committed. If you run ``docker images`` you can
+build cache looking at known fingerprints, the Ansible playbook executing, and
+the container image layer being committed. If you run ``docker images`` you can
 see that you've got new images for your project's Conductor and the service it
 built. Ansible Container will use the build timestamp for the version label.
 
