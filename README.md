@@ -1,5 +1,18 @@
-[![Build Status](https://travis-ci.com/ansible/ansible-container.svg?branch=develop)](https://travis-ci.com/ansible/ansible-container)
-[![Code Coverage](https://codecov.io/gh/ansible/ansible-container/coverage.svg)](https://codecov.io/gh/ansible/ansible-container)
+# Deprecated
+
+The ansible-container project is now officially deprecated. We will no longer be maintaining this repo or accepting any issues or pull requests.
+
+The ansible-container project did two things, broadly speaking: it built containers, and it deployed containers to Kubernetes. Now there are new successor projects that perform these tasks.
+
+For people who have been using ansible-container to build containers, we recommend using the ansible-bender project: https://github.com/ansible-community/ansible-bender
+
+For people who have been using ansible-container to deploy containers to Kubernetes, we recommend using Ansible Operators:
+
+https://learn.openshift.com/ansibleop/ansible-operator-overview/
+
+Thanks to all those who have used and contributed to ansible-container.
+
+# Original README below
 
 # Ansible Container
 
